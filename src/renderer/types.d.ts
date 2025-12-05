@@ -1,7 +1,7 @@
-import { RendererApi } from '../shared/types';
+import { RendererApi, LegacyRendererApi } from '../shared/types';
 
 declare global {
   interface Window {
-    api: RendererApi;
+    api: RendererApi & LegacyRendererApi; // Support both during transition
   }
 }

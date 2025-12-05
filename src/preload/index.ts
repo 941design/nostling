@@ -1,7 +1,8 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { AppConfig, AppStatus, RendererApi, UpdateState } from '../shared/types';
 
-const api: RendererApi = {
+// LEGACY: Flat API structure (will migrate to nested in GAP-007)
+const legacyApi = {
   async getStatus() {
     return ipcRenderer.invoke('status:get') as Promise<AppStatus>;
   },
@@ -23,6 +24,39 @@ const api: RendererApi = {
   },
 };
 
-contextBridge.exposeInMainWorld('api', api);
+// NEW: Nested API structure (GAP-007) - will be implemented
+const api: RendererApi = {
+  updates: {
+    async checkNow() {
+      return ipcRenderer.invoke('updates:check');
+    },
+    async downloadUpdate() {
+      return ipcRenderer.invoke('updates:download');
+    },
+    async restartToUpdate() {
+      return ipcRenderer.invoke('updates:restart');
+    },
+    onUpdateState(callback: (state: UpdateState) => void) {
+      ipcRenderer.on('update-state', (_event, state: UpdateState) => callback(state));
+      return () => ipcRenderer.removeAllListeners('update-state');
+    },
+  },
+  config: {
+    async get() {
+      return ipcRenderer.invoke('config:get') as Promise<AppConfig>;
+    },
+    async set(config: Partial<AppConfig>) {
+      return ipcRenderer.invoke('config:set', config) as Promise<AppConfig>;
+    },
+  },
+  system: {
+    async getStatus() {
+      return ipcRenderer.invoke('system:get-status') as Promise<AppStatus>;
+    },
+  },
+};
+
+// Expose both APIs during transition
+contextBridge.exposeInMainWorld('api', { ...legacyApi, ...api });
 
 export type {};

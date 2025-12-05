@@ -17,30 +17,41 @@
     "build:renderer": "vite build --config vite.renderer.config.ts",
     "build": "npm run clean && npm run build:main && npm run build:preload && npm run build:renderer",
     "lint": "tsc --noEmit",
+    "test": "jest",
+    "test:watch": "jest --watch",
     "package": "npm run build && electron-builder",
     "postinstall": "electron-builder install-app-deps",
     "sign:manifest": "ts-node scripts/generate-manifest.ts"
   },
   "dependencies": {
+    "@types/semver": "^7.7.1",
     "electron-log": "^5.1.4",
     "electron-updater": "^6.3.9",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "semver": "^7.7.3",
     "tweetnacl": "^1.0.3"
   },
   "devDependencies": {
-    "@types/node": "^22.5.3",
+    "@jest/globals": "^30.2.0",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^22.19.1",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "@vitest/ui": "^4.0.15",
     "concurrently": "^8.2.2",
     "electron": "^30.0.8",
     "electron-builder": "^24.13.3",
+    "fast-check": "^4.3.0",
+    "jest": "^30.2.0",
     "rimraf": "^6.0.1",
+    "ts-jest": "^29.4.6",
     "ts-node": "^10.9.2",
     "tsup": "^8.1.0",
     "typescript": "^5.5.4",
     "vite": "^5.4.5",
-    "@vitejs/plugin-react": "^4.3.1",
+    "vitest": "^4.0.15",
     "wait-on": "^7.2.0"
   },
   "build": {
@@ -57,12 +68,17 @@
       "buildResources": "build"
     },
     "mac": {
-      "target": ["dmg", "zip"],
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "category": "public.app-category.developer-tools",
       "minimumSystemVersion": "12.0.0"
     },
     "linux": {
-      "target": ["AppImage"],
+      "target": [
+        "AppImage"
+      ],
       "category": "Utility",
       "artifactName": "${productName}-${version}-${arch}.${ext}"
     },

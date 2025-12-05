@@ -1,12 +1,12 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow } from 'electron';
 import path from 'path';
-import { autoUpdater, UpdateDownloadedEvent } from 'electron-updater';
-import crypto from 'crypto';
-import fs from 'fs';
-import nacl from 'tweetnacl';
-import { AppConfig, AppStatus, SignedManifest, UpdateState } from '../shared/types';
+import { autoUpdater } from 'electron-updater';
+import { AppConfig, AppStatus, UpdateState } from '../shared/types';
 import { getRecentLogs, log, setLogLevel } from './logging';
 import { loadConfig, saveConfig } from './config';
+import { verifyDownloadedUpdate } from './integration';
+import { registerHandlers, broadcastUpdateState } from './ipc/handlers';
+import { downloadUpdate, setupUpdater } from './update/controller';
 
 let mainWindow: BrowserWindow | null = null;
 let config: AppConfig = loadConfig();
@@ -38,146 +38,124 @@ function createWindow() {
   }
 }
 
-function broadcastUpdateState() {
+function broadcastUpdateStateToMain() {
   if (mainWindow) {
-    mainWindow.webContents.send('update-state', updateState);
+    broadcastUpdateState(updateState, [mainWindow]);
   }
-}
-
-async function verifyManifest(downloadEvent: UpdateDownloadedEvent) {
-  const manifestUrl = process.env.MANIFEST_URL || config.manifestUrl;
-  if (!manifestUrl) {
-    throw new Error('No manifest URL configured');
-  }
-  log('info', `Fetching manifest from ${manifestUrl}`);
-  const response = await fetch(manifestUrl);
-  if (!response.ok) {
-    throw new Error(`Manifest request failed: ${response.status}`);
-  }
-  const manifest = (await response.json()) as SignedManifest;
-  const manifestBytes = Buffer.from(
-    JSON.stringify({
-      version: manifest.version,
-      files: manifest.files,
-    })
-  );
-  const signature = Buffer.from(manifest.signature, 'base64');
-  const publicKey = Buffer.from(PUBLIC_KEY, 'base64');
-  const verified = nacl.sign.detached.verify(manifestBytes, signature, publicKey);
-  if (!verified) {
-    throw new Error('Manifest signature verification failed');
-  }
-  const filePath = (downloadEvent as any).downloadedFile || downloadEvent.downloadedFile;
-  if (!filePath) {
-    throw new Error('Downloaded file path missing');
-  }
-  const hash = await sha512File(filePath);
-  const fileEntry = manifest.files.find((file) => hashMatches(file, hash));
-  if (!fileEntry) {
-    throw new Error('Downloaded file hash not present in manifest');
-  }
-  log('info', `Manifest verified for ${fileEntry.url}`);
-}
-
-function hashMatches(entry: { sha512: string }, hash: string) {
-  return entry.sha512.toLowerCase() === hash.toLowerCase();
-}
-
-function sha512File(filePath: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const hash = crypto.createHash('sha512');
-    const stream = fs.createReadStream(filePath);
-    stream.on('data', (data) => hash.update(data));
-    stream.on('end', () => resolve(hash.digest('hex')));
-    stream.on('error', (err) => reject(err));
-  });
 }
 
 function setupAutoUpdater() {
-  autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = false;
+  // Configure autoUpdater based on user preference (GAP-005)
+  // Default to 'manual' for safe, privacy-respecting behavior
+  const autoDownloadEnabled = config.autoUpdateBehavior === 'auto-download';
+  setupUpdater(autoDownloadEnabled);
 
   autoUpdater.on('checking-for-update', () => {
     updateState = { phase: 'checking' };
-    broadcastUpdateState();
+    broadcastUpdateStateToMain();
     lastUpdateCheck = new Date().toISOString();
   });
 
   autoUpdater.on('update-available', (info) => {
     updateState = { phase: 'available', version: info.version };
     log('info', `Update available: ${info.version}`);
-    broadcastUpdateState();
+    broadcastUpdateStateToMain();
   });
 
   autoUpdater.on('download-progress', () => {
     updateState = { phase: 'downloading', version: updateState.version };
-    broadcastUpdateState();
+    broadcastUpdateStateToMain();
   });
 
   autoUpdater.on('update-not-available', () => {
     updateState = { phase: 'idle' };
-    broadcastUpdateState();
+    broadcastUpdateStateToMain();
   });
 
   autoUpdater.on('error', (error) => {
     updateState = { phase: 'failed', detail: String(error) };
     log('error', `Updater error: ${String(error)}`);
-    broadcastUpdateState();
+    broadcastUpdateStateToMain();
   });
 
   autoUpdater.on('update-downloaded', async (info) => {
     updateState = { phase: 'downloaded', version: info.version };
-    broadcastUpdateState();
+    broadcastUpdateStateToMain();
     try {
       updateState = { phase: 'verifying', version: info.version };
-      broadcastUpdateState();
-      await verifyManifest(info);
+      broadcastUpdateStateToMain();
+
+      const manifestUrl = process.env.MANIFEST_URL || config.manifestUrl;
+      if (!manifestUrl) {
+        throw new Error('No manifest URL configured');
+      }
+
+      await verifyDownloadedUpdate(
+        info,
+        app.getVersion(),
+        process.platform as 'darwin' | 'linux' | 'win32',
+        PUBLIC_KEY,
+        manifestUrl
+      );
+
       updateState = { phase: 'ready', version: info.version };
-      broadcastUpdateState();
+      broadcastUpdateStateToMain();
     } catch (error) {
       log('error', `Manifest verification failed: ${String(error)}`);
       updateState = { phase: 'failed', detail: String(error) };
-      broadcastUpdateState();
+      broadcastUpdateStateToMain();
     }
   });
 }
 
-ipcMain.handle('status:get', async (): Promise<AppStatus> => ({
-  version: app.getVersion(),
-  platform: process.platform,
-  lastUpdateCheck,
-  updateState,
-  logs: getRecentLogs(),
-}));
+// Helper functions for IPC handlers
+async function getStatus(): Promise<AppStatus> {
+  return {
+    version: app.getVersion(),
+    platform: process.platform,
+    lastUpdateCheck,
+    updateState,
+    logs: getRecentLogs(),
+  };
+}
 
-ipcMain.handle('update:check', async () => {
+async function checkForUpdates(): Promise<void> {
   if (!config.autoUpdate) {
     log('warn', 'Auto-update disabled in config');
     return;
   }
   updateState = { phase: 'checking' };
-  broadcastUpdateState();
+  broadcastUpdateStateToMain();
   lastUpdateCheck = new Date().toISOString();
   await autoUpdater.checkForUpdates();
-});
+}
 
-ipcMain.handle('update:restart', async () => {
+async function restartToUpdate(): Promise<void> {
   if (updateState.phase === 'ready') {
     autoUpdater.quitAndInstall();
   }
-});
+}
 
-ipcMain.handle('config:get', async () => {
+async function getConfig(): Promise<AppConfig> {
   return config;
-});
+}
 
-ipcMain.handle('config:set', async (_event, partial: Partial<AppConfig>) => {
+async function setConfig(partial: Partial<AppConfig>): Promise<AppConfig> {
   config = saveConfig({ ...config, ...partial });
   setLogLevel(config.logLevel);
   return config;
-});
+}
 
 app.on('ready', () => {
+  // Register IPC handlers with domain-based organization
+  registerHandlers({
+    getStatus,
+    checkForUpdates,
+    downloadUpdate,
+    restartToUpdate,
+    getConfig,
+    setConfig,
+  });
   log('info', `Starting SlimChat ${app.getVersion()}`);
   config = loadConfig();
   setLogLevel(config.logLevel);
