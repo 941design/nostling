@@ -61,6 +61,9 @@
     "vitest": "^4.0.15",
     "wait-on": "^7.2.0"
   },
+  "engines": {
+    "node": "20.x"
+  },
   "build": {
     "appId": "com.example.slimchat",
     "productName": "SlimChat",
