@@ -1,9 +1,13 @@
 {
   "name": "slim-chat",
-  "version": "0.1.0",
+  "version": "0.0.0",
   "description": "Desktop app bootstrap with secure auto-updates",
   "main": "dist/main/index.js",
-  "author": "",
+  "author": "markus.rother@mustwork.de",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/941design/slim-chat.git"
+  },    
   "license": "MIT",
   "scripts": {
     "clean": "rimraf dist out release",
@@ -97,8 +101,8 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "",
-        "repo": ""
+        "owner": "941design",
+        "repo": "slim-chat"
       }
     ]
   }
