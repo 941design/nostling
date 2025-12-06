@@ -7,14 +7,8 @@ Desktop app bootstrap with secure auto-updates built with Electron, React, and T
 - Secure auto-update system with cryptographic verification
 - Built with Electron 30
 - React 18 for the UI
-- TypeScript for type safety
 - Hot reload development environment
 - Comprehensive test coverage
-
-## Prerequisites
-
-- Node.js (version 18 or higher recommended)
-- npm (comes with Node.js)
 
 ## Installation
 
@@ -22,12 +16,6 @@ Install dependencies:
 
 ```bash
 npm install
-```
-
-Or using Make:
-
-```bash
-make install
 ```
 
 ## Development
@@ -40,12 +28,6 @@ Run all processes (main, preload, renderer) with hot reload:
 npm run dev
 ```
 
-Or using Make:
-
-```bash
-make dev
-```
-
 ### Individual Process Development
 
 Run specific processes independently:
@@ -53,18 +35,12 @@ Run specific processes independently:
 ```bash
 # Main process only
 npm run dev:main
-# or
-make dev-main
 
 # Preload script only
 npm run dev:preload
-# or
-make dev-preload
 
 # Renderer process only
 npm run dev:renderer
-# or
-make dev-renderer
 ```
 
 ## Building
@@ -75,12 +51,6 @@ Build the entire application:
 
 ```bash
 npm run build
-```
-
-Or using Make:
-
-```bash
-make build
 ```
 
 This will:
@@ -110,16 +80,12 @@ Run unit tests with Jest:
 
 ```bash
 npm test
-# or
-make test
 ```
 
 Run tests in watch mode:
 
 ```bash
 npm run test:watch
-# or
-make test-watch
 ```
 
 ### End-to-End Tests
@@ -128,43 +94,25 @@ Run E2E tests with Playwright in **headless mode** (default, no visible window):
 
 ```bash
 npm run test:e2e
-# or
-make test-e2e
 ```
 
 Run E2E tests in **UI mode** (interactive test runner):
 
 ```bash
 npm run test:e2e:ui
-# or
-make test-e2e-ui
 ```
 
 Run E2E tests in **headed mode** (see the Electron window):
 
 ```bash
 npm run test:e2e:headed
-# or
-make test-e2e-headed
 ```
 
 Debug E2E tests with **Playwright Inspector**:
 
 ```bash
 npm run test:e2e:debug
-# or
-make test-e2e-debug
 ```
-
-### Run All Tests
-
-Run both unit and E2E tests:
-
-```bash
-make test-all
-```
-
-The E2E tests automatically build the application before running, ensuring tests run against the latest code.
 
 ## Code Quality
 
@@ -174,24 +122,12 @@ Run type checking:
 npm run lint
 ```
 
-Or using Make:
-
-```bash
-make lint
-```
-
 ## Packaging
 
 Create distributable packages:
 
 ```bash
 npm run package
-```
-
-Or using Make:
-
-```bash
-make package
 ```
 
 This will create platform-specific distributables:
@@ -245,24 +181,7 @@ To create an automated release:
    - Generate and sign the update manifest
    - Create a GitHub release with all artifacts
 
-**Important**: Only tags matching the pattern `x.x.x` (e.g., `1.0.0`, `2.1.3`) will trigger a release. Tags with prefixes like `v1.0.0` will not trigger the workflow.
-
-## Project Structure
-
-```
-slim-chat/
-├── src/
-│   ├── main/          # Main Electron process
-│   │   ├── security/  # Cryptographic verification
-│   │   ├── update/    # Auto-update controller
-│   │   └── ipc/       # IPC handlers
-│   ├── preload/       # Preload script (context bridge)
-│   ├── renderer/      # React UI
-│   └── shared/        # Shared types and utilities
-├── scripts/           # Build and utility scripts
-├── dist/              # Compiled output
-└── release/           # Packaged distributables
-```
+**Important**: Only tags matching the pattern `x.x.x` (e.g., `1.0.0`, `2.1.3`) will trigger a release.
 
 ## Available Make Commands
 
