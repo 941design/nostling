@@ -27,7 +27,13 @@ jobs:
         run: npm ci
 
       - name: Run E2E tests
-        run: npm run test:e2e
+        run: |
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" npm run test:e2e
+          else
+            npm run test:e2e
+          fi
+        shell: bash
 
       - name: Upload test results
         if: failure()

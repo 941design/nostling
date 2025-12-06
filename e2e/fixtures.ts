@@ -10,9 +10,13 @@ export const test = base.extend<ElectronFixtures>({
   electronApp: async ({}, use) => {
     const launchArgs = [path.join(__dirname, '../dist/main/index.js')];
 
-    // Add --no-sandbox flag for Linux CI to avoid chrome-sandbox permission issues
+    // Add flags for Linux CI to handle headless environment
     if (process.env.CI && process.platform === 'linux') {
-      launchArgs.push('--no-sandbox');
+      launchArgs.push(
+        '--no-sandbox',              // Avoid chrome-sandbox permission issues
+        '--disable-gpu',             // Disable GPU hardware acceleration in headless mode
+        '--disable-dev-shm-usage'    // Use /tmp instead of /dev/shm in containerized environments
+      );
     }
 
     const electronApp = await electron.launch({
