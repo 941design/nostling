@@ -98,12 +98,6 @@
       "category": "Utility",
       "artifactName": "${productName}-${version}-${arch}.${ext}"
     },
-    "publish": [
-      {
-        "provider": "github",
-        "owner": "941design",
-        "repo": "slim-chat"
-      }
-    ]
+    "publish": "never"
   }
 }
