@@ -224,7 +224,7 @@ The project uses GitHub Actions for continuous integration and automated release
 #### Continuous Integration
 
 Every push to any branch triggers the test workflow, which:
-- Runs on Ubuntu, macOS, and Windows
+- Runs on Ubuntu and macOS
 - Tests against Node.js 18.x and 20.x
 - Executes linting, tests, and builds to ensure code quality
 
