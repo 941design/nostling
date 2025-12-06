@@ -16,7 +16,7 @@ jobs:
         os: [ubuntu-latest, macos-13]
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      ED25519_PRIVATE_KEY: ${{ secrets.ED25519_PRIVATE_KEY }}
+      SLIM_CHAT_ED25519_PRIVATE_KEY: ${{ secrets.SLIM_CHAT_ED25519_PRIVATE_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4

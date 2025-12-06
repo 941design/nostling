@@ -6,10 +6,10 @@ import nacl from 'tweetnacl';
 const packageJson = JSON.parse(fs.readFileSync(path.resolve('package.json'), 'utf8'));
 const distDir = path.resolve('dist');
 const manifestPath = path.join(distDir, 'manifest.json');
-const privateKey = process.env.ED25519_PRIVATE_KEY;
+const privateKey = process.env.SLIM_CHAT_ED25519_PRIVATE_KEY;
 
 if (!privateKey) {
-  throw new Error('ED25519_PRIVATE_KEY environment variable is required to sign manifest');
+  throw new Error('SLIM_CHAT_ED25519_PRIVATE_KEY environment variable is required to sign manifest');
 }
 
 const ARTIFACT_EXTS = ['.AppImage', '.dmg', '.zip'];

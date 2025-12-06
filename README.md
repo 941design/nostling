@@ -271,12 +271,10 @@ gpg --export-secret-keys --armor "SlimChat Release" | gpg --list-packets --verbo
 
 # Extract and encode keys for the application
 # Use the following helper script:
-gpg --export-secret-keys "SlimChat Release" | \
-  tail -c 32 | base64
+gpg --export-secret-keys "SlimChat Release" | tail -c 32 | base64
 
 # Export public key
-gpg --export "SlimChat Release" | \
-  tail -c 32 | base64
+gpg --export "SlimChat Release" | tail -c 32 | base64
 ```
 
 #### Configuring Keys
