@@ -8,8 +8,15 @@ type ElectronFixtures = {
 
 export const test = base.extend<ElectronFixtures>({
   electronApp: async ({}, use) => {
+    const launchArgs = [path.join(__dirname, '../dist/main/index.js')];
+
+    // Add --no-sandbox flag for Linux CI to avoid chrome-sandbox permission issues
+    if (process.env.CI && process.platform === 'linux') {
+      launchArgs.push('--no-sandbox');
+    }
+
     const electronApp = await electron.launch({
-      args: [path.join(__dirname, '../dist/main/index.js')],
+      args: launchArgs,
       env: {
         ...process.env,
         NODE_ENV: 'test',
