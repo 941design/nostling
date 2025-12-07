@@ -4,10 +4,10 @@ import { autoUpdater } from 'electron-updater';
 import { AppConfig, AppStatus, UpdateState } from '../shared/types';
 import { getRecentLogs, log, setLogLevel } from './logging';
 import { loadConfig, saveConfig } from './config';
-import { verifyDownloadedUpdate, constructManifestUrl } from './integration';
+import { verifyDownloadedUpdate, constructManifestUrl, sanitizeError } from './integration';
 import { registerHandlers, broadcastUpdateState } from './ipc/handlers';
 import { downloadUpdate, setupUpdater } from './update/controller';
-import { getDevUpdateConfig } from './dev-env';
+import { getDevUpdateConfig, isDevMode } from './dev-env';
 
 let mainWindow: BrowserWindow | null = null;
 let config: AppConfig = loadConfig();
@@ -79,8 +79,9 @@ function setupAutoUpdater() {
   });
 
   autoUpdater.on('error', (error) => {
-    updateState = { phase: 'failed', detail: String(error) };
-    log('error', `Updater error: ${String(error)}`);
+    const sanitized = sanitizeError(error, isDevMode());
+    updateState = { phase: 'failed', detail: sanitized.message };
+    log('error', `Updater error: ${sanitized.message}`);
     broadcastUpdateStateToMain();
   });
 
@@ -94,7 +95,8 @@ function setupAutoUpdater() {
       // Construct manifest URL from publish config or dev mode override
       // SECURITY: Use getDevUpdateConfig() to enforce production safety (C1)
       // Direct env var reads bypass production mode checks - see constraint C1
-      const publishConfig = { owner: '941design', repo: 'slim-chat' };
+      const { GITHUB_OWNER, GITHUB_REPO } = await import('./update/controller');
+      const publishConfig = { owner: GITHUB_OWNER, repo: GITHUB_REPO };
       const devConfig = getDevUpdateConfig();
       const devUpdateSource = devConfig.devUpdateSource; // Only set in dev mode
       const manifestUrl = constructManifestUrl(publishConfig, devUpdateSource);
@@ -104,14 +106,16 @@ function setupAutoUpdater() {
         app.getVersion(),
         process.platform as 'darwin' | 'linux' | 'win32',
         PUBLIC_KEY,
-        manifestUrl
+        manifestUrl,
+        Boolean(devUpdateSource)
       );
 
       updateState = { phase: 'ready', version: info.version };
       broadcastUpdateStateToMain();
     } catch (error) {
-      log('error', `Manifest verification failed: ${String(error)}`);
-      updateState = { phase: 'failed', detail: String(error) };
+      const sanitized = sanitizeError(error, isDevMode());
+      log('error', `Manifest verification failed: ${sanitized.message}`);
+      updateState = { phase: 'failed', detail: sanitized.message };
       broadcastUpdateStateToMain();
     }
   });

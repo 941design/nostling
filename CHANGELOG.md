@@ -17,6 +17,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Concurrency protection: prevents race conditions from overlapping update checks
   - Comprehensive test coverage: 292 tests including property-based tests for state machine
   - Full diagnostic logging for update check process, version comparisons, and signature verification
+- **GitHub Provider Hardening**: Enhanced security and stability for the update system
+  - Download concurrency protection: prevents race conditions from simultaneous downloads
+  - File protocol support for dev mode testing with local file:// URLs
+  - URL validation at setup time with fail-fast error reporting
+  - Error message sanitization: prevents sensitive implementation details from leaking in logs
+  - GitHub constants extraction: single source of truth for owner/repo configuration
+  - Comprehensive integration tests for E2E version transitions and dev mode patterns
+  - 338 tests total with enhanced edge case coverage
 
 ### Changed
 - **BREAKING**: Migrated auto-update signature verification from Ed25519 to RSA-4096

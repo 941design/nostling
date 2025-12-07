@@ -6,7 +6,12 @@
 
 import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import fc from 'fast-check';
-import { constructManifestUrl, fetchManifest, verifyDownloadedUpdate } from './integration';
+
+jest.mock('./logging', () => ({
+  log: jest.fn(),
+}));
+
+import { constructManifestUrl, fetchManifest, verifyDownloadedUpdate, sanitizeError } from './integration';
 import { UpdateDownloadedEvent } from 'electron-updater';
 
 describe('constructManifestUrl', () => {
@@ -249,7 +254,7 @@ describe('fetchManifest', () => {
   });
 
   describe('Property-Based Tests: HTTP Status Codes', () => {
-    it('P003: Non-2xx status codes throw error with status code', async () => {
+    it('P003: Non-2xx status codes throw error (sanitized in production)', async () => {
       await fc.assert(
         fc.asyncProperty(
           fc.tuple(
@@ -259,8 +264,10 @@ describe('fetchManifest', () => {
           async ([url, status]) => {
             mockFetches.set(url, { status, body: null });
 
+            // In production mode (isDevMode() = false), errors are sanitized
+            // HTTP status errors become: "Failed to fetch manifest from server"
             await expect(fetchManifest(url)).rejects.toThrow(
-              new RegExp(`status ${status}`)
+              /Failed to fetch manifest from server/
             );
           }
         ),
@@ -268,7 +275,7 @@ describe('fetchManifest', () => {
       );
     });
 
-    it('P004: 404 error includes status code in message', async () => {
+    it('P004: 404 error sanitized in production mode', async () => {
       const url = 'https://example.com/manifest.json';
       mockFetches.set(url, { status: 404, body: null });
 
@@ -276,11 +283,12 @@ describe('fetchManifest', () => {
         await fetchManifest(url);
         throw new Error('Should have thrown');
       } catch (err) {
-        expect((err as Error).message).toContain('404');
+        // In production mode, status codes are sanitized
+        expect((err as Error).message).toBe('Failed to fetch manifest from server');
       }
     });
 
-    it('P005: 500 server error includes status code', async () => {
+    it('P005: 500 server error sanitized in production mode', async () => {
       const url = 'https://example.com/manifest.json';
       mockFetches.set(url, { status: 500, body: null });
 
@@ -288,7 +296,8 @@ describe('fetchManifest', () => {
         await fetchManifest(url);
         throw new Error('Should have thrown');
       } catch (err) {
-        expect((err as Error).message).toContain('500');
+        // In production mode, status codes are sanitized
+        expect((err as Error).message).toBe('Failed to fetch manifest from server');
       }
     });
   });
@@ -419,19 +428,19 @@ describe('fetchManifest', () => {
       await expect(fetchManifest(url)).resolves.toBeDefined();
     });
 
-    it('P015: HTTP URLs are rejected with HTTPS requirement error', async () => {
-      await expect(fetchManifest('http://example.com/manifest.json')).rejects.toThrow('HTTPS protocol');
+    it('P015: HTTP URLs are rejected (sanitized in production)', async () => {
+      await expect(fetchManifest('http://example.com/manifest.json')).rejects.toThrow('Invalid update source configuration');
     });
 
-    it('P016: Other protocols (ftp, file, etc.) are rejected', async () => {
-      await expect(fetchManifest('ftp://example.com/manifest.json')).rejects.toThrow('HTTPS');
-      await expect(fetchManifest('file:///tmp/manifest.json')).rejects.toThrow('HTTPS');
+    it('P016: Other protocols (ftp, file, etc.) are rejected (sanitized)', async () => {
+      await expect(fetchManifest('ftp://example.com/manifest.json')).rejects.toThrow('Invalid update source configuration');
+      await expect(fetchManifest('file:///tmp/manifest.json')).rejects.toThrow('Invalid update source configuration');
     });
 
-    it('P017: Malformed URLs throw validation error', async () => {
-      await expect(fetchManifest('not-a-url')).rejects.toThrow('Invalid manifest URL');
-      await expect(fetchManifest('://missing-protocol')).rejects.toThrow('Invalid manifest URL');
-      await expect(fetchManifest('')).rejects.toThrow('Invalid manifest URL');
+    it('P017: Malformed URLs throw validation error (sanitized)', async () => {
+      await expect(fetchManifest('not-a-url')).rejects.toThrow('Invalid update source configuration');
+      await expect(fetchManifest('://missing-protocol')).rejects.toThrow('Invalid update source configuration');
+      await expect(fetchManifest('')).rejects.toThrow('Invalid update source configuration');
     });
   });
 
@@ -454,11 +463,11 @@ describe('fetchManifest', () => {
   });
 
   describe('Property-Based Tests: JSON Parsing', () => {
-    it('P020: Invalid JSON throws parse error with message', async () => {
+    it('P020: Invalid JSON throws parse error (sanitized in production)', async () => {
       const url = 'https://example.com/manifest.json';
       mockFetches.set(url, { status: 200, body: null });
 
-      await expect(fetchManifest(url)).rejects.toThrow('Failed to parse manifest JSON');
+      await expect(fetchManifest(url)).rejects.toThrow('Manifest format is invalid');
     });
   });
 
@@ -490,12 +499,12 @@ describe('fetchManifest', () => {
       expect(result.createdAt).toBe('2024-01-01T00:00:00Z');
     });
 
-    it('E002: HTTP URL rejected immediately without network call', async () => {
+    it('E002: HTTP URL rejected immediately (sanitized in production)', async () => {
       try {
         await fetchManifest('http://example.com/manifest.json');
         throw new Error('Should have thrown');
       } catch (err) {
-        expect((err as Error).message).toContain('HTTPS');
+        expect((err as Error).message).toBe('Invalid update source configuration');
       }
     });
 
@@ -541,12 +550,13 @@ describe('fetchManifest', () => {
 
 describe('verifyDownloadedUpdate', () => {
   let mockFetches: Map<string, { status: number; body: any }> = new Map();
-  let consoleLogSpy: any;
+  let logSpy: any;
   const originalFetch = global.fetch;
 
   beforeEach(() => {
     mockFetches.clear();
-    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const { log } = require('./logging');
+    logSpy = log;
 
     global.fetch = (async (url: string, options?: RequestInit) => {
       const mockEntry = mockFetches.get(url as string);
@@ -571,7 +581,6 @@ describe('verifyDownloadedUpdate', () => {
 
   afterEach(() => {
     global.fetch = originalFetch;
-    consoleLogSpy.mockRestore();
     jest.restoreAllMocks();
   });
 
@@ -604,7 +613,7 @@ describe('verifyDownloadedUpdate', () => {
         manifestUrl
       );
 
-      expect(consoleLogSpy).toHaveBeenCalledWith(`Fetching manifest from ${manifestUrl}`);
+      expect(logSpy).toHaveBeenCalledWith('info', `Fetching manifest from ${manifestUrl}`);
       expect(result).toEqual({ verified: true });
     });
 
@@ -634,7 +643,7 @@ describe('verifyDownloadedUpdate', () => {
         manifestUrl
       );
 
-      expect(consoleLogSpy).toHaveBeenCalledWith('Manifest verified for version 3.5.1');
+      expect(logSpy).toHaveBeenCalledWith('info', 'Manifest verified for version 3.5.1');
     });
 
     it('should return exactly { verified: true } on success', async () => {
@@ -669,7 +678,7 @@ describe('verifyDownloadedUpdate', () => {
   });
 
   describe('Property: Manifest fetch failure propagates', () => {
-    it('should propagate fetch error when manifest request fails', async () => {
+    it('should propagate fetch error when manifest request fails (sanitized)', async () => {
       const manifestUrl = 'https://example.com/manifest.json';
       mockFetches.set(manifestUrl, { status: 404, body: null });
 
@@ -685,7 +694,7 @@ describe('verifyDownloadedUpdate', () => {
           'dGVzdC1wdWJsaWMta2V5LWJhc2U2NC1lbmNvZGVkLXN0cmluZ2Zyb21lZDMyYnl0ZXM=',
           manifestUrl
         )
-      ).rejects.toThrow(/status 404/);
+      ).rejects.toThrow(/Failed to fetch manifest from server/);
     });
 
     it('should propagate network error when fetch fails', async () => {
@@ -709,7 +718,7 @@ describe('verifyDownloadedUpdate', () => {
       ).rejects.toThrow('Network timeout');
     });
 
-    it('should propagate JSON parse error', async () => {
+    it('should propagate JSON parse error (sanitized)', async () => {
       const manifestUrl = 'https://example.com/manifest.json';
       mockFetches.set(manifestUrl, { status: 200, body: null });
 
@@ -725,7 +734,7 @@ describe('verifyDownloadedUpdate', () => {
           'dGVzdC1wdWJsaWMta2V5LWJhc2U2NC1lbmNvZGVkLXN0cmluZ2Zyb21lZDMyYnl0ZXM=',
           manifestUrl
         )
-      ).rejects.toThrow(/Failed to parse manifest JSON/);
+      ).rejects.toThrow(/Manifest format is invalid/);
     });
   });
 
@@ -824,7 +833,7 @@ describe('verifyDownloadedUpdate', () => {
       };
 
       const callOrder: string[] = [];
-      consoleLogSpy.mockImplementation((msg: string) => {
+      logSpy.mockImplementation((level: string, msg: string) => {
         if (msg.includes('Fetching manifest')) {
           callOrder.push('log-fetch');
         } else if (msg.includes('Manifest verified')) {
@@ -1048,6 +1057,496 @@ describe('verifyDownloadedUpdate', () => {
         'darwin',
         'dGVzdC1wdWJsaWMta2V5LWJhc2U2NC1lbmNvZGVkLXN0cmluZ2Zyb21lZDMyYnl0ZXM='
       );
+    });
+  });
+});
+
+describe('TR5: File Protocol Dev Mode Test (FR2)', () => {
+  let mockFetches: Map<string, { status: number; body: any }> = new Map();
+  const originalFetch = global.fetch;
+
+  beforeEach(() => {
+    mockFetches.clear();
+    global.fetch = (async (url: string, options?: RequestInit) => {
+      const mockEntry = mockFetches.get(url as string);
+
+      if (!mockEntry) {
+        throw new Error(`No mock configured for URL: ${url}`);
+      }
+
+      return {
+        ok: mockEntry.status >= 200 && mockEntry.status < 300,
+        status: mockEntry.status,
+        headers: {},
+        json: async () => {
+          if (mockEntry.body === null) {
+            throw new SyntaxError('Unexpected end of JSON input');
+          }
+          return mockEntry.body;
+        },
+      } as unknown as Response;
+    }) as unknown as typeof fetch;
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  describe('Property-Based Tests: File Protocol Support (FR2)', () => {
+    it('P001: HTTPS URLs always accepted regardless of allowFileProtocol flag', async () => {
+      const url = 'https://example.com/manifest.json';
+      const manifest = {
+        version: '1.0.0',
+        artifacts: [],
+        signature: 'sig',
+        createdAt: '2024-01-01T00:00:00Z',
+      };
+      mockFetches.set(url, { status: 200, body: manifest });
+
+      // Should work with both true and false
+      const result1 = await fetchManifest(url, 30000, true);
+      expect(result1).toEqual(manifest);
+
+      mockFetches.set(url, { status: 200, body: manifest });
+      const result2 = await fetchManifest(url, 30000, false);
+      expect(result2).toEqual(manifest);
+    });
+
+    it('P002: File protocol URLs accepted when allowFileProtocol=true', async () => {
+      const fileUrl = 'file:///tmp/manifest.json';
+      const manifest = {
+        version: '1.0.0',
+        artifacts: [],
+        signature: 'sig',
+        createdAt: '2024-01-01T00:00:00Z',
+      };
+      mockFetches.set(fileUrl, { status: 200, body: manifest });
+
+      const result = await fetchManifest(fileUrl, 30000, true);
+      expect(result).toEqual(manifest);
+    });
+
+    it('P003: File protocol URLs rejected when allowFileProtocol=false (default)', async () => {
+      const fileUrl = 'file:///tmp/manifest.json';
+
+      await expect(fetchManifest(fileUrl, 30000, false)).rejects.toThrow(
+        'Invalid update source configuration'
+      );
+    });
+
+    it('P004: File protocol URLs rejected when allowFileProtocol not provided (defaults to false)', async () => {
+      const fileUrl = 'file:///tmp/manifest.json';
+
+      await expect(fetchManifest(fileUrl)).rejects.toThrow(
+        'Invalid update source configuration'
+      );
+    });
+
+    it('P005: HTTP URLs always rejected regardless of allowFileProtocol flag', async () => {
+      const httpUrl = 'http://example.com/manifest.json';
+
+      await expect(fetchManifest(httpUrl, 30000, true)).rejects.toThrow(
+        'Invalid update source configuration'
+      );
+      await expect(fetchManifest(httpUrl, 30000, false)).rejects.toThrow(
+        'Invalid update source configuration'
+      );
+    });
+
+    it('P006: Other protocols (ftp, gopher, etc.) always rejected', async () => {
+      await expect(fetchManifest('ftp://example.com/manifest.json', 30000, true)).rejects.toThrow(
+        'Invalid update source configuration'
+      );
+      await expect(fetchManifest('gopher://example.com/manifest.json', 30000, true)).rejects.toThrow(
+        'Invalid update source configuration'
+      );
+    });
+  });
+
+  describe('Example-Based Tests: Dev Mode File Protocol Scenarios', () => {
+    it('E001: Dev mode with file:// URL loads manifest successfully', async () => {
+      const fileUrl = 'file:///tmp/test-manifests/v1.0.0/manifest.json';
+      const manifest = {
+        version: '1.0.0',
+        artifacts: [
+          {
+            url: 'file:///tmp/test-manifests/v1.0.0/app.dmg',
+            sha256: 'a'.repeat(64),
+            platform: 'darwin' as const,
+            type: 'dmg' as const,
+          },
+        ],
+        signature: 'dev-test-signature',
+        createdAt: '2024-01-01T00:00:00Z',
+      };
+
+      mockFetches.set(fileUrl, { status: 200, body: manifest });
+
+      const result = await fetchManifest(fileUrl, 30000, true);
+
+      expect(result.version).toBe('1.0.0');
+      expect(result.artifacts).toHaveLength(1);
+      expect(result.artifacts[0].url).toBe('file:///tmp/test-manifests/v1.0.0/app.dmg');
+    });
+
+    it('E002: Production mode rejects file:// URL with clear error', async () => {
+      const fileUrl = 'file:///tmp/manifest.json';
+
+      await expect(fetchManifest(fileUrl, 30000, false)).rejects.toThrow(
+        'Invalid update source configuration'
+      );
+    });
+
+    it('E003: Dev mode still accepts HTTPS URLs', async () => {
+      const httpsUrl = 'https://github.com/941design/slim-chat/releases/latest/download/manifest.json';
+      const manifest = {
+        version: '2.0.0',
+        artifacts: [],
+        signature: 'sig',
+        createdAt: '2024-01-01T00:00:00Z',
+      };
+
+      mockFetches.set(httpsUrl, { status: 200, body: manifest });
+
+      const result = await fetchManifest(httpsUrl, 30000, true);
+
+      expect(result.version).toBe('2.0.0');
+    });
+
+    it('E004: File protocol flag controls behavior independently of protocol', async () => {
+      const fileUrl = 'file:///local/manifest.json';
+      const manifest = {
+        version: '1.5.0',
+        artifacts: [],
+        signature: 'sig',
+        createdAt: '2024-01-01T00:00:00Z',
+      };
+
+      mockFetches.set(fileUrl, { status: 200, body: manifest });
+
+      // Should succeed with flag true
+      const result = await fetchManifest(fileUrl, 30000, true);
+      expect(result.version).toBe('1.5.0');
+
+      // Should fail with flag false
+      await expect(fetchManifest(fileUrl, 30000, false)).rejects.toThrow(
+        'Invalid update source configuration'
+      );
+    });
+
+    it('E005: Invalid URLs throw validation error even with allowFileProtocol=true', async () => {
+      // Test with completely malformed URL
+      await expect(fetchManifest('ht!tp://[invalid', 30000, true)).rejects.toThrow(
+        'Invalid update source configuration'
+      );
+    });
+
+    it('E006: File URL in local test manifest dev workflow', async () => {
+      const devTestUrl = 'file:///tmp/.test-updates/manifest.json';
+      const manifest = {
+        version: '0.0.1-dev',
+        artifacts: [
+          {
+            url: 'file:///tmp/.test-updates/app-debug.dmg',
+            sha256: 'd'.repeat(64),
+            platform: 'darwin' as const,
+            type: 'dmg' as const,
+          },
+        ],
+        signature: 'dev-unsigned-test',
+        createdAt: '2024-01-20T14:30:00Z',
+      };
+
+      mockFetches.set(devTestUrl, { status: 200, body: manifest });
+
+      const result = await fetchManifest(devTestUrl, 30000, true);
+
+      expect(result.version).toBe('0.0.1-dev');
+      expect(result.artifacts[0].url).toContain('.test-updates');
+    });
+  });
+
+  describe('Integration with constructManifestUrl: Dev server scenario', () => {
+    it('E007: constructManifestUrl creates file:// URL that works with allowFileProtocol=true', async () => {
+      const devUpdateSource = 'file:///tmp/test-updates';
+      const publishConfig = {};
+
+      const manifestUrl = constructManifestUrl(publishConfig, devUpdateSource);
+      expect(manifestUrl).toBe('file:///tmp/test-updates/manifest.json');
+
+      const manifest = {
+        version: '1.5.0',
+        artifacts: [],
+        signature: 'sig',
+        createdAt: '2024-01-01T00:00:00Z',
+      };
+
+      mockFetches.set(manifestUrl, { status: 200, body: manifest });
+
+      const result = await fetchManifest(manifestUrl, 30000, true);
+      expect(result.version).toBe('1.5.0');
+    });
+
+    it('E008: Dev URL fails when used without allowFileProtocol flag', async () => {
+      const devUpdateSource = 'file:///tmp/test-updates';
+      const publishConfig = {};
+
+      const manifestUrl = constructManifestUrl(publishConfig, devUpdateSource);
+
+      await expect(fetchManifest(manifestUrl, 30000, false)).rejects.toThrow(
+        'Invalid update source configuration'
+      );
+    });
+
+    it('E009: verifyDownloadedUpdate passes allowFileProtocol to fetchManifest', async () => {
+      const fileUrl = 'file:///tmp/manifest.json';
+      const manifest = {
+        version: '2.0.0',
+        artifacts: [],
+        signature: 'sig',
+        createdAt: '2024-01-01T00:00:00Z',
+      };
+
+      mockFetches.set(fileUrl, { status: 200, body: manifest });
+
+      const downloadEvent: Partial<UpdateDownloadedEvent> = {
+        downloadedFile: '/path/to/update.dmg',
+      };
+
+      const verifyModule = await import('./security/verify');
+      jest.spyOn(verifyModule, 'verifyManifest').mockResolvedValue({ verified: true });
+
+      const result = await verifyDownloadedUpdate(
+        downloadEvent as UpdateDownloadedEvent,
+        '1.0.0',
+        'darwin',
+        'test-key',
+        fileUrl,
+        true
+      );
+
+      expect(result).toEqual({ verified: true });
+    });
+
+    it('E010: verifyDownloadedUpdate rejects file:// URL with allowFileProtocol=false', async () => {
+      const fileUrl = 'file:///tmp/manifest.json';
+
+      const downloadEvent: Partial<UpdateDownloadedEvent> = {
+        downloadedFile: '/path/to/update.dmg',
+      };
+
+      await expect(
+        verifyDownloadedUpdate(
+          downloadEvent as UpdateDownloadedEvent,
+          '1.0.0',
+          'darwin',
+          'test-key',
+          fileUrl,
+          false
+        )
+      ).rejects.toThrow('Invalid update source configuration');
+    });
+  });
+});
+
+/**
+ * FR4: Error Message Sanitization Tests
+ *
+ * Tests verify sanitizeError meets all contract requirements:
+ * - Dev mode preserves full error details for debugging
+ * - Production mode hides implementation details
+ * - Security: no technical details leaked to users
+ * - All error types properly categorized and sanitized
+ */
+describe('sanitizeError', () => {
+  describe('Dev Mode (isDev = true)', () => {
+    it('P001: Dev mode returns Error instance unchanged', () => {
+      fc.assert(
+        fc.property(fc.string(), (msg) => {
+          const error = new Error(msg);
+          const result = sanitizeError(error, true);
+          expect(result).toBe(error);
+          expect(result.message).toBe(msg);
+        }),
+        { numRuns: 50 }
+      );
+    });
+
+    it('E001: Dev mode preserves complex error messages', () => {
+      const complexMsg = 'Manifest request failed with status 404: Not found';
+      const error = new Error(complexMsg);
+      const result = sanitizeError(error, true);
+      expect(result.message).toBe(complexMsg);
+    });
+  });
+
+  describe('Production Mode - HTTP Status Codes', () => {
+    it('P002: 404 status codes are sanitized', () => {
+      const error = new Error('Manifest request failed with status 404');
+      const result = sanitizeError(error, false);
+      expect(result.message).toBe('Failed to fetch manifest from server');
+      expect(result.message).not.toContain('404');
+    });
+
+    it('P003: 500 status codes are sanitized', () => {
+      const error = new Error('Server error with status 500');
+      const result = sanitizeError(error, false);
+      expect(result.message).toBe('Failed to fetch manifest from server');
+      expect(result.message).not.toContain('500');
+    });
+  });
+
+  describe('Production Mode - JSON Parse Errors', () => {
+    it('P004: JSON parse errors are sanitized', () => {
+      const error = new Error('Failed to parse manifest JSON: Unexpected token');
+      const result = sanitizeError(error, false);
+      expect(result.message).toBe('Manifest format is invalid');
+    });
+
+    it('P005: JSON syntax errors are sanitized', () => {
+      const error = new Error('SyntaxError: Unexpected token } in JSON at position 42');
+      const result = sanitizeError(error, false);
+      expect(result.message).toBe('Manifest format is invalid');
+      expect(result.message).not.toContain('position');
+    });
+  });
+
+  describe('Production Mode - Field Validation Errors', () => {
+    it('P006: Missing required fields are sanitized', () => {
+      const error = new Error('Missing required manifest fields: artifacts, signature');
+      const result = sanitizeError(error, false);
+      expect(result.message).toBe('Manifest validation failed');
+      expect(result.message).not.toContain('artifacts');
+      expect(result.message).not.toContain('signature');
+    });
+
+    it('P007: Required keyword triggers sanitization', () => {
+      const error = new Error('Manifest field "version" is required');
+      const result = sanitizeError(error, false);
+      expect(result.message).toBe('Manifest validation failed');
+      expect(result.message).not.toContain('version');
+    });
+  });
+
+  describe('Production Mode - URL Errors', () => {
+    it('P008: Invalid URL errors are sanitized', () => {
+      const error = new Error('Invalid URL: some-malformed-url');
+      const result = sanitizeError(error, false);
+      expect(result.message).toBe('Invalid update source configuration');
+    });
+
+    it('P009: Protocol errors are sanitized', () => {
+      const error = new Error('Invalid manifest URL: Invalid protocol detected');
+      const result = sanitizeError(error, false);
+      expect(result.message).toBe('Invalid update source configuration');
+      expect(result.message).not.toContain('protocol');
+    });
+  });
+
+  describe('Production Mode - Timeout Errors', () => {
+    it('P010: Timeout errors preserve message without leaking details', () => {
+      const error = new Error('Manifest fetch timed out after 30000ms');
+      const result = sanitizeError(error, false);
+      expect(result.message).toBe('Manifest fetch timed out');
+      expect(result.message).not.toContain('30000');
+    });
+
+    it('P011: Timeout keyword variant handling', () => {
+      const error = new Error('Manifest request timeout');
+      const result = sanitizeError(error, false);
+      expect(result.message).toBe('Manifest fetch timed out');
+    });
+  });
+
+  describe('Production Mode - Generic Fallback', () => {
+    it('P012: Unknown error types return generic fallback', () => {
+      const error = new Error('Something went wrong');
+      const result = sanitizeError(error, false);
+      expect(result.message).toBe('Update verification failed');
+    });
+  });
+
+  describe('Security: No Technical Details Leaked', () => {
+    it('P013: Sensitive field names not in production errors', () => {
+      const error = new Error('Missing required manifest fields: version, artifacts, signature, createdAt');
+      const result = sanitizeError(error, false);
+      expect(result.message).toBe('Manifest validation failed');
+      expect(result.message).not.toContain('version');
+      expect(result.message).not.toContain('artifacts');
+      expect(result.message).not.toContain('signature');
+      expect(result.message).not.toContain('createdAt');
+    });
+
+    it('P014: HTTP status codes not visible in production', () => {
+      const error = new Error('request with status 502');
+      const result = sanitizeError(error, false);
+      expect(result.message).not.toContain('502');
+    });
+
+    it('P015: Implementation details stripped from parse errors', () => {
+      const error = new Error('Failed to parse JSON: Unexpected token at position 42');
+      const result = sanitizeError(error, false);
+      expect(result.message).toBe('Manifest format is invalid');
+      expect(result.message).not.toContain('42');
+    });
+  });
+
+  describe('Error Type Handling', () => {
+    it('P016: Works with Error instances', () => {
+      const error = new Error('test error');
+      const result = sanitizeError(error, false);
+      expect(result).toBeInstanceOf(Error);
+    });
+
+    it('P017: Works with string inputs', () => {
+      const result = sanitizeError('test error', false);
+      expect(result).toBeInstanceOf(Error);
+    });
+
+    it('P018: Handles null/undefined gracefully', () => {
+      const resultNull = sanitizeError(null, false);
+      expect(resultNull).toBeInstanceOf(Error);
+
+      const resultUndefined = sanitizeError(undefined, false);
+      expect(resultUndefined).toBeInstanceOf(Error);
+    });
+  });
+
+  describe('Specification Examples', () => {
+    it('E002: Dev mode preserves 404 error', () => {
+      const error = new Error('Manifest request failed with status 404');
+      const result = sanitizeError(error, true);
+      expect(result.message).toBe('Manifest request failed with status 404');
+    });
+
+    it('E003: Production mode 404 sanitized', () => {
+      const error = new Error('Manifest request failed with status 404');
+      const result = sanitizeError(error, false);
+      expect(result.message).toBe('Failed to fetch manifest from server');
+    });
+
+    it('E004: JSON parse error sanitized', () => {
+      const error = new Error('Failed to parse manifest JSON: Unexpected token');
+      const result = sanitizeError(error, false);
+      expect(result.message).toBe('Manifest format is invalid');
+    });
+
+    it('E005: Validation error sanitized', () => {
+      const error = new Error('Missing required manifest fields: artifacts, signature');
+      const result = sanitizeError(error, false);
+      expect(result.message).toBe('Manifest validation failed');
+    });
+
+    it('E006: URL error sanitized', () => {
+      const error = new Error('Invalid manifest URL: Invalid URL');
+      const result = sanitizeError(error, false);
+      expect(result.message).toBe('Invalid update source configuration');
+    });
+
+    it('E007: Timeout error sanitized', () => {
+      const error = new Error('Manifest fetch timed out after 30000ms');
+      const result = sanitizeError(error, false);
+      expect(result.message).toBe('Manifest fetch timed out');
     });
   });
 });

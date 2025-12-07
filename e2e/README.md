@@ -32,6 +32,8 @@ Tests the auto-update system:
 - Update check functionality
 - Download and verification flows
 - Restart to update functionality
+- Version transition scenarios (testing updates from older app versions)
+- Dev mode patterns and file protocol support (GitHub Provider hardening)
 
 ### window.spec.ts
 Tests Electron window configuration:

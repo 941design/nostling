@@ -1,4 +1,4 @@
-.PHONY: help clean install dev build test lint package release sign-manifest test-e2e test-e2e-ui test-e2e-headed test-e2e-debug test-e2e-docker test-e2e-docker-clean test-all dev-update-release dev-update-prerelease
+.PHONY: help clean install dev build test lint package release sign-manifest test-e2e test-e2e-ui test-e2e-headed test-e2e-debug test-e2e-docker test-e2e-docker-clean test-all dev-update-release dev-update-prerelease dev-update-local
 
 .DEFAULT_GOAL := help
 
@@ -36,6 +36,14 @@ dev-update-release: ## Test updates against a specific GitHub release (set DEV_U
 
 dev-update-prerelease: ## Test pre-release updates (beta, alpha, rc versions)
 	ALLOW_PRERELEASE=true npm run dev
+
+dev-update-local: ## Test updates from local file system (FR2 file:// protocol support)
+	@if [ -z "$$DEV_UPDATE_SOURCE" ]; then \
+		echo "Usage: DEV_UPDATE_SOURCE=file:///path/to/local/manifest make dev-update-local"; \
+		echo "Example: DEV_UPDATE_SOURCE=file:///tmp/test-updates make dev-update-local"; \
+		exit 1; \
+	fi
+	npm run dev
 
 build: ## Build the application for production
 	npm run build

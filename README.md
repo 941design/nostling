@@ -6,6 +6,12 @@ Desktop app bootstrap with secure auto-updates built with Electron, React, and T
 
 - Secure auto-update system with cryptographic verification
 - **Dev mode update testing** - Test updates locally before releasing to users
+- **GitHub Provider hardening**:
+  - Download concurrency protection (prevents race conditions)
+  - File protocol support (`file://`) for local manifest testing
+  - URL validation at setup time with fail-fast behavior
+  - Error message sanitization (hides HTTP codes, JSON errors, field names in production)
+  - Centralized GitHub constants for maintainability
 - Built with Electron 30
 - React 18 for the UI
 - Hot reload development environment
@@ -191,6 +197,9 @@ DEV_UPDATE_SOURCE=https://github.com/941design/slim-chat/releases/download/v1.0.
 
 # Test pre-release versions (beta, alpha, rc)
 make dev-update-prerelease
+
+# Test with local manifest files (file:// protocol)
+DEV_UPDATE_SOURCE=file:///tmp/test-updates make dev-update-local
 ```
 
 **Using npm directly**:
@@ -206,6 +215,10 @@ npm run dev
 # Test pre-release versions
 export ALLOW_PRERELEASE=true
 npm run dev
+
+# Test with local manifest files (file:// protocol - dev mode only)
+export DEV_UPDATE_SOURCE="file:///path/to/local/manifest"
+npm run dev
 ```
 
 **Verify the update flow**:
@@ -219,8 +232,16 @@ npm run dev
 **Important**: Dev mode features are automatically disabled in production builds:
 - Pre-release versions are blocked
 - Custom update sources are ignored
+- File protocol (`file://`) URLs are rejected
 - All updates use official GitHub releases with HTTPS
 - Full cryptographic verification is always enforced
+- Error messages are sanitized (no HTTP codes, JSON errors, or field names exposed)
+
+**Error Sanitization**: In production mode, error messages are automatically sanitized to prevent information leakage:
+- HTTP status codes hidden (e.g., "Failed to fetch manifest" instead of "HTTP 404")
+- JSON parse errors generalized (e.g., "Invalid format" instead of parser details)
+- Manifest field names not exposed (e.g., "Validation failed" instead of field list)
+- Dev mode preserves full error details for debugging
 
 ## Code Quality
 
@@ -359,6 +380,11 @@ make release                 # Full release build
 make verify                  # Run lint and all tests
 make ci                      # CI pipeline (install, verify, build)
 make dist-clean              # Deep clean including node_modules
+
+# Dev mode update testing
+make dev-update-release      # Test against specific GitHub release (set DEV_UPDATE_SOURCE)
+make dev-update-prerelease   # Test pre-release updates (beta, alpha, rc)
+make dev-update-local        # Test with local file:// manifest (dev mode only)
 ```
 
 ## Security Features
@@ -436,7 +462,3 @@ The public key is safe to embed directly in the application code.
 ## License
 
 MIT
-
-## TODO
-
-- graceful error handling, e.g. `make dev-update-release DEV_UPDATE_SOURCE=https://github.com/941design/slim-chat/releases/download/v1.0.1` -> check for update

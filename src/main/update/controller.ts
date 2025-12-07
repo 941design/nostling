@@ -5,106 +5,17 @@
  * Replaces automatic download with user-initiated download after approval.
  */
 
-import { app } from 'electron';
 import { autoUpdater, ProgressInfo } from 'electron-updater';
-import { UpdateState, DownloadProgress, AppConfig } from '../../shared/types';
+import { DownloadProgress, AppConfig } from '../../shared/types';
 import { DevUpdateConfig } from '../dev-env';
 import { log } from '../logging';
+import { validateUpdateUrl } from './url-validation';
 
 /**
- * Convert electron-updater ProgressInfo to DownloadProgress
- *
- * CONTRACT:
- *   Inputs:
- *     - progressInfo: object from electron-updater with fields:
- *       - total: total bytes to download (number, may be 0 if unknown)
- *       - transferred: bytes downloaded so far (number, non-negative)
- *       - bytesPerSecond: download speed (number, non-negative)
- *       - percent: completion percentage (number, 0-100)
- *
- *   Outputs:
- *     - DownloadProgress object with fields:
- *       - percent: number, 0-100
- *       - bytesPerSecond: number, non-negative
- *       - transferred: number, non-negative
- *       - total: number, non-negative
- *
- *   Invariants:
- *     - transferred ≤ total (if total is known)
- *     - percent is clamped to 0-100 range
- *     - All numeric fields non-negative
- *
- *   Properties:
- *     - Bounded: percent is in [0, 100]
- *     - Monotonic: transferred never decreases during download
- *     - Complete: when percent = 100, transferred = total
- *
- *   Algorithm:
- *     1. Extract fields from progressInfo
- *     2. Clamp percent to range [0, 100]:
- *        - If percent < 0, use 0
- *        - If percent > 100, use 100
- *        - Otherwise use progressInfo.percent
- *     3. Return DownloadProgress object with clamped values
+ * FR5: GitHub repository constants (single source of truth)
  */
-export function convertProgress(progressInfo: ProgressInfo): DownloadProgress {
-  // TRIVIAL: Implemented directly
-  return {
-    percent: Math.max(0, Math.min(100, progressInfo.percent)),
-    bytesPerSecond: progressInfo.bytesPerSecond,
-    transferred: progressInfo.transferred,
-    total: progressInfo.total,
-  };
-}
-
-/**
- * Format bytes as human-readable string
- *
- * CONTRACT:
- *   Inputs:
- *     - bytes: non-negative integer, number of bytes
- *
- *   Outputs:
- *     - string: formatted with appropriate unit (B, KB, MB, GB)
- *
- *   Invariants:
- *     - Uses 1024-based units (binary: KiB, MiB, GiB)
- *     - 1-2 decimal places for values ≥ 1 KB
- *     - No decimal places for bytes
- *
- *   Properties:
- *     - Monotonic: larger byte values produce larger numeric prefixes
- *     - Readable: uses appropriate unit for magnitude
- *
- *   Algorithm:
- *     1. If bytes < 1024, return "{bytes} B"
- *     2. If bytes < 1024^2, return "{bytes/1024:.1f} KB"
- *     3. If bytes < 1024^3, return "{bytes/1024^2:.1f} MB"
- *     4. Otherwise, return "{bytes/1024^3:.2f} GB"
- *
- *   Examples:
- *     - formatBytes(512) → "512 B"
- *     - formatBytes(1536) → "1.5 KB"
- *     - formatBytes(2097152) → "2.0 MB"
- *     - formatBytes(5368709120) → "5.00 GB"
- */
-export function formatBytes(bytes: number): string {
-  const normalized = Math.max(0, Math.floor(bytes));
-
-  if (normalized < 1024) {
-    return `${normalized} B`;
-  }
-
-  if (normalized < 1024 * 1024) {
-    return `${(normalized / 1024).toFixed(1)} KB`;
-  }
-
-  if (normalized < 1024 * 1024 * 1024) {
-    return `${(normalized / (1024 * 1024)).toFixed(1)} MB`;
-  }
-
-  return `${(normalized / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-}
+export const GITHUB_OWNER = '941design';
+export const GITHUB_REPO = 'slim-chat';
 
 /**
  * Setup autoUpdater with manual download configuration and dev mode support
@@ -220,6 +131,23 @@ export function setupUpdater(
     log('info', 'Dev mode: allowPrerelease enabled');
   }
 
+  // FR3: URL Validation Before setFeedURL (fail-fast behavior)
+  // Validate devUpdateSource URL before passing to setFeedURL to catch configuration errors early
+  if (devUpdateSource) {
+    try {
+      validateUpdateUrl(devUpdateSource, {
+        allowFileProtocol: true, // Dev mode allows file://
+        allowHttp: true,         // Dev mode allows http://
+        context: 'devUpdateSource',
+      });
+      log('info', `Validated devUpdateSource URL: ${devUpdateSource.trim()}`);
+    } catch (err) {
+      const error = err instanceof Error ? err.message : String(err);
+      log('error', error);
+      throw err instanceof Error ? err : new Error(error);
+    }
+  }
+
   // Configure feed URL based on mode
   if (devUpdateSource) {
     // Dev mode: use generic provider for file:// URL support
@@ -232,43 +160,81 @@ export function setupUpdater(
     // Production mode: use GitHub provider
     autoUpdater.setFeedURL({
       provider: 'github',
-      owner: '941design',
-      repo: 'slim-chat',
+      owner: GITHUB_OWNER,
+      repo: GITHUB_REPO,
     });
-    log('info', 'Update feed configured: GitHub provider (941design/slim-chat)');
+    log('info', `Update feed configured: GitHub provider (${GITHUB_OWNER}/${GITHUB_REPO})`);
   }
 }
 
 /**
  * Trigger manual download of available update
  *
- * CONTRACT:
+ * CONTRACT (FR1: Download Concurrency Protection):
  *   Inputs:
- *     - none (operates on autoUpdater global state)
+ *     - none (operates on autoUpdater global state and module-level guard)
  *
  *   Outputs:
- *     - promise resolving when download completes
- *     - promise rejecting if download fails
+ *     - promise resolving to void when download completes successfully
+ *     - promise rejecting with Error if download fails or already in progress
  *
  *   Invariants:
+ *     - Only one download operation can be active at a time
+ *     - Download guard is released after completion (success or failure)
  *     - Should only be called when update is available
  *     - Download progress events emitted during download
  *
  *   Properties:
- *     - Idempotent: calling multiple times starts only one download
+ *     - Concurrency protection: second concurrent call rejects immediately
+ *     - Guard cleanup: guard always released via finally block
  *     - Asynchronous: returns promise for completion
+ *     - Error propagation: underlying errors propagated after guard cleanup
  *
  *   Algorithm:
- *     1. Call autoUpdater.downloadUpdate()
- *     2. Await completion
- *     3. Return promise result
+ *     1. Check download-in-progress guard (module-level boolean flag):
+ *        - If guard is true (download active), throw Error("Download already in progress")
+ *     2. Set guard to true (claim download slot)
+ *     3. Try block:
+ *        a. Call autoUpdater.downloadUpdate()
+ *        b. Await completion
+ *     4. Finally block (always executes):
+ *        a. Set guard to false (release download slot)
+ *
+ *   Concurrency Examples:
+ *     Sequential calls:
+ *       - Call 1: guard = false → set to true → download → set to false → resolve
+ *       - Call 2 (after Call 1): guard = false → set to true → download → success
+ *       Result: Both succeed
+ *
+ *     Concurrent calls:
+ *       - Call 1: guard = false → set to true → downloading...
+ *       - Call 2 (during Call 1): guard = true → reject immediately
+ *       Result: Call 1 succeeds, Call 2 rejects with "Download already in progress"
  *
  *   Error Conditions:
- *     - No update available: reject with updater error
- *     - Network failure: reject with network error
- *     - Disk space insufficient: reject with filesystem error
+ *     - Concurrent download: reject with "Download already in progress"
+ *     - No update available: propagate autoUpdater error after guard cleanup
+ *     - Network failure: propagate network error after guard cleanup
+ *     - Disk space insufficient: propagate filesystem error after guard cleanup
+ *
+ * IMPLEMENTATION NOTE:
+ *   Pattern should match existing checkForUpdates concurrency guard (if present).
+ *   Guard variable should be module-level (shared across all calls).
+ *   Use try/finally to ensure guard cleanup even on exceptions.
  */
+// Module-level concurrency guard for download operations
+let downloadInProgress = false;
+
 export async function downloadUpdate(): Promise<void> {
-  // TRIVIAL: Implemented directly
-  await autoUpdater.downloadUpdate();
+  if (downloadInProgress) {
+    throw new Error('Download already in progress');
+  }
+
+  downloadInProgress = true;
+
+  try {
+    await autoUpdater.downloadUpdate();
+  } finally {
+    downloadInProgress = false;
+  }
 }

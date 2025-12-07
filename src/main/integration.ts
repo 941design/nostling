@@ -6,8 +6,135 @@
  */
 
 import { UpdateDownloadedEvent } from 'electron-updater';
-import { SignedManifest, UpdateState } from '../shared/types';
+import { SignedManifest } from '../shared/types';
 import { verifyManifest } from './security/verify';
+import { log } from './logging';
+import { isDevMode } from './dev-env';
+import { validateUpdateUrl } from './update/url-validation';
+
+/**
+ * Sanitize error messages for production (FR4: Error Message Sanitization)
+ * EXPORTED for use in index.ts error handlers
+ *
+ * CONTRACT:
+ *   Inputs:
+ *     - error: Error object or unknown error
+ *     - isDev: boolean flag indicating dev mode (allows verbose errors)
+ *
+ *   Outputs:
+ *     - Error object with sanitized message (production) or original message (dev)
+ *
+ *   Invariants:
+ *     - Dev mode: preserve full error details for debugging
+ *     - Production mode: hide implementation details (HTTP status codes, JSON parse errors, field names)
+ *
+ *   Properties:
+ *     - Security: production errors don't leak internal implementation details
+ *     - Debuggability: dev mode preserves full error context
+ *     - User-friendly: production errors are generic and non-technical
+ *
+ *   Algorithm:
+ *     1. If isDev is true:
+ *        - Return error as-is (preserve full details for debugging)
+ *
+ *     2. Extract error message:
+ *        - If error is Error instance: use error.message
+ *        - Otherwise: use String(error)
+ *
+ *     3. Sanitize based on error type (pattern matching on message):
+ *        a. HTTP status codes (e.g., "status 404", "status 500"):
+ *           - Replace with: "Failed to fetch manifest from server"
+ *
+ *        b. JSON parse errors (contains "parse", "JSON", "SyntaxError"):
+ *           - Replace with: "Manifest format is invalid"
+ *
+ *        c. Field validation errors (contains "field", "required", "missing"):
+ *           - Replace with: "Manifest validation failed"
+ *
+ *        d. URL errors (contains "Invalid URL", "protocol"):
+ *           - Replace with: "Invalid update source configuration"
+ *
+ *        e. Timeout errors (contains "timed out", "timeout"):
+ *           - Preserve: "Manifest fetch timed out" (no implementation details leaked)
+ *
+ *        f. Otherwise:
+ *           - Generic fallback: "Update verification failed"
+ *
+ *     4. Return new Error with sanitized message
+ *
+ *   Examples:
+ *     Dev mode (isDev = true):
+ *       sanitizeError(Error("Manifest request failed with status 404"), true)
+ *       → Error("Manifest request failed with status 404")  // preserved
+ *
+ *     Production mode (isDev = false):
+ *       sanitizeError(Error("Manifest request failed with status 404"), false)
+ *       → Error("Failed to fetch manifest from server")
+ *
+ *       sanitizeError(Error("Failed to parse manifest JSON: Unexpected token"), false)
+ *       → Error("Manifest format is invalid")
+ *
+ *       sanitizeError(Error("Missing required manifest fields: artifacts, signature"), false)
+ *       → Error("Manifest validation failed")
+ *
+ *       sanitizeError(Error("Invalid manifest URL: Invalid URL"), false)
+ *       → Error("Invalid update source configuration")
+ *
+ *       sanitizeError(Error("Manifest fetch timed out after 30000ms"), false)
+ *       → Error("Manifest fetch timed out after 30000ms")  // preserved (no leak)
+ *
+ * IMPLEMENTATION NOTE:
+ *   - Use pattern matching (string.includes() or regex) to identify error types
+ *   - Preserve stack trace if available
+ *   - Consider using isDev = Boolean(process.env.VITE_DEV_SERVER_URL) at call sites
+ */
+export function sanitizeError(error: unknown, isDev: boolean): Error {
+  // Extract error message
+  const message = error instanceof Error ? error.message : String(error);
+
+  // Dev mode: preserve full error details for debugging
+  if (isDev) {
+    if (error instanceof Error) {
+      return error;
+    }
+    return new Error(message);
+  }
+
+  // Production mode: sanitize based on error type patterns
+  const lowerMessage = message.toLowerCase();
+
+  // HTTP status codes: "status 404", "status 500", etc.
+  if (/status\s+\d{3}/.test(message)) {
+    return new Error('Failed to fetch manifest from server');
+  }
+
+  // JSON parse errors: contains "parse", "JSON", "SyntaxError"
+  if (lowerMessage.includes('parse') || lowerMessage.includes('json') || lowerMessage.includes('syntaxerror')) {
+    return new Error('Manifest format is invalid');
+  }
+
+  // Field validation errors: contains "field", "required", "missing"
+  if (
+    lowerMessage.includes('field') ||
+    lowerMessage.includes('required') ||
+    lowerMessage.includes('missing')
+  ) {
+    return new Error('Manifest validation failed');
+  }
+
+  // URL errors: contains "Invalid URL", "protocol", "cannot be empty"
+  if (lowerMessage.includes('invalid url') || lowerMessage.includes('protocol') || lowerMessage.includes('cannot be empty')) {
+    return new Error('Invalid update source configuration');
+  }
+
+  // Timeout errors: preserve with generic message (no implementation details leaked)
+  if (lowerMessage.includes('timed out') || lowerMessage.includes('timeout')) {
+    return new Error('Manifest fetch timed out');
+  }
+
+  // Otherwise: generic fallback
+  return new Error('Update verification failed');
+}
 
 /**
  * Construct manifest URL for update verification
@@ -95,41 +222,88 @@ export function constructManifestUrl(
 /**
  * Fetch manifest from URL
  *
- * CONTRACT:
+ * CONTRACT (FR2: File Protocol Support):
  *   Inputs:
- *     - manifestUrl: HTTPS URL to manifest.json
+ *     - manifestUrl: HTTPS URL to manifest.json (or file:// URL if allowFileProtocol is true)
+ *     - timeoutMs: optional timeout in milliseconds (default: 30000)
+ *     - allowFileProtocol: optional boolean flag to allow file:// URLs (default: false)
  *
  *   Outputs:
  *     - promise resolving to: SignedManifest object
- *     - promise rejecting with: Error if fetch fails or JSON invalid
+ *     - promise rejecting with: Error if fetch fails, URL invalid, or JSON invalid
  *
  *   Invariants:
- *     - Uses fetch API for HTTP request
+ *     - HTTPS-only in production (allowFileProtocol = false)
+ *     - file:// URLs only allowed when allowFileProtocol = true (dev mode)
+ *     - Uses fetch API for HTTP/file requests
  *     - Validates HTTP status is 2xx
  *     - Parses response as JSON
+ *     - Timeout mechanism prevents indefinite hangs
  *
  *   Properties:
- *     - Network-dependent: requires connectivity
+ *     - Security: production mode enforces HTTPS-only
+ *     - Dev flexibility: file:// URLs enabled in dev mode for local testing
+ *     - Timeout protection: operations abort after timeoutMs
+ *     - Network-dependent: requires connectivity (except file://)
  *     - Synchronous parsing: JSON parsed immediately after fetch
  *
  *   Algorithm:
- *     1. Fetch URL using fetch(manifestUrl)
- *     2. Check response.ok (status 2xx):
- *        - If not ok, throw Error(`Manifest request failed: ${response.status}`)
- *     3. Parse JSON: await response.json()
- *     4. Cast to SignedManifest (assumes correct schema)
- *     5. Return manifest
+ *     1. Validate manifest URL:
+ *        - Call validateManifestUrl(manifestUrl, allowFileProtocol)
+ *        - This will throw if URL is invalid or protocol disallowed
+ *
+ *     2. Setup timeout mechanism:
+ *        - Create AbortController instance
+ *        - Set timeout to abort after timeoutMs
+ *
+ *     3. Try block:
+ *        a. Fetch URL using fetch(manifestUrl, { signal: controller.signal, headers: { 'Cache-Control': 'no-cache' } })
+ *        b. Check response.ok (status 2xx):
+ *           - If not ok, throw Error with status code
+ *        c. Try to parse JSON: await response.json()
+ *           - Catch parse errors and wrap with descriptive message
+ *        d. Validate manifest structure: validateManifestStructure(data)
+ *        e. Return data as SignedManifest
+ *
+ *     4. Catch block:
+ *        - If AbortError: throw timeout error
+ *        - Otherwise: propagate original error
+ *
+ *     5. Finally block:
+ *        - Clear timeout to prevent memory leak
+ *
+ *   Examples:
+ *     Production mode (HTTPS only):
+ *       fetchManifest("https://github.com/.../manifest.json", 30000, false)
+ *       → Success if manifest exists
+ *       fetchManifest("file:///tmp/manifest.json", 30000, false)
+ *       → Error: "Manifest URL must use HTTPS protocol"
+ *
+ *     Dev mode (file:// allowed):
+ *       fetchManifest("file:///tmp/test-manifests/v1.0.0/manifest.json", 30000, true)
+ *       → Success if file exists and valid JSON
+ *       fetchManifest("https://github.com/.../manifest.json", 30000, true)
+ *       → Success (HTTPS still allowed in dev mode)
  *
  *   Error Conditions:
+ *     - Invalid URL: reject with URL parse error
+ *     - Protocol violation: reject with "Manifest URL must use HTTPS protocol" (production)
  *     - Network failure: reject with fetch error
  *     - HTTP error (4xx, 5xx): reject with status code
  *     - Invalid JSON: reject with parse error
+ *     - Timeout: reject with "Manifest fetch timed out after {timeoutMs}ms"
+ *
+ * IMPLEMENTATION NOTE:
+ *   FR2 specification requires file:// support for dev mode testing.
+ *   Pass allowFileProtocol=true ONLY when devUpdateSource is set.
+ *   Call site (index.ts): `allowFileProtocol: Boolean(devConfig.devUpdateSource)`
  */
 export async function fetchManifest(
   manifestUrl: string,
-  timeoutMs: number = 30000
+  timeoutMs: number = 30000,
+  allowFileProtocol: boolean = false
 ): Promise<SignedManifest> {
-  validateManifestUrl(manifestUrl);
+  validateManifestUrl(manifestUrl, allowFileProtocol);
 
   // CRITICAL: Timeout mechanism to prevent indefinite hangs (FR4)
   const controller = new AbortController();
@@ -144,16 +318,18 @@ export async function fetchManifest(
     });
 
     if (!response.ok) {
-      throw new Error(`Manifest request failed with status ${response.status}`);
+      const rawError = new Error(`Manifest request failed with status ${response.status}`);
+      throw sanitizeError(rawError, isDevMode());
     }
 
     let data: unknown;
     try {
       data = await response.json();
     } catch (err) {
-      throw new Error(
+      const rawError = new Error(
         `Failed to parse manifest JSON: ${err instanceof Error ? err.message : 'Unknown error'}`
       );
+      throw sanitizeError(rawError, isDevMode());
     }
 
     validateManifestStructure(data);
@@ -168,17 +344,73 @@ export async function fetchManifest(
   }
 }
 
-function validateManifestUrl(url: string): void {
+/**
+ * Validate manifest URL protocol
+ *
+ * CONTRACT (FR2: File Protocol Support):
+ *   Inputs:
+ *     - url: string URL to validate
+ *     - allowFileProtocol: optional boolean flag to allow file:// (default: false)
+ *
+ *   Outputs:
+ *     - void if URL is valid
+ *     - throws Error if URL is invalid or protocol disallowed
+ *
+ *   Invariants:
+ *     - Production mode (allowFileProtocol = false): only https:// allowed
+ *     - Dev mode (allowFileProtocol = true): https:// and file:// allowed
+ *     - Malformed URLs always rejected
+ *
+ *   Properties:
+ *     - Security: production mode enforces HTTPS-only
+ *     - Flexibility: dev mode allows file:// for local testing
+ *     - Fail-fast: throws immediately on invalid input
+ *
+ *   Algorithm:
+ *     1. Try to parse URL using URL constructor:
+ *        - If parse fails, catch and throw "Invalid manifest URL: {error message}"
+ *
+ *     2. Check protocol (urlObj.protocol):
+ *        a. If protocol is 'https:':
+ *           - Valid in both production and dev mode → return (success)
+ *
+ *        b. If protocol is 'file:':
+ *           - If allowFileProtocol is true → return (success)
+ *           - If allowFileProtocol is false → throw "Manifest URL must use HTTPS protocol"
+ *
+ *        c. Otherwise (http:, ftp:, etc.):
+ *           - throw "Manifest URL must use HTTPS protocol"
+ *
+ *   Examples:
+ *     Production mode (allowFileProtocol = false):
+ *       validateManifestUrl("https://github.com/owner/repo/manifest.json", false) → void (success)
+ *       validateManifestUrl("file:///tmp/manifest.json", false) → Error: "Manifest URL must use HTTPS protocol"
+ *       validateManifestUrl("http://example.com/manifest.json", false) → Error: "Manifest URL must use HTTPS protocol"
+ *
+ *     Dev mode (allowFileProtocol = true):
+ *       validateManifestUrl("file:///tmp/manifest.json", true) → void (success)
+ *       validateManifestUrl("https://github.com/owner/repo/manifest.json", true) → void (success)
+ *       validateManifestUrl("http://example.com/manifest.json", true) → Error: "Manifest URL must use HTTPS protocol"
+ *
+ *   Error Conditions:
+ *     - Malformed URL: "Invalid manifest URL: {details}"
+ *     - Disallowed protocol: "Manifest URL must use HTTPS protocol"
+ *
+ * IMPLEMENTATION NOTE:
+ *   Must accept optional allowFileProtocol parameter.
+ *   Default value should be false (production-safe default).
+ *   Update fetchManifest to pass this parameter through.
+ */
+function validateManifestUrl(url: string, allowFileProtocol: boolean = false): void {
   try {
-    const urlObj = new URL(url);
-    if (urlObj.protocol !== 'https:') {
-      throw new Error('Manifest URL must use HTTPS protocol');
-    }
+    validateUpdateUrl(url, {
+      allowFileProtocol,
+      allowHttp: false, // Never allow http for manifest URLs
+      context: 'Manifest URL',
+    });
   } catch (err) {
-    if (err instanceof Error && err.message === 'Manifest URL must use HTTPS protocol') {
-      throw err;
-    }
-    throw new Error(`Invalid manifest URL: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    // Sanitize any validation errors before throwing
+    throw sanitizeError(err, isDevMode());
   }
 }
 
@@ -216,13 +448,14 @@ function validateManifestStructure(data: unknown): void {
 /**
  * Verify downloaded update (orchestrates full verification flow)
  *
- * CONTRACT:
+ * CONTRACT (FR2: File Protocol Support):
  *   Inputs:
  *     - downloadEvent: UpdateDownloadedEvent from electron-updater
  *     - currentVersion: current app version string
  *     - currentPlatform: platform identifier ('darwin' | 'linux' | 'win32')
  *     - publicKeyPem: RSA public key in PEM format
  *     - manifestUrl: URL to fetch manifest from
+ *     - allowFileProtocol: optional boolean flag to allow file:// URLs (default: false)
  *
  *   Outputs:
  *     - promise resolving to: { verified: true } if all checks pass
@@ -232,15 +465,17 @@ function validateManifestStructure(data: unknown): void {
  *     - All verification steps must pass
  *     - Manifest fetched before verification
  *     - Downloaded file path extracted from event
+ *     - File protocol only allowed when explicitly enabled
  *
  *   Properties:
  *     - Completeness: fetches manifest and verifies all aspects
  *     - Delegation: uses verifyManifest for cryptographic checks
  *     - Logging: logs fetch and verification steps
+ *     - Security: file:// protocol controlled by explicit flag
  *
  *   Algorithm:
  *     1. Log: "Fetching manifest from {manifestUrl}"
- *     2. Fetch manifest: await fetchManifest(manifestUrl)
+ *     2. Fetch manifest: await fetchManifest(manifestUrl, 30000, allowFileProtocol)
  *     3. Extract downloaded file path from downloadEvent
  *        - Try (downloadEvent as any).downloadedFile
  *        - Fallback to downloadEvent.downloadedFile
@@ -256,22 +491,27 @@ function validateManifestStructure(data: unknown): void {
  *     6. Return { verified: true }
  *
  *   Error Conditions:
- *     - Manifest fetch fails: propagate fetch error
+ *     - Manifest fetch fails: propagate fetch error (includes protocol violations)
  *     - File path missing: throw descriptive error
  *     - Verification fails: propagate verification error
+ *
+ * IMPLEMENTATION NOTE:
+ *   FR2 requires passing allowFileProtocol to fetchManifest.
+ *   Call site (index.ts) should pass: allowFileProtocol: Boolean(devUpdateSource)
  */
 export async function verifyDownloadedUpdate(
   downloadEvent: UpdateDownloadedEvent,
   currentVersion: string,
   currentPlatform: 'darwin' | 'linux' | 'win32',
   publicKeyPem: string,
-  manifestUrl: string
+  manifestUrl: string,
+  allowFileProtocol: boolean = false
 ): Promise<{ verified: true }> {
   // Step 1: Log fetch start
-  console.log(`Fetching manifest from ${manifestUrl}`);
+  log('info', `Fetching manifest from ${manifestUrl}`);
 
   // Step 2: Fetch manifest
-  const manifest = await fetchManifest(manifestUrl);
+  const manifest = await fetchManifest(manifestUrl, 30000, allowFileProtocol);
 
   // Step 3: Extract downloaded file path from event
   const filePath =
@@ -285,7 +525,7 @@ export async function verifyDownloadedUpdate(
   await verifyManifest(manifest, filePath, currentVersion, currentPlatform, publicKeyPem);
 
   // Step 5: Log verification success
-  console.log(`Manifest verified for version ${manifest.version}`);
+  log('info', `Manifest verified for version ${manifest.version}`);
 
   // Step 6: Return success
   return { verified: true };
