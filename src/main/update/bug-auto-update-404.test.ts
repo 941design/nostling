@@ -44,7 +44,7 @@ describe('Regression: Auto-update 404 error (FIXED)', () => {
     mockAutoUpdater.autoInstallOnAppQuit = false;
   });
 
-  it('verifies setupUpdater() configures generic provider feed URL', async () => {
+  it('verifies setupUpdater() configures GitHub provider feed URL', async () => {
     // Import controller module (after mocks are set up)
     const { setupUpdater } = await import('./controller');
 
@@ -61,11 +61,12 @@ describe('Regression: Auto-update 404 error (FIXED)', () => {
     // Call setupUpdater
     setupUpdater(false, mockConfig, mockDevConfig);
 
-    // VERIFY FIX: setupUpdater() now calls setFeedURL with generic provider
+    // VERIFY FIX: setupUpdater() now calls setFeedURL with GitHub provider
     expect(mockSetFeedURL).toHaveBeenCalledTimes(1);
     expect(mockSetFeedURL).toHaveBeenCalledWith({
-      provider: 'generic',
-      url: 'https://github.com/941design/slim-chat/releases/download/v1.0.0'
+      provider: 'github',
+      owner: '941design',
+      repo: 'slim-chat'
     });
 
     // Verify other configuration
@@ -73,7 +74,7 @@ describe('Regression: Auto-update 404 error (FIXED)', () => {
     expect(mockAutoUpdater.autoInstallOnAppQuit).toBe(false);
   });
 
-  it('verifies feed URL uses app version', async () => {
+  it('verifies GitHub provider does not use version-specific URLs', async () => {
     const { setupUpdater } = await import('./controller');
 
     // Mock config and devConfig
@@ -91,27 +92,31 @@ describe('Regression: Auto-update 404 error (FIXED)', () => {
 
     setupUpdater(true, mockConfig, mockDevConfig);
 
-    // Verify URL includes version
+    // Verify GitHub provider configuration (version-agnostic)
     expect(mockSetFeedURL).toHaveBeenCalledWith({
-      provider: 'generic',
-      url: 'https://github.com/941design/slim-chat/releases/download/v2.3.4'
+      provider: 'github',
+      owner: '941design',
+      repo: 'slim-chat'
     });
   });
 
-  it('documents the fix: generic provider prevents 404', () => {
-    // FIXED BEHAVIOR:
+  it('documents the fix: GitHub provider enables cross-version updates', () => {
+    // CURRENT BEHAVIOR:
     // setupUpdater() now calls autoUpdater.setFeedURL() with:
     // {
-    //   provider: 'generic',
-    //   url: 'https://github.com/941design/slim-chat/releases/download/v{version}'
+    //   provider: 'github',
+    //   owner: '941design',
+    //   repo: 'slim-chat'
     // }
     //
-    // With generic provider, electron-updater fetches:
-    // - {url}/manifest.json (custom format we generate)
+    // With GitHub provider, electron-updater automatically fetches from:
+    // - /releases/latest/download/latest-mac.yml
+    // - This allows cross-version updates (v0.0.0 can discover v0.0.1)
     //
-    // This prevents the 404 error from trying to fetch:
-    // - latest-mac.yml (GitHub provider default, which we don't generate)
+    // Previously used generic provider with version-specific URLs:
+    // - /releases/download/v{version}/latest-mac.yml
+    // - This prevented cross-version updates (each version checked only its own release)
 
-    expect(true).toBe(true); // Documents fixed behavior
+    expect(true).toBe(true); // Documents current behavior
   });
 });

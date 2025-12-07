@@ -4,7 +4,7 @@ import { autoUpdater } from 'electron-updater';
 import { AppConfig, AppStatus, UpdateState } from '../shared/types';
 import { getRecentLogs, log, setLogLevel } from './logging';
 import { loadConfig, saveConfig } from './config';
-import { verifyDownloadedUpdate } from './integration';
+import { verifyDownloadedUpdate, constructManifestUrl } from './integration';
 import { registerHandlers, broadcastUpdateState } from './ipc/handlers';
 import { downloadUpdate, setupUpdater } from './update/controller';
 import { getDevUpdateConfig } from './dev-env';
@@ -91,10 +91,13 @@ function setupAutoUpdater() {
       updateState = { phase: 'verifying', version: info.version };
       broadcastUpdateStateToMain();
 
-      const manifestUrl = process.env.MANIFEST_URL || config.manifestUrl;
-      if (!manifestUrl) {
-        throw new Error('No manifest URL configured');
-      }
+      // Construct manifest URL from publish config or dev mode override
+      // SECURITY: Use getDevUpdateConfig() to enforce production safety (C1)
+      // Direct env var reads bypass production mode checks - see constraint C1
+      const publishConfig = { owner: '941design', repo: 'slim-chat' };
+      const devConfig = getDevUpdateConfig();
+      const devUpdateSource = devConfig.devUpdateSource; // Only set in dev mode
+      const manifestUrl = constructManifestUrl(publishConfig, devUpdateSource);
 
       await verifyDownloadedUpdate(
         info,

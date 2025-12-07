@@ -41,7 +41,6 @@ jest.mock('./config', () => ({
   loadConfig: jest.fn(() => ({
     autoUpdate: true,
     logLevel: 'info',
-    manifestUrl: 'https://example.com/manifest.json',
     autoUpdateBehavior: 'manual',
   })),
   saveConfig: jest.fn(),
@@ -49,6 +48,7 @@ jest.mock('./config', () => ({
 
 jest.mock('./integration', () => ({
   verifyDownloadedUpdate: jest.fn(),
+  constructManifestUrl: jest.fn(() => 'https://github.com/941design/slim-chat/releases/latest/download/manifest.json'),
 }));
 
 jest.mock('./ipc/handlers', () => ({

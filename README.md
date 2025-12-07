@@ -242,6 +242,51 @@ This will create platform-specific distributables:
 - **macOS**: DMG and ZIP files
 - **Linux**: AppImage
 
+## Installing Releases
+
+### macOS
+
+**Note**: This app is not notarized with Apple. macOS Gatekeeper will block it on first launch with a message like:
+
+> *"SlimChat" cannot be opened because Apple could not verify it is free of malware.*
+
+To install and run:
+
+1. Download the `.dmg` file from the GitHub release
+2. Open the DMG and drag `SlimChat.app` to **Applications**
+3. Try opening the app once (it will fail with the warning)
+4. Go to **System Settings → Privacy & Security**
+5. Scroll down to find:
+   > `"SlimChat" was blocked from use because it is not from an identified developer`
+6. Click **"Allow Anyway"**
+7. Open the app again and click **"Open"** in the dialog
+
+**Alternative - Right-click method**:
+1. Right-click the app in Applications → **Open**
+2. Click **Open** in the warning dialog
+
+**Alternative - Terminal** (removes quarantine flag):
+```bash
+xattr -rd com.apple.quarantine /Applications/SlimChat.app
+```
+
+### Linux
+
+1. Download the `.AppImage` file from the GitHub release
+2. Make it executable:
+   ```bash
+   chmod +x SlimChat-*.AppImage
+   ```
+3. Run it:
+   ```bash
+   ./SlimChat-*.AppImage
+   ```
+
+**Optional**: Move to a permanent location:
+```bash
+mv SlimChat-*.AppImage ~/.local/bin/slimchat
+```
+
 ## Release Process
 
 ### Local Release Build

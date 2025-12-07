@@ -46,7 +46,8 @@ function normalizeConfig(raw: any): AppConfig {
   return {
     autoUpdate: typeof raw?.autoUpdate === 'boolean' ? raw.autoUpdate : DEFAULT_CONFIG.autoUpdate,
     logLevel,
-    manifestUrl: typeof raw?.manifestUrl === 'string' ? raw.manifestUrl : undefined,
+    // manifestUrl removed - manifest URL now always derived from GitHub repo in production
+    // or from devUpdateSource in dev mode. Old configs with this field are ignored gracefully.
     autoUpdateBehavior: ['manual', 'auto-download'].includes(raw?.autoUpdateBehavior)
       ? raw.autoUpdateBehavior
       : undefined,

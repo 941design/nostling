@@ -517,57 +517,13 @@ describe('setupUpdater', () => {
       );
     });
 
-    it('P003: URL determination follows precedence - devUpdateSource > manifestUrl > default', () => {
+    it('P003: Production always uses GitHub provider when no devUpdateSource', () => {
       fc.assert(
         fc.property(
           fc.record({
-            devUpdateSource: fc.option(fc.webUrl(), { nil: undefined }),
-            manifestUrl: fc.option(fc.webUrl().map(url => url + '/manifest.json'), { nil: undefined }),
-          }),
-          ({ devUpdateSource, manifestUrl }) => {
-            const { setupUpdater } = require('./controller');
-
-            const devConfig = {
-              forceDevUpdateConfig: false,
-              devUpdateSource,
-              allowPrerelease: false,
-            };
-
-            const config = {
-              autoUpdate: true,
-              logLevel: 'info' as const,
-              manifestUrl,
-            };
-
-            setupUpdater(true, config, devConfig);
-
-            let expectedUrl: string;
-            if (devUpdateSource) {
-              expectedUrl = devUpdateSource;
-            } else if (manifestUrl) {
-              expectedUrl = manifestUrl.replace(/\/manifest\.json$/, '');
-            } else {
-              expectedUrl = 'https://github.com/941design/slim-chat/releases/download/v1.0.0';
-            }
-
-            expect(mockAutoUpdater.setFeedURL).toHaveBeenCalledWith({
-              provider: 'generic',
-              url: expectedUrl,
-            });
-          }
-        ),
-        { numRuns: 100 }
-      );
-    });
-
-    it('P004: Backward compatibility - no dev config means default behavior', () => {
-      fc.assert(
-        fc.property(
-          fc.record({
-            manifestUrl: fc.option(fc.webUrl().map(url => url + '/manifest.json'), { nil: undefined }),
             autoDownload: fc.boolean(),
           }),
-          ({ manifestUrl, autoDownload }) => {
+          ({ autoDownload }) => {
             const { setupUpdater } = require('./controller');
 
             const devConfig = {
@@ -579,7 +535,72 @@ describe('setupUpdater', () => {
             const config = {
               autoUpdate: true,
               logLevel: 'info' as const,
-              manifestUrl,
+            };
+
+            setupUpdater(autoDownload, config, devConfig);
+
+            expect(mockAutoUpdater.setFeedURL).toHaveBeenCalledWith({
+              provider: 'github',
+              owner: '941design',
+              repo: 'slim-chat',
+            });
+          }
+        ),
+        { numRuns: 50 }
+      );
+    });
+
+    it('P003b: Dev mode always uses generic provider when devUpdateSource set', () => {
+      fc.assert(
+        fc.property(
+          fc.record({
+            devUpdateSource: fc.webUrl(),
+            autoDownload: fc.boolean(),
+          }),
+          ({ devUpdateSource, autoDownload }) => {
+            const { setupUpdater } = require('./controller');
+
+            const devConfig = {
+              forceDevUpdateConfig: false,
+              devUpdateSource,
+              allowPrerelease: false,
+            };
+
+            const config = {
+              autoUpdate: true,
+              logLevel: 'info' as const,
+            };
+
+            setupUpdater(autoDownload, config, devConfig);
+
+            expect(mockAutoUpdater.setFeedURL).toHaveBeenCalledWith({
+              provider: 'generic',
+              url: devUpdateSource,
+            });
+          }
+        ),
+        { numRuns: 50 }
+      );
+    });
+
+    it('P004: Backward compatibility - no dev config means GitHub provider', () => {
+      fc.assert(
+        fc.property(
+          fc.record({
+            autoDownload: fc.boolean(),
+          }),
+          ({ autoDownload }) => {
+            const { setupUpdater } = require('./controller');
+
+            const devConfig = {
+              forceDevUpdateConfig: false,
+              devUpdateSource: undefined,
+              allowPrerelease: false,
+            };
+
+            const config = {
+              autoUpdate: true,
+              logLevel: 'info' as const,
             };
 
             setupUpdater(autoDownload, config, devConfig);
@@ -589,16 +610,10 @@ describe('setupUpdater', () => {
             expect(mockAutoUpdater.autoDownload).toBe(autoDownload);
             expect(mockAutoUpdater.autoInstallOnAppQuit).toBe(false);
 
-            let expectedUrl: string;
-            if (manifestUrl) {
-              expectedUrl = manifestUrl.replace(/\/manifest\.json$/, '');
-            } else {
-              expectedUrl = 'https://github.com/941design/slim-chat/releases/download/v1.0.0';
-            }
-
             expect(mockAutoUpdater.setFeedURL).toHaveBeenCalledWith({
-              provider: 'generic',
-              url: expectedUrl,
+              provider: 'github',
+              owner: '941design',
+              repo: 'slim-chat',
             });
           }
         ),
@@ -634,7 +649,7 @@ describe('setupUpdater', () => {
       );
     });
 
-    it('P006: manifestUrl suffix removal correct', () => {
+    it('P006: Old configs with manifestUrl are ignored gracefully', () => {
       fc.assert(
         fc.property(
           fc.webUrl(),
@@ -655,9 +670,11 @@ describe('setupUpdater', () => {
 
             setupUpdater(true, config, devConfig);
 
+            // manifestUrl is ignored - GitHub provider always used in production
             expect(mockAutoUpdater.setFeedURL).toHaveBeenCalledWith({
-              provider: 'generic',
-              url: baseUrl,
+              provider: 'github',
+              owner: '941design',
+              repo: 'slim-chat',
             });
           }
         ),
@@ -749,14 +766,44 @@ describe('setupUpdater', () => {
       );
     });
 
-    it('P010: Feed URL always logged', () => {
+    it('P010: Production feed URL always logged', () => {
       fc.assert(
         fc.property(
           fc.record({
-            devUpdateSource: fc.option(fc.webUrl(), { nil: undefined }),
-            manifestUrl: fc.option(fc.webUrl().map(url => url + '/manifest.json'), { nil: undefined }),
+            autoDownload: fc.boolean(),
           }),
-          ({ devUpdateSource, manifestUrl }) => {
+          ({ autoDownload }) => {
+            const { setupUpdater } = require('./controller');
+            mockLog.mockClear();
+
+            const devConfig = {
+              forceDevUpdateConfig: false,
+              devUpdateSource: undefined,
+              allowPrerelease: false,
+            };
+
+            const config = {
+              autoUpdate: true,
+              logLevel: 'info' as const,
+            };
+
+            setupUpdater(autoDownload, config, devConfig);
+
+            expect(mockLog).toHaveBeenCalledWith('info', 'Update feed configured: GitHub provider (941design/slim-chat)');
+          }
+        ),
+        { numRuns: 50 }
+      );
+    });
+
+    it('P010b: Dev mode feed URL always logged', () => {
+      fc.assert(
+        fc.property(
+          fc.record({
+            devUpdateSource: fc.webUrl(),
+            autoDownload: fc.boolean(),
+          }),
+          ({ devUpdateSource, autoDownload }) => {
             const { setupUpdater } = require('./controller');
             mockLog.mockClear();
 
@@ -769,35 +816,24 @@ describe('setupUpdater', () => {
             const config = {
               autoUpdate: true,
               logLevel: 'info' as const,
-              manifestUrl,
             };
 
-            setupUpdater(true, config, devConfig);
+            setupUpdater(autoDownload, config, devConfig);
 
-            let expectedUrl: string;
-            if (devUpdateSource) {
-              expectedUrl = devUpdateSource;
-            } else if (manifestUrl) {
-              expectedUrl = manifestUrl.replace(/\/manifest\.json$/, '');
-            } else {
-              expectedUrl = 'https://github.com/941design/slim-chat/releases/download/v1.0.0';
-            }
-
-            expect(mockLog).toHaveBeenCalledWith('info', `Update feed URL configured: ${expectedUrl}`);
+            expect(mockLog).toHaveBeenCalledWith('info', `Dev mode: using custom update source: ${devUpdateSource}`);
           }
         ),
-        { numRuns: 100 }
+        { numRuns: 50 }
       );
     });
 
-    it('P011: setFeedURL always called with generic provider', () => {
+    it('P011: setFeedURL always called exactly once with correct provider', () => {
       fc.assert(
         fc.property(
           fc.record({
             devUpdateSource: fc.option(fc.webUrl(), { nil: undefined }),
-            manifestUrl: fc.option(fc.webUrl(), { nil: undefined }),
           }),
-          ({ devUpdateSource, manifestUrl }) => {
+          ({ devUpdateSource }) => {
             const { setupUpdater } = require('./controller');
             mockAutoUpdater.setFeedURL.mockClear();
 
@@ -810,16 +846,21 @@ describe('setupUpdater', () => {
             const config = {
               autoUpdate: true,
               logLevel: 'info' as const,
-              manifestUrl,
             };
 
             setupUpdater(true, config, devConfig);
 
             expect(mockAutoUpdater.setFeedURL).toHaveBeenCalledTimes(1);
             const callArgs = mockAutoUpdater.setFeedURL.mock.calls[0][0];
-            expect(callArgs.provider).toBe('generic');
-            expect(typeof callArgs.url).toBe('string');
-            expect(callArgs.url.length).toBeGreaterThan(0);
+
+            if (devUpdateSource) {
+              expect(callArgs.provider).toBe('generic');
+              expect(callArgs.url).toBe(devUpdateSource);
+            } else {
+              expect(callArgs.provider).toBe('github');
+              expect(callArgs.owner).toBe('941design');
+              expect(callArgs.repo).toBe('slim-chat');
+            }
           }
         ),
         { numRuns: 100 }
@@ -828,7 +869,7 @@ describe('setupUpdater', () => {
   });
 
   describe('Example-Based Critical Tests', () => {
-    it('E001: Production mode with no dev config', () => {
+    it('E001: Production mode with no dev config uses GitHub provider', () => {
       const { setupUpdater } = require('./controller');
 
       const devConfig = {
@@ -840,7 +881,6 @@ describe('setupUpdater', () => {
       const config = {
         autoUpdate: true,
         logLevel: 'info' as const,
-        manifestUrl: 'https://example.com/updates/manifest.json',
       };
 
       setupUpdater(false, config, devConfig);
@@ -850,8 +890,9 @@ describe('setupUpdater', () => {
       expect(mockAutoUpdater.forceDevUpdateConfig).toBe(false);
       expect(mockAutoUpdater.allowPrerelease).toBe(false);
       expect(mockAutoUpdater.setFeedURL).toHaveBeenCalledWith({
-        provider: 'generic',
-        url: 'https://example.com/updates',
+        provider: 'github',
+        owner: '941design',
+        repo: 'slim-chat',
       });
     });
 
@@ -953,7 +994,7 @@ describe('setupUpdater', () => {
       expect(mockAutoUpdater.allowPrerelease).toBe(false);
     });
 
-    it('E006: Default GitHub URL when no sources specified', () => {
+    it('E006: Default GitHub provider when no sources specified', () => {
       const { setupUpdater } = require('./controller');
 
       const devConfig = {
@@ -970,12 +1011,13 @@ describe('setupUpdater', () => {
       setupUpdater(true, config, devConfig);
 
       expect(mockAutoUpdater.setFeedURL).toHaveBeenCalledWith({
-        provider: 'generic',
-        url: 'https://github.com/941design/slim-chat/releases/download/v1.0.0',
+        provider: 'github',
+        owner: '941design',
+        repo: 'slim-chat',
       });
     });
 
-    it('E007: manifestUrl without /manifest.json suffix handled correctly', () => {
+    it('E007: Old config with manifestUrl field is ignored (backward compatible)', () => {
       const { setupUpdater } = require('./controller');
 
       const devConfig = {
@@ -992,9 +1034,11 @@ describe('setupUpdater', () => {
 
       setupUpdater(true, config, devConfig);
 
+      // manifestUrl is ignored, GitHub provider always used
       expect(mockAutoUpdater.setFeedURL).toHaveBeenCalledWith({
-        provider: 'generic',
-        url: 'https://example.com/updates/v1.0.0',
+        provider: 'github',
+        owner: '941design',
+        repo: 'slim-chat',
       });
     });
 
@@ -1013,7 +1057,6 @@ describe('setupUpdater', () => {
         forceDevUpdateConfig: false,
         devUpdateSource: 'https://config.example.com',
         allowPrerelease: false,
-        manifestUrl: 'https://manifest.example.com/manifest.json',
       };
 
       setupUpdater(false, config, devConfig);
@@ -1027,7 +1070,7 @@ describe('setupUpdater', () => {
       });
     });
 
-    it('E009: Partial devConfig (only forceDevUpdateConfig set)', () => {
+    it('E009: Partial devConfig (only forceDevUpdateConfig set, activates dev mode)', () => {
       const { setupUpdater } = require('./controller');
 
       const devConfig = {
@@ -1040,7 +1083,6 @@ describe('setupUpdater', () => {
         autoUpdate: true,
         logLevel: 'info' as const,
         devUpdateSource: 'https://config.example.com',
-        manifestUrl: 'https://manifest.example.com/manifest.json',
       };
 
       setupUpdater(true, config, devConfig);
@@ -1052,7 +1094,7 @@ describe('setupUpdater', () => {
       });
     });
 
-    it('E010: All false/undefined produces safe defaults', () => {
+    it('E010: All false/undefined produces safe defaults with GitHub provider', () => {
       const { setupUpdater } = require('./controller');
 
       const devConfig = {
@@ -1073,8 +1115,9 @@ describe('setupUpdater', () => {
       expect(mockAutoUpdater.autoDownload).toBe(true);
       expect(mockAutoUpdater.autoInstallOnAppQuit).toBe(false);
       expect(mockAutoUpdater.setFeedURL).toHaveBeenCalledWith({
-        provider: 'generic',
-        url: 'https://github.com/941design/slim-chat/releases/download/v1.0.0',
+        provider: 'github',
+        owner: '941design',
+        repo: 'slim-chat',
       });
     });
   });

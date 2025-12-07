@@ -10,127 +10,165 @@ import { constructManifestUrl, fetchManifest, verifyDownloadedUpdate } from './i
 import { UpdateDownloadedEvent } from 'electron-updater';
 
 describe('constructManifestUrl', () => {
-  describe('Property: Override priority - manifestUrl takes precedence', () => {
-    it('should return manifestUrl when provided, ignoring publishConfig', () => {
-      const overrideUrl = 'https://custom.example.com/manifest.json';
+  describe('Property: Dev mode takes precedence when devUpdateSource provided', () => {
+    it('should return devUpdateSource with /manifest.json appended when provided', () => {
+      const devUpdateSource = 'https://github.com/941design/slim-chat/releases/download/v1.0.0';
       const publishConfig = { owner: 'user', repo: 'app' };
 
-      const result = constructManifestUrl(publishConfig, '1.0.0', overrideUrl);
+      const result = constructManifestUrl(publishConfig, devUpdateSource);
 
-      expect(result).toBe(overrideUrl);
+      expect(result).toBe(devUpdateSource + '/manifest.json');
     });
 
-    it('should return manifestUrl even when publishConfig is invalid', () => {
-      const overrideUrl = 'https://custom.example.com/manifest.json';
+    it('should handle devUpdateSource ending with /', () => {
+      const devUpdateSource = 'https://github.com/941design/slim-chat/releases/download/v1.0.0/';
+      const publishConfig = { owner: 'user', repo: 'app' };
+
+      const result = constructManifestUrl(publishConfig, devUpdateSource);
+
+      expect(result).toBe(devUpdateSource + 'manifest.json');
+    });
+
+    it('should use devUpdateSource even when publishConfig is invalid', () => {
+      const devUpdateSource = 'https://custom.example.com/updates';
       const publishConfig = {};
 
-      const result = constructManifestUrl(publishConfig, '1.0.0', overrideUrl);
+      const result = constructManifestUrl(publishConfig, devUpdateSource);
 
-      expect(result).toBe(overrideUrl);
+      expect(result).toBe(devUpdateSource + '/manifest.json');
     });
 
-    it('should return manifestUrl unchanged (determinism of override)', () => {
+    it('P001: Dev mode always appends /manifest.json correctly', () => {
       fc.assert(
         fc.property(
           fc.webUrl(),
           fc.object({ maxDepth: 1 }),
-          fc.string(),
-          (manifestUrl, publishConfig, version) => {
-            const result = constructManifestUrl(publishConfig as any, version, manifestUrl);
-            expect(result).toBe(manifestUrl);
+          (devUpdateSource, publishConfig) => {
+            const result = constructManifestUrl(publishConfig as any, devUpdateSource);
+            expect(result).toMatch(/manifest\.json$/);
+            expect(result.includes(devUpdateSource.replace(/\/$/, ''))).toBe(true);
           }
         ),
-        { numRuns: 100 }
+        { numRuns: 50 }
       );
     });
   });
 
-  describe('Property: URL format matches specification exactly', () => {
-    it('should construct URL with correct GitHub release download format', () => {
+  describe('Property: Production mode uses /latest/download/ path', () => {
+    it('should construct URL with /latest/download/ for cross-version discovery', () => {
       const result = constructManifestUrl(
         { owner: 'user', repo: 'app' },
-        '1.0.0'
+        undefined
       );
 
-      expect(result).toBe('https://github.com/user/app/releases/download/v1.0.0/manifest.json');
+      expect(result).toBe('https://github.com/user/app/releases/latest/download/manifest.json');
     });
 
-    it('should produce URLs matching the GitHub release pattern', () => {
+    it('P002: Production URL always contains /latest/download/', () => {
       fc.assert(
         fc.property(
           fc.stringMatching(/^[a-zA-Z0-9\-_.]+$/),
           fc.stringMatching(/^[a-zA-Z0-9\-_.]+$/),
-          fc.stringMatching(/^[0-9]+\.[0-9]+\.[0-9]+$/),
-          (owner, repo, version) => {
-            const result = constructManifestUrl(
-              { owner, repo },
-              version
+          (owner, repo) => {
+            const result = constructManifestUrl({ owner, repo }, undefined);
+            expect(result).toContain('/latest/download/');
+            expect(result).toMatch(
+              new RegExp(`^https://github\\.com/${owner}/${repo}/releases/latest/download/manifest\\.json$`)
             );
-
-            const pattern = new RegExp(
-              `^https://github\\.com/${owner}/${repo}/releases/download/v${version}/manifest\\.json$`
-            );
-            expect(result).toMatch(pattern);
           }
         ),
-        { numRuns: 100 }
+        { numRuns: 50 }
+      );
+    });
+
+    it('P003: Production URL always ends with /manifest.json', () => {
+      fc.assert(
+        fc.property(
+          fc.stringMatching(/^[a-zA-Z0-9\-_.]+$/),
+          fc.stringMatching(/^[a-zA-Z0-9\-_.]+$/),
+          (owner, repo) => {
+            const result = constructManifestUrl({ owner, repo }, undefined);
+            expect(result).toMatch(/\/manifest\.json$/);
+          }
+        ),
+        { numRuns: 50 }
+      );
+    });
+
+    it('P004: Dev mode URL always ends with /manifest.json', () => {
+      fc.assert(
+        fc.property(
+          fc.webUrl(),
+          (devUpdateSource) => {
+            const result = constructManifestUrl({}, devUpdateSource);
+            expect(result).toMatch(/\/manifest\.json$/);
+          }
+        ),
+        { numRuns: 50 }
       );
     });
   });
 
-  describe('Error handling: Empty or missing owner', () => {
-    it('should throw error when owner is missing', () => {
+  describe('Error handling: Empty or missing owner (production mode)', () => {
+    it('should throw error when owner is missing and no devUpdateSource', () => {
       expect(() =>
-        constructManifestUrl({ repo: 'app' }, '1.0.0')
+        constructManifestUrl({ repo: 'app' }, undefined)
       ).toThrow('GitHub owner not configured');
     });
 
-    it('should throw error when owner is empty string', () => {
+    it('should throw error when owner is empty string and no devUpdateSource', () => {
       expect(() =>
-        constructManifestUrl({ owner: '', repo: 'app' }, '1.0.0')
+        constructManifestUrl({ owner: '', repo: 'app' }, undefined)
       ).toThrow('GitHub owner not configured');
     });
 
-    it('should throw error when owner is only whitespace', () => {
+    it('should throw error when owner is only whitespace and no devUpdateSource', () => {
       expect(() =>
-        constructManifestUrl({ owner: '   ', repo: 'app' }, '1.0.0')
+        constructManifestUrl({ owner: '   ', repo: 'app' }, undefined)
       ).toThrow('GitHub owner not configured');
     });
   });
 
-  describe('Error handling: Empty or missing repo', () => {
-    it('should throw error when repo is missing', () => {
+  describe('Error handling: Empty or missing repo (production mode)', () => {
+    it('should throw error when repo is missing and no devUpdateSource', () => {
       expect(() =>
-        constructManifestUrl({ owner: 'user' }, '1.0.0')
+        constructManifestUrl({ owner: 'user' }, undefined)
       ).toThrow('GitHub repo not configured');
     });
 
-    it('should throw error when repo is empty string', () => {
+    it('should throw error when repo is empty string and no devUpdateSource', () => {
       expect(() =>
-        constructManifestUrl({ owner: 'user', repo: '' }, '1.0.0')
+        constructManifestUrl({ owner: 'user', repo: '' }, undefined)
       ).toThrow('GitHub repo not configured');
     });
 
-    it('should throw error when repo is only whitespace', () => {
+    it('should throw error when repo is only whitespace and no devUpdateSource', () => {
       expect(() =>
-        constructManifestUrl({ owner: 'user', repo: '   ' }, '1.0.0')
+        constructManifestUrl({ owner: 'user', repo: '   ' }, undefined)
       ).toThrow('GitHub repo not configured');
     });
   });
 
   describe('Examples from specification', () => {
-    it('should match example 1: { owner: "user", repo: "app" } with version "1.0.0"', () => {
-      const result = constructManifestUrl({ owner: 'user', repo: 'app' }, '1.0.0');
-      expect(result).toBe('https://github.com/user/app/releases/download/v1.0.0/manifest.json');
+    it('should match production example: 941design/slim-chat', () => {
+      const result = constructManifestUrl({ owner: '941design', repo: 'slim-chat' }, undefined);
+      expect(result).toBe('https://github.com/941design/slim-chat/releases/latest/download/manifest.json');
     });
 
-    it('should match example 2: empty config with custom manifestUrl override', () => {
+    it('should match dev example with GitHub release URL', () => {
       const result = constructManifestUrl(
         {},
-        '1.0.0',
-        'https://custom.com/manifest.json'
+        'https://github.com/941design/slim-chat/releases/download/v1.0.0'
       );
-      expect(result).toBe('https://custom.com/manifest.json');
+      expect(result).toBe('https://github.com/941design/slim-chat/releases/download/v1.0.0/manifest.json');
+    });
+
+    it('should match dev example with local file URL', () => {
+      const result = constructManifestUrl(
+        {},
+        'file://./test-manifests/v1.0.0'
+      );
+      expect(result).toBe('file://./test-manifests/v1.0.0/manifest.json');
     });
   });
 });

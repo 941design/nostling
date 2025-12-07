@@ -116,7 +116,6 @@ export function formatBytes(bytes: number): string {
  *       - forceDevUpdateConfig: boolean or undefined
  *       - devUpdateSource: string (URL or file:// path) or undefined
  *       - allowPrerelease: boolean or undefined
- *       - manifestUrl: string or undefined (existing field, used as fallback)
  *     - devConfig: DevUpdateConfig object from environment:
  *       - forceDevUpdateConfig: boolean (from env vars)
  *       - devUpdateSource: string or undefined (from env vars)
@@ -128,7 +127,8 @@ export function formatBytes(bytes: number): string {
  *   Invariants:
  *     - autoUpdater.autoDownload set to autoDownloadEnabled
  *     - autoUpdater.autoInstallOnAppQuit always false (user must restart manually)
- *     - autoUpdater.setFeedURL configured for generic provider with correct URL
+ *     - Production mode: use GitHub provider with owner/repo configuration
+ *     - Dev mode with devUpdateSource: use generic provider for file:// URL support
  *     - In production builds: forceDevUpdateConfig and allowPrerelease NEVER enabled (constraint C1)
  *     - Environment variables take precedence over config file for dev settings
  *     - Config file values used as fallback when env vars not set
@@ -143,9 +143,10 @@ export function formatBytes(bytes: number): string {
  *     1. Set basic autoUpdater configuration (autoDownload, autoInstallOnAppQuit)
  *
  *     2. Determine effective dev mode settings (precedence: env > config > default):
- *        a. forceDevUpdateConfig = devConfig.forceDevUpdateConfig OR config.forceDevUpdateConfig OR false
- *        b. devUpdateSource = devConfig.devUpdateSource OR config.devUpdateSource OR undefined
- *        c. allowPrerelease = devConfig.allowPrerelease OR config.allowPrerelease OR false
+ *        a. isDevModeActive = devConfig.forceDevUpdateConfig OR Boolean(devConfig.devUpdateSource) OR devConfig.allowPrerelease
+ *        b. forceDevUpdateConfig = devConfig.forceDevUpdateConfig OR (isDevModeActive AND config.forceDevUpdateConfig) OR false
+ *        c. devUpdateSource = devConfig.devUpdateSource OR (isDevModeActive AND config.devUpdateSource) OR undefined
+ *        d. allowPrerelease = devConfig.allowPrerelease OR (isDevModeActive AND config.allowPrerelease) OR false
  *
  *     3. Configure forceDevUpdateConfig:
  *        - Set autoUpdater.forceDevUpdateConfig to effective value
@@ -155,32 +156,34 @@ export function formatBytes(bytes: number): string {
  *        - Set autoUpdater.allowPrerelease to effective value
  *        - Log if enabled for diagnostics (FR5)
  *
- *     5. Determine feed URL (precedence: devUpdateSource > manifestUrl > default GitHub):
- *        a. If devUpdateSource is set:
- *           - Use devUpdateSource as base URL
- *           - Log source for diagnostics (FR5)
- *        b. Else if config.manifestUrl is set:
- *           - Extract base URL from manifestUrl (remove /manifest.json suffix)
- *           - Use as feed URL
- *        c. Else use default GitHub releases URL
- *
- *     6. Configure feed URL:
- *        - Call autoUpdater.setFeedURL with generic provider
- *        - Set url to determined feed URL
- *        - Log configured URL for diagnostics (FR5)
+ *     5. Configure feed URL based on mode:
+ *        IF devUpdateSource is set:
+ *          // Dev mode: use generic provider for file:// URL support
+ *          autoUpdater.setFeedURL({
+ *            provider: 'generic',
+ *            url: devUpdateSource
+ *          })
+ *          log('info', `Dev mode: using custom update source: ${devUpdateSource}`)
+ *        ELSE:
+ *          // Production mode: use GitHub provider
+ *          autoUpdater.setFeedURL({
+ *            provider: 'github',
+ *            owner: '941design',
+ *            repo: 'slim-chat'
+ *          })
+ *          log('info', 'Update feed configured: GitHub provider (941design/slim-chat)')
  *
  *   Examples:
  *     Production mode (devConfig all false/undefined):
- *       - config = { manifestUrl: "https://..." }
- *       - Result: Standard GitHub feed, no dev features enabled
+ *       - Result: GitHub provider, no dev features enabled
  *
  *     Dev mode with GitHub releases:
  *       - devConfig = { forceDevUpdateConfig: true, devUpdateSource: "https://github.com/941design/slim-chat/releases/download/v1.0.0", allowPrerelease: false }
- *       - Result: Force dev updates, use specified GitHub release, no prereleases
+ *       - Result: Force dev updates, generic provider with specified GitHub release, no prereleases
  *
  *     Dev mode with local manifest:
  *       - devConfig = { forceDevUpdateConfig: true, devUpdateSource: "file://./test-manifests/v1.0.0", allowPrerelease: true }
- *       - Result: Force dev updates, use local file, allow prereleases
+ *       - Result: Force dev updates, generic provider with local file, allow prereleases
  *
  *     Dev mode with env override:
  *       - config = { forceDevUpdateConfig: false }
@@ -217,25 +220,23 @@ export function setupUpdater(
     log('info', 'Dev mode: allowPrerelease enabled');
   }
 
-  let feedUrl: string;
+  // Configure feed URL based on mode
   if (devUpdateSource) {
-    feedUrl = devUpdateSource;
+    // Dev mode: use generic provider for file:// URL support
+    autoUpdater.setFeedURL({
+      provider: 'generic',
+      url: devUpdateSource,
+    });
     log('info', `Dev mode: using custom update source: ${devUpdateSource}`);
-  } else if (config.manifestUrl) {
-    feedUrl = config.manifestUrl.replace(/\/manifest\.json$/, '');
   } else {
-    const owner = '941design';
-    const repo = 'slim-chat';
-    const version = app.getVersion();
-    feedUrl = `https://github.com/${owner}/${repo}/releases/download/v${version}`;
+    // Production mode: use GitHub provider
+    autoUpdater.setFeedURL({
+      provider: 'github',
+      owner: '941design',
+      repo: 'slim-chat',
+    });
+    log('info', 'Update feed configured: GitHub provider (941design/slim-chat)');
   }
-
-  autoUpdater.setFeedURL({
-    provider: 'generic',
-    url: feedUrl
-  });
-
-  log('info', `Update feed URL configured: ${feedUrl}`);
 }
 
 /**

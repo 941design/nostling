@@ -3,7 +3,8 @@ export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 export interface AppConfig {
   autoUpdate: boolean;
   logLevel: LogLevel;
-  manifestUrl?: string;
+  // manifestUrl removed - manifest URL now always derived from GitHub repo in production
+  // or from devUpdateSource in dev mode
   autoUpdateBehavior?: 'manual' | 'auto-download'; // GAP-005
   logRetentionDays?: number; // GAP-011
   logMaxFileSizeMB?: number; // GAP-011

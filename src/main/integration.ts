@@ -10,54 +10,73 @@ import { SignedManifest, UpdateState } from '../shared/types';
 import { verifyManifest } from './security/verify';
 
 /**
- * Construct manifest URL from package.json publish config
+ * Construct manifest URL for update verification
  *
  * CONTRACT:
  *   Inputs:
- *     - publishConfig: object with fields:
+ *     - publishConfig: object with optional fields:
  *       - owner: GitHub username or organization
  *       - repo: repository name
- *     - version: version string (e.g., "1.0.0")
- *     - manifestUrl: optional override URL (if provided, use instead of constructing)
+ *     - devUpdateSource: optional string (dev mode override URL)
  *
  *   Outputs:
- *     - string: manifest URL or error
- *     - throws Error if publishConfig incomplete and no manifestUrl provided
+ *     - string: manifest URL
+ *     - throws Error if publishConfig incomplete and no devUpdateSource
  *
  *   Invariants:
- *     - If manifestUrl provided, return it unchanged
- *     - Otherwise, construct from GitHub release pattern
- *     - URL format: https://github.com/{owner}/{repo}/releases/download/v{version}/manifest.json
+ *     - Production: always uses /latest/download/ path (cross-version discovery)
+ *     - Dev mode: derives URL from devUpdateSource
+ *     - URL format matches electron-updater GitHub provider expectations
  *
  *   Properties:
- *     - Override priority: manifestUrl takes precedence over constructed URL
+ *     - Cross-version discovery: production URL independent of current version
+ *     - Dev mode flexibility: supports custom URLs including file://
  *     - GitHub convention: follows electron-updater GitHub provider pattern
  *
  *   Algorithm:
- *     1. If manifestUrl is defined and non-empty, return manifestUrl
- *     2. Validate publishConfig:
- *        - If owner missing or empty, throw Error("GitHub owner not configured")
- *        - If repo missing or empty, throw Error("GitHub repo not configured")
- *     3. Construct URL: `https://github.com/${owner}/${repo}/releases/download/v${version}/manifest.json`
- *     4. Return constructed URL
+ *     1. If devUpdateSource is defined and non-empty:
+ *        a. If devUpdateSource ends with '/':
+ *           - Return devUpdateSource + 'manifest.json'
+ *        b. Else:
+ *           - Return devUpdateSource + '/manifest.json'
+ *
+ *     2. Validate publishConfig (production mode):
+ *        a. Extract owner = publishConfig.owner?.trim()
+ *        b. Extract repo = publishConfig.repo?.trim()
+ *        c. If owner is empty or undefined, throw Error("GitHub owner not configured")
+ *        d. If repo is empty or undefined, throw Error("GitHub repo not configured")
+ *
+ *     3. Construct production URL:
+ *        - Return `https://github.com/${owner}/${repo}/releases/latest/download/manifest.json`
+ *        - NOTE: /latest/download/ path (NOT version-specific)
  *
  *   Examples:
- *     - constructManifestUrl({ owner: "user", repo: "app" }, "1.0.0", undefined)
- *       → "https://github.com/user/app/releases/download/v1.0.0/manifest.json"
- *     - constructManifestUrl({}, "1.0.0", "https://custom.com/manifest.json")
- *       → "https://custom.com/manifest.json"
+ *     Production mode:
+ *       constructManifestUrl({ owner: "941design", repo: "slim-chat" }, undefined)
+ *       → "https://github.com/941design/slim-chat/releases/latest/download/manifest.json"
+ *
+ *     Dev mode with GitHub release:
+ *       constructManifestUrl({}, "https://github.com/941design/slim-chat/releases/download/v1.0.0")
+ *       → "https://github.com/941design/slim-chat/releases/download/v1.0.0/manifest.json"
+ *
+ *     Dev mode with local file:
+ *       constructManifestUrl({}, "file://./test-manifests/v1.0.0")
+ *       → "file://./test-manifests/v1.0.0/manifest.json"
  */
 export function constructManifestUrl(
   publishConfig: { owner?: string; repo?: string },
-  version: string,
-  manifestUrl?: string
+  devUpdateSource?: string
 ): string {
-  // If manifestUrl is provided and non-empty, return it as-is
-  if (manifestUrl) {
-    return manifestUrl;
+  // Dev mode: use devUpdateSource as base URL
+  if (devUpdateSource) {
+    if (devUpdateSource.endsWith('/')) {
+      return devUpdateSource + 'manifest.json';
+    } else {
+      return devUpdateSource + '/manifest.json';
+    }
   }
 
-  // Validate publishConfig
+  // Production mode: validate publishConfig and construct URL
   const owner = publishConfig.owner?.trim();
   const repo = publishConfig.repo?.trim();
 
@@ -69,11 +88,8 @@ export function constructManifestUrl(
     throw new Error('GitHub repo not configured');
   }
 
-  // Ensure version starts with 'v'
-  const versionTag = version.startsWith('v') ? version : `v${version}`;
-
-  // Construct and return the URL
-  return `https://github.com/${owner}/${repo}/releases/download/${versionTag}/manifest.json`;
+  // Production: use /latest/download/ for cross-version discovery
+  return `https://github.com/${owner}/${repo}/releases/latest/download/manifest.json`;
 }
 
 /**
