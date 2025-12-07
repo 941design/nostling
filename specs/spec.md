@@ -270,6 +270,7 @@ Timeline:
 * **Footer**
 
   * Version text: `vX.Y.Z` (current version, from IPC).
+  * Last update check timestamp: "Last checked: [timestamp]" or "No update check yet".
   * Security indicator: "RSA manifest verification enabled".
 
 * **Sidebar (left)**
@@ -293,14 +294,10 @@ Timeline:
     * "Updates served via GitHub Releases"
     * "Manifest signature required"
 
-* **Main area (right) — Status Dashboard**
+* **Main area (right)**
 
-  * Cards/sections:
-
-    * **Version**: Current app version.
-    * **Platform**: OS platform identifier.
-    * **Last update check**: Timestamp or "Not yet checked".
-    * **Recent Logs**: Tail of log with update-related entries.
+  * Available for future features.
+  * Currently displays placeholder text.
 
 ### 3.4 Logging
 
@@ -892,11 +889,10 @@ Property-based tests verify:
 
   * Header, footer, sidebar, and main area are visible.
   * Sidebar shows an update status component at its bottom.
-  * Main area shows status dashboard with:
+  * Footer displays:
 
     * Current version.
-    * Platform information.
-    * Last update check as "Not yet checked" or equivalent.
+    * Last update check timestamp or "No update check yet".
 
 ### 11.2 Update Behavior
 
@@ -911,7 +907,7 @@ Property-based tests verify:
     * Sidebar shows "Restart to apply" with a button.
   * On clicking the button:
 
-    * App restarts and runs the new version (version text updated in footer and status dashboard).
+    * App restarts and runs the new version (version text updated in footer).
 
 * When no new release is available:
 
@@ -942,7 +938,7 @@ Property-based tests verify:
 ### 11.4 Logging & Config
 
 * A log file is created on first run in the user's data directory.
-* Status dashboard can display recent log entries.
+* Logs are accessible via IPC for future diagnostic features.
 * Changing log level in config affects new log entries on next startup.
 * Config file is created with default values if nonexistent, and loading it does not crash the app even if partially corrupted (fallback to defaults with logged warning).
 

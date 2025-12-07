@@ -15,7 +15,7 @@ test.describe('SlimChat Application', () => {
     await expect(page.locator('.subtitle')).toHaveText('Secure auto-update shell');
 
     await expect(page.locator('.app-footer')).toBeVisible();
-    await expect(page.locator('.app-footer .mono')).toHaveText('RSA manifest verification enabled');
+    await expect(page.locator('.app-footer .mono').first()).toHaveText('RSA manifest verification enabled');
   });
 
   test('should display version information', async ({ page }) => {
@@ -24,15 +24,6 @@ test.describe('SlimChat Application', () => {
     const version = await getAppVersion(page);
     expect(version).toBeTruthy();
     expect(version).toMatch(/^\d+\.\d+\.\d+$/);
-  });
-
-  test('should display status dashboard', async ({ page }) => {
-    await waitForAppReady(page);
-
-    await expect(page.locator('h2:has-text("Status dashboard")')).toBeVisible();
-    await expect(page.locator('.card-title:has-text("Version")')).toBeVisible();
-    await expect(page.locator('.card-title:has-text("Platform")')).toBeVisible();
-    await expect(page.locator('.card-title:has-text("Last update check")')).toBeVisible();
   });
 
   test('should display sidebar with update status', async ({ page }) => {
@@ -51,21 +42,5 @@ test.describe('SlimChat Application', () => {
     const button = page.locator('button.primary');
     await expect(button).toBeVisible();
     await expect(button).toBeEnabled();
-  });
-
-  test('should display log panel', async ({ page }) => {
-    await waitForAppReady(page);
-
-    await expect(page.locator('.log-panel')).toBeVisible();
-    await expect(page.locator('h3:has-text("Recent update logs")')).toBeVisible();
-  });
-
-  test('should display platform information correctly', async ({ page }) => {
-    await waitForAppReady(page);
-
-    const platformCard = page.locator('.card-title:has-text("Platform")').locator('..');
-    const platformValue = await platformCard.locator('.card-value').textContent();
-
-    expect(['darwin', 'linux', 'win32']).toContain(platformValue);
   });
 });

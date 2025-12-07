@@ -32,15 +32,6 @@ test.describe('Update System', () => {
     await expect(page.locator('.sidebar-footer .small:has-text("Manifest signature required")')).toBeVisible();
   });
 
-  test('should show last update check as not yet checked initially', async ({ page }) => {
-    await waitForAppReady(page);
-
-    const lastCheckCard = page.locator('.card-title:has-text("Last update check")').locator('..');
-    const lastCheckValue = await lastCheckCard.locator('.card-value').textContent();
-
-    expect(lastCheckValue).toBeTruthy();
-  });
-
   test('button should be disabled during downloading state', async ({ page, electronApp }) => {
     await waitForAppReady(page);
 

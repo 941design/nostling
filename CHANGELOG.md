@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Simplified UI by removing Status Dashboard from main area
+  - Moved "Last Update Check" timestamp to footer alongside version info
+  - Removed InfoCard, LogPanel, and StatusDashboard components
+  - Main content area now available for future features
+
 ### Added
 - **Dev Mode Update Testing**: Test auto-updates locally before releasing to users
   - Automatic dev mode detection via `VITE_DEV_SERVER_URL` environment variable

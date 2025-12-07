@@ -63,11 +63,12 @@ function Header() {
   );
 }
 
-function Footer({ version }: { version?: string }) {
+function Footer({ version, lastUpdateCheck }: { version?: string; lastUpdateCheck?: string }) {
   return (
     <footer className="app-footer">
       <span>{version ? `v${version}` : 'Loading version...'}</span>
       <span className="mono">RSA manifest verification enabled</span>
+      <span className="mono">Last check: {lastUpdateCheck ? new Date(lastUpdateCheck).toLocaleString() : 'Not yet checked'}</span>
     </footer>
   );
 }
@@ -134,49 +135,6 @@ function Sidebar({ updateState, onCheck, onRestart, onDownload }: { updateState:
   );
 }
 
-function StatusDashboard({ status }: { status: AppStatus }) {
-  return (
-    <div className="dashboard">
-      <h2>Status dashboard</h2>
-      <div className="grid">
-        <InfoCard title="Version" value={`v${status.version}`} />
-        <InfoCard title="Platform" value={status.platform} />
-        <InfoCard title="Last update check" value={status.lastUpdateCheck ? new Date(status.lastUpdateCheck).toLocaleString() : 'Not yet checked'} />
-      </div>
-      <LogPanel logs={status.logs} />
-    </div>
-  );
-}
-
-function InfoCard({ title, value }: { title: string; value: string }) {
-  return (
-    <div className="card">
-      <div className="card-title">{title}</div>
-      <div className="card-value">{value}</div>
-    </div>
-  );
-}
-
-function LogPanel({ logs }: { logs: AppStatus['logs'] }) {
-  return (
-    <section className="log-panel">
-      <div className="log-header">
-        <h3>Recent update logs</h3>
-      </div>
-      <div className="log-list">
-        {logs.length === 0 && <div className="muted">No logs yet</div>}
-        {logs.map((log) => (
-          <div key={`${log.timestamp}-${log.message}`} className={`log-entry ${log.level}`}>
-            <span className="mono">{new Date(log.timestamp).toLocaleTimeString()}</span>
-            <span className="level">{log.level}</span>
-            <span className="message">{log.message}</span>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 function App() {
   const { status, updateState, refresh, restart, download } = useStatus();
 
@@ -185,11 +143,9 @@ function App() {
       <Header />
       <div className="body">
         <Sidebar updateState={updateState} onCheck={refresh} onRestart={restart} onDownload={download} />
-        <main className="content">
-          {status ? <StatusDashboard status={{ ...status, updateState }} /> : <div className="muted">Loading...</div>}
-        </main>
+        <main className="content"></main>
       </div>
-      <Footer version={status?.version} />
+      <Footer version={status?.version} lastUpdateCheck={status?.lastUpdateCheck} />
     </div>
   );
 }
