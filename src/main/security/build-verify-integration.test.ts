@@ -123,8 +123,8 @@ describe('Build Script → Verification Library Integration', () => {
     const modifiedVersion = { ...manifest, version: '1.0.1' };
     expect(verifySignature(modifiedVersion, testKeyPair.publicKey)).toBe(false);
 
-    // Modify createdAt
-    const modifiedTime = { ...manifest, createdAt: new Date().toISOString() };
+    // Modify createdAt (use a clearly different timestamp to avoid race condition)
+    const modifiedTime = { ...manifest, createdAt: '2000-01-01T00:00:00.000Z' };
     expect(verifySignature(modifiedTime, testKeyPair.publicKey)).toBe(false);
 
     // Modify artifacts

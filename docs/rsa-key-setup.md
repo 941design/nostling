@@ -50,15 +50,9 @@ Example GitHub Actions configuration:
 
 ### In Application Code
 
-Update the public key in `src/main/index.ts`:
+The public key is automatically embedded at build time from `keys/slimchat-release.pub` via tsup's `define` configuration. No manual code changes needed.
 
-```typescript
-const PUBLIC_KEY = process.env.RSA_PUBLIC_KEY || `-----BEGIN PUBLIC KEY-----
-MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEA...
------END PUBLIC KEY-----`;
-```
-
-The public key is safe to embed directly in the application code.
+To override (for testing), set the `RSA_PUBLIC_KEY` environment variable.
 
 ## Key Security
 
