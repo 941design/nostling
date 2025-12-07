@@ -35,6 +35,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - See README.md "RSA Key Setup" section for key generation and configuration instructions
 
 ### Fixed
+- Fixed duplicate release asset uploads in release workflow
+  - Root cause: Glob pattern matched identical filenames (builder-debug.yml, app-update.yml) from both platform builds, causing upload conflicts
+  - Changed pattern from `**/*.yml` to `**/latest-*.yml` to match only platform-specific update files
+  - Added regression test to verify no duplicate basenames in upload patterns
+  - Bug report: bug-reports/duplicate-release-assets-upload-report.md
 - Fixed auto-update 404 error when checking for updates
   - Root cause: setupUpdater() did not configure electron-updater's feed URL, causing it to default to GitHub provider which expects latest-mac.yml instead of manifest.json
   - Added setFeedURL() call with generic provider configuration
