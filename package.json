@@ -31,7 +31,7 @@
     "test:e2e:docker:clean": "docker-compose -f docker-compose.e2e.yml down -v && rm -rf test-results playwright-report",
     "package": "npm run build && electron-builder",
     "postinstall": "electron-builder install-app-deps",
-    "sign:manifest": "tsc ./scripts/generate-manifest.ts --outDir ./dist/scripts --module commonjs --target ES2020 --moduleResolution node --esModuleInterop && node ./dist/scripts/generate-manifest.js"
+    "sign:manifest": "tsc ./scripts/generate-manifest.ts --outDir ./dist --module commonjs --target ES2020 --moduleResolution node --esModuleInterop && node ./dist/scripts/generate-manifest.js"
   },
   "dependencies": {
     "@types/semver": "^7.7.1",
