@@ -48,3 +48,20 @@ Electron app with three processes:
 - **Main**: Node.js backend (`src/main/`)
 - **Preload**: Security bridge (`src/preload/`)
 - **Renderer**: React frontend (`src/renderer/`)
+
+## Documentation Guidelines
+
+**specs/spec.md** — Software specification for agents
+- High-level requirements, architecture, behavior, and acceptance criteria
+- No concrete implementation advice unless there's a compelling functional/non-functional reason
+- Avoid specific file paths, code snippets, or configuration JSON
+- Focus on *what* and *why*, not *how*
+
+**README.md** — For human readers
+- Usage, installation, development workflow, and maintenance
+- No implementation details; link to `docs/` for in-depth topics
+- Keep command examples practical and copy-pasteable
+
+**docs/** — Detailed guides
+- Step-by-step procedures (e.g., RSA key setup, dev mode testing)
+- Implementation-level documentation when depth is needed

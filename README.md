@@ -310,6 +310,17 @@ xattr -rd com.apple.quarantine /Applications/SlimChat.app
 mv SlimChat-*.AppImage ~/.local/bin/slimchat
 ```
 
+## Log Files
+
+Application logs are written to `app.log` in the user data directory:
+
+| Platform | Path |
+|----------|------|
+| **macOS** | `~/Library/Application Support/SlimChat/logs/app.log` |
+| **Linux** | `~/.config/SlimChat/logs/app.log` |
+
+Logs are stored as JSON Lines format with `level`, `message`, and `timestamp` fields.
+
 ## Release Process
 
 ### Local Release Build
@@ -408,69 +419,7 @@ This application includes a secure auto-update system with:
 - Manifest-based update distribution
 - Protection against downgrade attacks
 
-### RSA Key Setup
-
-The auto-update system requires RSA-4096 cryptographic keys for signing and verifying update manifests.
-
-#### Generating Keys
-
-Generate a new RSA-4096 keypair using openssl:
-
-```bash
-# Generate a new RSA-4096 key
-openssl genrsa -out slimchat-release.key 4096
-
-# Derive public key
-openssl rsa -in slimchat-release.key -pubout -out slimchat-release.pub
-chmod 600 slimchat-release.key
-```
-
-#### Configuring Keys
-
-**For Development/Testing:**
-
-Set the environment variable when running manifest generation (assuming gopass):
-
-```bash
-# Export private key as single-line format (required)
-export SLIM_CHAT_RSA_PRIVATE_KEY=$(gopass show slimchat/slimchat-release.key)
-
-npm run package
-```
-
-**For Production/CI:**
-
-Add the private key to your CI/CD secrets:
-1. Copy the entire contents of `slimchat-release.key` (including `-----BEGIN PRIVATE KEY-----` and `-----END PRIVATE KEY-----` lines)
-2. Create a secret named `SLIM_CHAT_RSA_PRIVATE_KEY`
-3. Paste the full PEM content as the secret value
-
-Example GitHub Actions configuration:
-```yaml
-- name: Generate signed manifest
-  env:
-    SLIM_CHAT_RSA_PRIVATE_KEY: ${{ secrets.SLIM_CHAT_RSA_PRIVATE_KEY }}
-  run: npm run package
-```
-
-**In Application Code:**
-
-Update the public key in `src/main/index.ts`:
-
-```typescript
-const PUBLIC_KEY = process.env.RSA_PUBLIC_KEY || `-----BEGIN PUBLIC KEY-----
-MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEA...
------END PUBLIC KEY-----`;
-```
-
-The public key is safe to embed directly in the application code.
-
-#### Key Security
-
-- **Private Key**: NEVER commit to version control. Only store in CI/CD secrets or secure key management systems.
-- **Public Key**: Safe to embed in application code and distribute with binaries.
-- **Key Rotation**: Generate new keypairs if private key is compromised. Users will need to update to a version with the new public key using the old signing key before rotation completes.
-- **Key Format**: Private key must be in PKCS8 PEM format. Public key must be in SPKI PEM format.
+For RSA key generation and configuration, see [docs/rsa-key-setup.md](docs/rsa-key-setup.md).
 
 ## License
 

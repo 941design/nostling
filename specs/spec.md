@@ -137,34 +137,12 @@ In scope for the first production-ready release:
 
 ### 2.4 Directory Structure
 
-```text
-/src
-  /main
-    /update          # controller.ts, manifest-generator.ts
-    /security        # verify.ts, crypto.ts, version.ts
-    /ipc             # handlers.ts
-    index.ts         # app bootstrap, window creation, state machine
-    integration.ts   # manifest fetching, verification orchestration
-    dev-env.ts       # dev mode detection and configuration
-    config.ts        # config loading/saving (JSON)
-    logging.ts       # log file management
-  /renderer
-    main.tsx         # React application entry
-    styles.css       # Application styles
-    index.html       # HTML template
-    types.d.ts       # Window API type declarations
-  /preload
-    index.ts         # IPC bridge, contextBridge exposure
-  /shared
-    types.ts         # shared types (between main & renderer)
-/scripts             # build, release, manifest signing scripts
-/release             # built artifacts & manifest.json
-/tests               # unit and integration tests
-package.json
-tsconfig.json
-electron-builder.yml (embedded in package.json)
-vite.renderer.config.ts
-```
+Source code is organized by Electron process:
+
+* `/src/main/` — Main process: app lifecycle, update logic, security verification, IPC handlers, configuration, logging
+* `/src/renderer/` — Renderer process: React UI application
+* `/src/preload/` — Preload script: IPC bridge via contextBridge
+* `/src/shared/` — Shared types between main and renderer
 
 ---
 
@@ -174,8 +152,8 @@ vite.renderer.config.ts
 
 **Update backend:**
 
-* GitHub Releases, with semantic version tags: `vMAJOR.MINOR.PATCH` (e.g., `v1.2.3`).
-* `package.json` version: `MAJOR.MINOR.PATCH` (must match tag number).
+* GitHub Releases, with semantic version tags: `MAJOR.MINOR.PATCH` (e.g., `1.2.3`, no 'v' prefix).
+* `package.json` version must match the tag exactly.
 * Build artifacts for each release:
 
   * macOS: `.dmg` and `.zip`.
@@ -253,15 +231,23 @@ Timeline:
 
 * Dependency: `electron-updater` in main process.
 
-* Usage:
+* Provider configuration:
 
-  * Configure `autoUpdater` with **generic provider** using `setFeedURL()`.
-  * Manual control model:
+  * **Production mode**: Use **GitHub provider** (`provider: 'github'`) for automatic cross-version release discovery.
+  * **Dev mode**: Use **generic provider** when `devUpdateSource` is set (supports `file://` URLs for local testing).
+  * This enables apps running any version to discover the latest release without version-specific URLs.
+
+* Manual control model:
 
     * `autoUpdater.checkForUpdates()`.
     * Handle `checking-for-update`, `update-available`, `download-progress`, `update-downloaded`, `error`, `update-not-available`.
     * Use `autoUpdater.downloadUpdate()` after user chooses to download (when `autoUpdateBehavior` is `manual`).
     * Call `autoUpdater.quitAndInstall()` when user initiates restart **after manifest verification**.
+
+* Concurrency protection:
+
+    * Update checks include a guard to prevent overlapping requests.
+    * Download operations similarly protected against concurrent calls.
 
 * `autoUpdater` event handlers:
 
@@ -318,7 +304,7 @@ Timeline:
 
 ### 3.4 Logging
 
-* Logging subsystem in `/src/main/logging.ts`:
+* Logging subsystem:
 
   * Writes to a single log file in user data directory:
     * Location: `app.getPath('userData')/logs/app.log`
@@ -348,7 +334,6 @@ Timeline:
     interface AppConfig {
       autoUpdate: boolean;               // whether to check for updates
       logLevel: LogLevel;                // "debug" | "info" | "warn" | "error"
-      manifestUrl?: string;              // custom manifest URL override
       autoUpdateBehavior?: 'manual' | 'auto-download';  // download behavior
       logRetentionDays?: number;         // future: log retention
       logMaxFileSizeMB?: number;         // future: log size limit
@@ -414,21 +399,15 @@ Example `manifest.json`:
   * Must be in PKCS8 PEM format.
   * Used in manifest generation script via environment variable.
 
-* App-side:
+* App-side verification:
 
-  * RSA public key embedded in `/src/main/index.ts` or via `RSA_PUBLIC_KEY` environment variable.
+  * RSA public key embedded in application or provided via environment variable.
   * Public key must be in SPKI PEM format.
-  * `security/verify.ts`:
-
-    * `verifySignature(manifest, publicKeyPem)`: Validates RSA signature using SHA-256.
-    * `validateVersion(manifestVersion, currentVersion)`: Ensures manifest version > current version.
-    * `findArtifactForPlatform(artifacts, platform)`: Finds matching artifact.
-    * `verifyManifest(manifest, filePath, currentVersion, platform, publicKeyPem)`: Full verification flow.
-
-  * `security/crypto.ts`:
-
-    * `hashFile(filePath)`: Computes SHA-256 hash of downloaded file.
-    * `hashMatches(hash1, hash2)`: Case-insensitive hash comparison.
+  * Verification functions:
+    * Validate RSA signature using SHA-256.
+    * Ensure manifest version is newer than current version.
+    * Find artifact entry matching current platform.
+    * Compute and compare SHA-256 hash of downloaded file.
 
 ### 4.2 Verification Flow
 
@@ -436,7 +415,7 @@ Example `manifest.json`:
 2. Main process:
 
    * Sets state to `downloaded`, then `verifying`.
-   * Fetches `manifest.json` from configured URL.
+   * Fetches `manifest.json` from GitHub's `/releases/latest/download/` path (production) or derived from `devUpdateSource` (dev mode).
    * Calls `verifyManifest`:
      1. Verify RSA signature on manifest.
      2. Validate version is newer than current.
@@ -532,9 +511,14 @@ npm run dev
 # Test against specific GitHub release
 DEV_UPDATE_SOURCE=https://github.com/941design/slim-chat/releases/download/1.0.1 npm run dev
 
+# Test with local file:// URL (dev mode only)
+DEV_UPDATE_SOURCE=file:///path/to/local/updates npm run dev
+
 # Test pre-release versions
 ALLOW_PRERELEASE=true npm run dev
 ```
+
+Note: `file://` URLs are only supported in dev mode. Production builds enforce HTTPS-only for security.
 
 ### 5.6 Graceful Error Handling
 
@@ -630,7 +614,7 @@ In dev mode, detailed logs are written for:
 
 ### 7.1 Domain Data
 
-Domain entities in `/src/shared/types.ts`:
+Domain entities (shared between main and renderer):
 
 * **LogLevel**
 
@@ -762,38 +746,11 @@ Not implemented in initial release, but design must anticipate:
 
 ## 8. Build, Packaging & CI
 
-### 8.1 electron-builder Configuration
+### 8.1 Packaging Requirements
 
-Configuration embedded in `package.json`:
-
-```json
-{
-  "build": {
-    "appId": "com.example.slimchat",
-    "productName": "SlimChat",
-    "files": [
-      "dist/main/**/*",
-      "dist/preload/**/*",
-      "dist/renderer/**/*",
-      "package.json"
-    ],
-    "asar": true,
-    "directories": {
-      "buildResources": "build"
-    },
-    "mac": {
-      "target": ["dmg", "zip"],
-      "category": "public.app-category.developer-tools",
-      "minimumSystemVersion": "12.0.0"
-    },
-    "linux": {
-      "target": ["AppImage"],
-      "category": "Utility",
-      "artifactName": "${productName}-${version}-${arch}.${ext}"
-    }
-  }
-}
-```
+* Package all three process bundles (main, preload, renderer) into ASAR archive.
+* **macOS**: Produce `.dmg` (installer) and `.zip` (for delta updates), minimum macOS 12.
+* **Linux**: Produce `.AppImage` for portable execution without root.
 
 ### 8.2 GitHub Repository & Releases
 
@@ -814,39 +771,15 @@ Configuration embedded in `package.json`:
     * `manifest.json` (signed).
     * `latest-mac.yml` / `latest-linux.yml` (electron-updater metadata).
 
-### 8.3 GitHub Actions CI
+### 8.3 CI/CD Requirements
 
-**Workflow file:** `.github/workflows/release.yml`
+The CI pipeline must:
 
-Workflow triggers:
-
-* On `push` of tags matching `[0-9]+.[0-9]+.[0-9]+`.
-
-Jobs:
-
-1. **build** (matrix: ubuntu-latest, macos-13)
-
-   * Checkout repository.
-   * Setup Node.js 20.
-   * Install dependencies (`npm ci`).
-   * Run linting (`npm run lint`).
-   * Build packages (`npm run package -- --publish=never`).
-   * Generate manifest (Linux only, uses `SLIM_CHAT_RSA_PRIVATE_KEY` secret).
-   * Upload artifacts.
-
-2. **create-release** (needs: build)
-
-   * Download all build artifacts.
-   * Create GitHub Release with:
-     * `.dmg` files
-     * `.AppImage` files
-     * `.yml` metadata files
-     * `manifest.json`
-
-Security:
-
-* RSA-4096 private key stored in GitHub Actions secret `SLIM_CHAT_RSA_PRIVATE_KEY`.
-* CI uses environment variables to pass key to signing script.
+* Trigger on version tag push (format: `MAJOR.MINOR.PATCH`).
+* Build packages for both macOS and Linux.
+* Run linting and tests before packaging.
+* Generate and sign `manifest.json` using the RSA-4096 private key (stored as CI secret).
+* Create a GitHub Release with all artifacts and the signed manifest.
 
 ---
 
@@ -923,10 +856,10 @@ Error from any state → failed
 
 ### 9.3 Test Coverage
 
-Property-based tests in `/src/main/index.test.ts` verify:
+Property-based tests verify:
 
-* Each event handler updates `updateState` correctly.
-* Each event handler calls `broadcastUpdateStateToMain()`.
+* Each event handler updates state correctly.
+* State changes are consistently broadcast.
 * Error events transition to `failed` from any phase.
 * Verification workflow follows correct sequence.
 * Version information propagates correctly through states.
