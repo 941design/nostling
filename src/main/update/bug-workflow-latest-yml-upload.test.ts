@@ -49,7 +49,8 @@ describe('Bug: GitHub workflow missing latest-*.yml upload', () => {
     expect(filesPattern).toContain('.yml');
 
     // Verify the pattern includes the correct path prefix
-    expect(filesPattern).toContain('release-artifacts/**/*.yml');
+    // Updated 2025-12-07: Changed from **/*.yml to **/latest-*.yml to avoid duplicates
+    expect(filesPattern).toContain('release-artifacts/**/latest-*.yml');
 
     // Also verify other required files are still present (no regression)
     expect(filesPattern).toContain('.dmg');
@@ -80,7 +81,7 @@ describe('Bug: GitHub workflow missing latest-*.yml upload', () => {
     const patterns = [
       'release-artifacts/**/*.dmg',
       'release-artifacts/**/*.AppImage',
-      'release-artifacts/**/*.yml',            // Matches latest-mac.yml and latest-linux.yml
+      'release-artifacts/**/latest-*.yml',     // Matches latest-mac.yml and latest-linux.yml (excludes duplicates)
       'release-artifacts/**/manifest.json',
     ];
 

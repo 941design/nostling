@@ -55,13 +55,17 @@ jobs:
         with:
           path: release-artifacts
 
+      # BUG FIX: Use latest-*.yml pattern to avoid duplicate uploads
+      # Root cause: builder-debug.yml and app-update.yml exist in both platform builds
+      # Bug report: bug-reports/duplicate-release-assets-upload-report.md
+      # Fixed: 2025-12-07
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             release-artifacts/**/*.dmg
             release-artifacts/**/*.AppImage
-            release-artifacts/**/*.yml
+            release-artifacts/**/latest-*.yml
             release-artifacts/**/manifest.json
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: false
