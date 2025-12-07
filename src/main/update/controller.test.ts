@@ -11,8 +11,13 @@
  * - Round-trip accuracy: Consistent formatting for same input
  */
 
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect, jest, beforeAll } from '@jest/globals';
 import fc from 'fast-check';
+
+jest.mock('../logging', () => ({
+  log: jest.fn(),
+}));
+
 import { formatBytes } from './controller';
 
 describe('formatBytes', () => {
@@ -386,6 +391,691 @@ describe('formatBytes', () => {
     it('E020: Negative float rounds toward zero', () => {
       expect(formatBytes(-1.5)).toBe('0 B');
       expect(formatBytes(-512.9)).toBe('0 B');
+    });
+  });
+});
+
+describe('setupUpdater', () => {
+  let mockAutoUpdater: any;
+  let mockApp: any;
+  let mockLog: jest.Mock;
+
+  beforeEach(() => {
+    jest.resetModules();
+    mockAutoUpdater = {
+      autoDownload: false,
+      autoInstallOnAppQuit: false,
+      forceDevUpdateConfig: false,
+      allowPrerelease: false,
+      setFeedURL: jest.fn(),
+    };
+    mockApp = {
+      getVersion: jest.fn(() => '1.0.0'),
+    };
+    mockLog = jest.fn();
+
+    jest.mock('electron-updater', () => ({
+      autoUpdater: mockAutoUpdater,
+    }));
+    jest.mock('electron', () => ({
+      app: mockApp,
+    }));
+    jest.mock('../logging', () => ({
+      log: mockLog,
+    }));
+  });
+
+  afterEach(() => {
+    jest.unmock('electron-updater');
+    jest.unmock('electron');
+    jest.unmock('../logging');
+  });
+
+  describe('Property-Based Tests', () => {
+    it('P001: Precedence property - devConfig values override config values, production safety enforced', () => {
+      fc.assert(
+        fc.property(
+          fc.record({
+            devForceDevUpdateConfig: fc.boolean(),
+            devDevUpdateSource: fc.option(fc.webUrl(), { nil: undefined }),
+            devAllowPrerelease: fc.boolean(),
+            configForceDevUpdateConfig: fc.boolean(),
+            configDevUpdateSource: fc.option(fc.webUrl(), { nil: undefined }),
+            configAllowPrerelease: fc.boolean(),
+          }),
+          ({ devForceDevUpdateConfig, devDevUpdateSource, devAllowPrerelease, configForceDevUpdateConfig, configDevUpdateSource, configAllowPrerelease }) => {
+            const { setupUpdater } = require('./controller');
+
+            const devConfig = {
+              forceDevUpdateConfig: devForceDevUpdateConfig,
+              devUpdateSource: devDevUpdateSource,
+              allowPrerelease: devAllowPrerelease,
+            };
+
+            const config = {
+              autoUpdate: true,
+              logLevel: 'info' as const,
+              forceDevUpdateConfig: configForceDevUpdateConfig,
+              devUpdateSource: configDevUpdateSource,
+              allowPrerelease: configAllowPrerelease,
+            };
+
+            setupUpdater(true, config, devConfig);
+
+            // Production safety (C1): config values ONLY used when devConfig indicates dev mode
+            const isDevModeActive = devForceDevUpdateConfig || Boolean(devDevUpdateSource) || devAllowPrerelease;
+            const expectedForce = devForceDevUpdateConfig || (isDevModeActive && configForceDevUpdateConfig);
+            const expectedSource = devDevUpdateSource || (isDevModeActive && configDevUpdateSource);
+            const expectedPrerelease = devAllowPrerelease || (isDevModeActive && configAllowPrerelease);
+
+            expect(mockAutoUpdater.forceDevUpdateConfig).toBe(expectedForce);
+            expect(mockAutoUpdater.allowPrerelease).toBe(expectedPrerelease);
+
+            if (expectedSource) {
+              expect(mockAutoUpdater.setFeedURL).toHaveBeenCalledWith({
+                provider: 'generic',
+                url: expectedSource,
+              });
+            }
+          }
+        ),
+        { numRuns: 100 }
+      );
+    });
+
+    it('P002: Production safety (C1) - when devConfig indicates production, config values MUST NOT enable dev features', () => {
+      fc.assert(
+        fc.property(
+          fc.record({
+            configForceDevUpdateConfig: fc.boolean(),
+            configAllowPrerelease: fc.boolean(),
+          }),
+          ({ configForceDevUpdateConfig, configAllowPrerelease }) => {
+            const { setupUpdater } = require('./controller');
+
+            const devConfig = {
+              forceDevUpdateConfig: false,
+              devUpdateSource: undefined,
+              allowPrerelease: false,
+            };
+
+            const config = {
+              autoUpdate: true,
+              logLevel: 'info' as const,
+              forceDevUpdateConfig: configForceDevUpdateConfig,
+              allowPrerelease: configAllowPrerelease,
+            };
+
+            setupUpdater(true, config, devConfig);
+
+            // CRITICAL: When devConfig indicates production (all false), config.json MUST NOT leak dev features
+            expect(mockAutoUpdater.forceDevUpdateConfig).toBe(false);
+            expect(mockAutoUpdater.allowPrerelease).toBe(false);
+          }
+        ),
+        { numRuns: 50 }
+      );
+    });
+
+    it('P003: URL determination follows precedence - devUpdateSource > manifestUrl > default', () => {
+      fc.assert(
+        fc.property(
+          fc.record({
+            devUpdateSource: fc.option(fc.webUrl(), { nil: undefined }),
+            manifestUrl: fc.option(fc.webUrl().map(url => url + '/manifest.json'), { nil: undefined }),
+          }),
+          ({ devUpdateSource, manifestUrl }) => {
+            const { setupUpdater } = require('./controller');
+
+            const devConfig = {
+              forceDevUpdateConfig: false,
+              devUpdateSource,
+              allowPrerelease: false,
+            };
+
+            const config = {
+              autoUpdate: true,
+              logLevel: 'info' as const,
+              manifestUrl,
+            };
+
+            setupUpdater(true, config, devConfig);
+
+            let expectedUrl: string;
+            if (devUpdateSource) {
+              expectedUrl = devUpdateSource;
+            } else if (manifestUrl) {
+              expectedUrl = manifestUrl.replace(/\/manifest\.json$/, '');
+            } else {
+              expectedUrl = 'https://github.com/941design/slim-chat/releases/download/v1.0.0';
+            }
+
+            expect(mockAutoUpdater.setFeedURL).toHaveBeenCalledWith({
+              provider: 'generic',
+              url: expectedUrl,
+            });
+          }
+        ),
+        { numRuns: 100 }
+      );
+    });
+
+    it('P004: Backward compatibility - no dev config means default behavior', () => {
+      fc.assert(
+        fc.property(
+          fc.record({
+            manifestUrl: fc.option(fc.webUrl().map(url => url + '/manifest.json'), { nil: undefined }),
+            autoDownload: fc.boolean(),
+          }),
+          ({ manifestUrl, autoDownload }) => {
+            const { setupUpdater } = require('./controller');
+
+            const devConfig = {
+              forceDevUpdateConfig: false,
+              devUpdateSource: undefined,
+              allowPrerelease: false,
+            };
+
+            const config = {
+              autoUpdate: true,
+              logLevel: 'info' as const,
+              manifestUrl,
+            };
+
+            setupUpdater(autoDownload, config, devConfig);
+
+            expect(mockAutoUpdater.forceDevUpdateConfig).toBe(false);
+            expect(mockAutoUpdater.allowPrerelease).toBe(false);
+            expect(mockAutoUpdater.autoDownload).toBe(autoDownload);
+            expect(mockAutoUpdater.autoInstallOnAppQuit).toBe(false);
+
+            let expectedUrl: string;
+            if (manifestUrl) {
+              expectedUrl = manifestUrl.replace(/\/manifest\.json$/, '');
+            } else {
+              expectedUrl = 'https://github.com/941design/slim-chat/releases/download/v1.0.0';
+            }
+
+            expect(mockAutoUpdater.setFeedURL).toHaveBeenCalledWith({
+              provider: 'generic',
+              url: expectedUrl,
+            });
+          }
+        ),
+        { numRuns: 50 }
+      );
+    });
+
+    it('P005: autoDownload setting preserved correctly', () => {
+      fc.assert(
+        fc.property(
+          fc.boolean(),
+          (autoDownload) => {
+            const { setupUpdater } = require('./controller');
+
+            const devConfig = {
+              forceDevUpdateConfig: false,
+              devUpdateSource: undefined,
+              allowPrerelease: false,
+            };
+
+            const config = {
+              autoUpdate: true,
+              logLevel: 'info' as const,
+            };
+
+            setupUpdater(autoDownload, config, devConfig);
+
+            expect(mockAutoUpdater.autoDownload).toBe(autoDownload);
+            expect(mockAutoUpdater.autoInstallOnAppQuit).toBe(false);
+          }
+        ),
+        { numRuns: 20 }
+      );
+    });
+
+    it('P006: manifestUrl suffix removal correct', () => {
+      fc.assert(
+        fc.property(
+          fc.webUrl(),
+          (baseUrl) => {
+            const { setupUpdater } = require('./controller');
+
+            const devConfig = {
+              forceDevUpdateConfig: false,
+              devUpdateSource: undefined,
+              allowPrerelease: false,
+            };
+
+            const config = {
+              autoUpdate: true,
+              logLevel: 'info' as const,
+              manifestUrl: baseUrl + '/manifest.json',
+            };
+
+            setupUpdater(true, config, devConfig);
+
+            expect(mockAutoUpdater.setFeedURL).toHaveBeenCalledWith({
+              provider: 'generic',
+              url: baseUrl,
+            });
+          }
+        ),
+        { numRuns: 50 }
+      );
+    });
+
+    it('P007: Logging occurs when forceDevUpdateConfig enabled', () => {
+      fc.assert(
+        fc.property(
+          fc.boolean().filter(b => b === true),
+          (forceEnabled) => {
+            const { setupUpdater } = require('./controller');
+            mockLog.mockClear();
+
+            const devConfig = {
+              forceDevUpdateConfig: forceEnabled,
+              devUpdateSource: undefined,
+              allowPrerelease: false,
+            };
+
+            const config = {
+              autoUpdate: true,
+              logLevel: 'info' as const,
+            };
+
+            setupUpdater(true, config, devConfig);
+
+            expect(mockLog).toHaveBeenCalledWith('info', 'Dev mode: forceDevUpdateConfig enabled');
+          }
+        ),
+        { numRuns: 20 }
+      );
+    });
+
+    it('P008: Logging occurs when allowPrerelease enabled', () => {
+      fc.assert(
+        fc.property(
+          fc.boolean().filter(b => b === true),
+          (prereleaseEnabled) => {
+            const { setupUpdater } = require('./controller');
+            mockLog.mockClear();
+
+            const devConfig = {
+              forceDevUpdateConfig: false,
+              devUpdateSource: undefined,
+              allowPrerelease: prereleaseEnabled,
+            };
+
+            const config = {
+              autoUpdate: true,
+              logLevel: 'info' as const,
+            };
+
+            setupUpdater(true, config, devConfig);
+
+            expect(mockLog).toHaveBeenCalledWith('info', 'Dev mode: allowPrerelease enabled');
+          }
+        ),
+        { numRuns: 20 }
+      );
+    });
+
+    it('P009: Logging occurs when devUpdateSource set', () => {
+      fc.assert(
+        fc.property(
+          fc.webUrl(),
+          (updateSource) => {
+            const { setupUpdater } = require('./controller');
+            mockLog.mockClear();
+
+            const devConfig = {
+              forceDevUpdateConfig: false,
+              devUpdateSource: updateSource,
+              allowPrerelease: false,
+            };
+
+            const config = {
+              autoUpdate: true,
+              logLevel: 'info' as const,
+            };
+
+            setupUpdater(true, config, devConfig);
+
+            expect(mockLog).toHaveBeenCalledWith('info', `Dev mode: using custom update source: ${updateSource}`);
+          }
+        ),
+        { numRuns: 50 }
+      );
+    });
+
+    it('P010: Feed URL always logged', () => {
+      fc.assert(
+        fc.property(
+          fc.record({
+            devUpdateSource: fc.option(fc.webUrl(), { nil: undefined }),
+            manifestUrl: fc.option(fc.webUrl().map(url => url + '/manifest.json'), { nil: undefined }),
+          }),
+          ({ devUpdateSource, manifestUrl }) => {
+            const { setupUpdater } = require('./controller');
+            mockLog.mockClear();
+
+            const devConfig = {
+              forceDevUpdateConfig: false,
+              devUpdateSource,
+              allowPrerelease: false,
+            };
+
+            const config = {
+              autoUpdate: true,
+              logLevel: 'info' as const,
+              manifestUrl,
+            };
+
+            setupUpdater(true, config, devConfig);
+
+            let expectedUrl: string;
+            if (devUpdateSource) {
+              expectedUrl = devUpdateSource;
+            } else if (manifestUrl) {
+              expectedUrl = manifestUrl.replace(/\/manifest\.json$/, '');
+            } else {
+              expectedUrl = 'https://github.com/941design/slim-chat/releases/download/v1.0.0';
+            }
+
+            expect(mockLog).toHaveBeenCalledWith('info', `Update feed URL configured: ${expectedUrl}`);
+          }
+        ),
+        { numRuns: 100 }
+      );
+    });
+
+    it('P011: setFeedURL always called with generic provider', () => {
+      fc.assert(
+        fc.property(
+          fc.record({
+            devUpdateSource: fc.option(fc.webUrl(), { nil: undefined }),
+            manifestUrl: fc.option(fc.webUrl(), { nil: undefined }),
+          }),
+          ({ devUpdateSource, manifestUrl }) => {
+            const { setupUpdater } = require('./controller');
+            mockAutoUpdater.setFeedURL.mockClear();
+
+            const devConfig = {
+              forceDevUpdateConfig: false,
+              devUpdateSource,
+              allowPrerelease: false,
+            };
+
+            const config = {
+              autoUpdate: true,
+              logLevel: 'info' as const,
+              manifestUrl,
+            };
+
+            setupUpdater(true, config, devConfig);
+
+            expect(mockAutoUpdater.setFeedURL).toHaveBeenCalledTimes(1);
+            const callArgs = mockAutoUpdater.setFeedURL.mock.calls[0][0];
+            expect(callArgs.provider).toBe('generic');
+            expect(typeof callArgs.url).toBe('string');
+            expect(callArgs.url.length).toBeGreaterThan(0);
+          }
+        ),
+        { numRuns: 100 }
+      );
+    });
+  });
+
+  describe('Example-Based Critical Tests', () => {
+    it('E001: Production mode with no dev config', () => {
+      const { setupUpdater } = require('./controller');
+
+      const devConfig = {
+        forceDevUpdateConfig: false,
+        devUpdateSource: undefined,
+        allowPrerelease: false,
+      };
+
+      const config = {
+        autoUpdate: true,
+        logLevel: 'info' as const,
+        manifestUrl: 'https://example.com/updates/manifest.json',
+      };
+
+      setupUpdater(false, config, devConfig);
+
+      expect(mockAutoUpdater.autoDownload).toBe(false);
+      expect(mockAutoUpdater.autoInstallOnAppQuit).toBe(false);
+      expect(mockAutoUpdater.forceDevUpdateConfig).toBe(false);
+      expect(mockAutoUpdater.allowPrerelease).toBe(false);
+      expect(mockAutoUpdater.setFeedURL).toHaveBeenCalledWith({
+        provider: 'generic',
+        url: 'https://example.com/updates',
+      });
+    });
+
+    it('E002: Dev mode with GitHub releases', () => {
+      const { setupUpdater } = require('./controller');
+
+      const devConfig = {
+        forceDevUpdateConfig: true,
+        devUpdateSource: 'https://github.com/941design/slim-chat/releases/download/v1.0.0',
+        allowPrerelease: false,
+      };
+
+      const config = {
+        autoUpdate: true,
+        logLevel: 'info' as const,
+      };
+
+      setupUpdater(true, config, devConfig);
+
+      expect(mockAutoUpdater.forceDevUpdateConfig).toBe(true);
+      expect(mockAutoUpdater.allowPrerelease).toBe(false);
+      expect(mockAutoUpdater.setFeedURL).toHaveBeenCalledWith({
+        provider: 'generic',
+        url: 'https://github.com/941design/slim-chat/releases/download/v1.0.0',
+      });
+    });
+
+    it('E003: Dev mode with local manifest', () => {
+      const { setupUpdater } = require('./controller');
+
+      const devConfig = {
+        forceDevUpdateConfig: true,
+        devUpdateSource: 'file://./test-manifests/v1.0.0',
+        allowPrerelease: true,
+      };
+
+      const config = {
+        autoUpdate: true,
+        logLevel: 'info' as const,
+      };
+
+      setupUpdater(true, config, devConfig);
+
+      expect(mockAutoUpdater.forceDevUpdateConfig).toBe(true);
+      expect(mockAutoUpdater.allowPrerelease).toBe(true);
+      expect(mockAutoUpdater.setFeedURL).toHaveBeenCalledWith({
+        provider: 'generic',
+        url: 'file://./test-manifests/v1.0.0',
+      });
+    });
+
+    it('E004: Dev mode with env override', () => {
+      const { setupUpdater } = require('./controller');
+
+      const devConfig = {
+        forceDevUpdateConfig: true,
+        devUpdateSource: 'https://dev-server.com/updates',
+        allowPrerelease: true,
+      };
+
+      const config = {
+        autoUpdate: true,
+        logLevel: 'info' as const,
+        forceDevUpdateConfig: false,
+        devUpdateSource: 'https://config-server.com/updates',
+        allowPrerelease: false,
+      };
+
+      setupUpdater(true, config, devConfig);
+
+      expect(mockAutoUpdater.forceDevUpdateConfig).toBe(true);
+      expect(mockAutoUpdater.allowPrerelease).toBe(true);
+      expect(mockAutoUpdater.setFeedURL).toHaveBeenCalledWith({
+        provider: 'generic',
+        url: 'https://dev-server.com/updates',
+      });
+    });
+
+    it('E005: Config values NOT used when devConfig indicates production (C1 production safety)', () => {
+      const { setupUpdater } = require('./controller');
+
+      const devConfig = {
+        forceDevUpdateConfig: false,
+        devUpdateSource: undefined,
+        allowPrerelease: false,
+      };
+
+      const config = {
+        autoUpdate: true,
+        logLevel: 'info' as const,
+        forceDevUpdateConfig: true,
+        allowPrerelease: true,
+      };
+
+      setupUpdater(true, config, devConfig);
+
+      // CRITICAL: Production safety - config.json values MUST NOT leak when devConfig indicates production
+      expect(mockAutoUpdater.forceDevUpdateConfig).toBe(false);
+      expect(mockAutoUpdater.allowPrerelease).toBe(false);
+    });
+
+    it('E006: Default GitHub URL when no sources specified', () => {
+      const { setupUpdater } = require('./controller');
+
+      const devConfig = {
+        forceDevUpdateConfig: false,
+        devUpdateSource: undefined,
+        allowPrerelease: false,
+      };
+
+      const config = {
+        autoUpdate: true,
+        logLevel: 'info' as const,
+      };
+
+      setupUpdater(true, config, devConfig);
+
+      expect(mockAutoUpdater.setFeedURL).toHaveBeenCalledWith({
+        provider: 'generic',
+        url: 'https://github.com/941design/slim-chat/releases/download/v1.0.0',
+      });
+    });
+
+    it('E007: manifestUrl without /manifest.json suffix handled correctly', () => {
+      const { setupUpdater } = require('./controller');
+
+      const devConfig = {
+        forceDevUpdateConfig: false,
+        devUpdateSource: undefined,
+        allowPrerelease: false,
+      };
+
+      const config = {
+        autoUpdate: true,
+        logLevel: 'info' as const,
+        manifestUrl: 'https://example.com/updates/v1.0.0',
+      };
+
+      setupUpdater(true, config, devConfig);
+
+      expect(mockAutoUpdater.setFeedURL).toHaveBeenCalledWith({
+        provider: 'generic',
+        url: 'https://example.com/updates/v1.0.0',
+      });
+    });
+
+    it('E008: Both devConfig and config values set, devConfig wins', () => {
+      const { setupUpdater } = require('./controller');
+
+      const devConfig = {
+        forceDevUpdateConfig: true,
+        devUpdateSource: 'https://dev.example.com',
+        allowPrerelease: true,
+      };
+
+      const config = {
+        autoUpdate: true,
+        logLevel: 'info' as const,
+        forceDevUpdateConfig: false,
+        devUpdateSource: 'https://config.example.com',
+        allowPrerelease: false,
+        manifestUrl: 'https://manifest.example.com/manifest.json',
+      };
+
+      setupUpdater(false, config, devConfig);
+
+      expect(mockAutoUpdater.forceDevUpdateConfig).toBe(true);
+      expect(mockAutoUpdater.allowPrerelease).toBe(true);
+      expect(mockAutoUpdater.autoDownload).toBe(false);
+      expect(mockAutoUpdater.setFeedURL).toHaveBeenCalledWith({
+        provider: 'generic',
+        url: 'https://dev.example.com',
+      });
+    });
+
+    it('E009: Partial devConfig (only forceDevUpdateConfig set)', () => {
+      const { setupUpdater } = require('./controller');
+
+      const devConfig = {
+        forceDevUpdateConfig: true,
+        devUpdateSource: undefined,
+        allowPrerelease: false,
+      };
+
+      const config = {
+        autoUpdate: true,
+        logLevel: 'info' as const,
+        devUpdateSource: 'https://config.example.com',
+        manifestUrl: 'https://manifest.example.com/manifest.json',
+      };
+
+      setupUpdater(true, config, devConfig);
+
+      expect(mockAutoUpdater.forceDevUpdateConfig).toBe(true);
+      expect(mockAutoUpdater.setFeedURL).toHaveBeenCalledWith({
+        provider: 'generic',
+        url: 'https://config.example.com',
+      });
+    });
+
+    it('E010: All false/undefined produces safe defaults', () => {
+      const { setupUpdater } = require('./controller');
+
+      const devConfig = {
+        forceDevUpdateConfig: false,
+        devUpdateSource: undefined,
+        allowPrerelease: false,
+      };
+
+      const config = {
+        autoUpdate: true,
+        logLevel: 'info' as const,
+      };
+
+      setupUpdater(true, config, devConfig);
+
+      expect(mockAutoUpdater.forceDevUpdateConfig).toBe(false);
+      expect(mockAutoUpdater.allowPrerelease).toBe(false);
+      expect(mockAutoUpdater.autoDownload).toBe(true);
+      expect(mockAutoUpdater.autoInstallOnAppQuit).toBe(false);
+      expect(mockAutoUpdater.setFeedURL).toHaveBeenCalledWith({
+        provider: 'generic',
+        url: 'https://github.com/941design/slim-chat/releases/download/v1.0.0',
+      });
     });
   });
 });

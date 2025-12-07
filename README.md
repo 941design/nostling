@@ -5,10 +5,10 @@ Desktop app bootstrap with secure auto-updates built with Electron, React, and T
 ## Features
 
 - Secure auto-update system with cryptographic verification
+- **Dev mode update testing** - Test updates locally before releasing to users
 - Built with Electron 30
 - React 18 for the UI
 - Hot reload development environment
-- Comprehensive test coverage
 
 ## Installation
 
@@ -148,6 +148,79 @@ This is useful for:
 - Debugging Linux-specific test failures before pushing
 - Verifying fixes for CI issues locally
 - Testing display server configurations
+
+## Dev Mode Update Testing
+
+Test the auto-update system in development mode before releasing to users.
+
+### Quick Start
+
+Run the app in dev mode:
+
+```bash
+npm run dev
+```
+
+The update system will automatically use dev mode configuration when `VITE_DEV_SERVER_URL` is set (which `npm run dev` does automatically).
+
+### Configuration
+
+Configure update testing via environment variables:
+
+```bash
+# Enable dev mode updates (auto-enabled when running npm run dev)
+VITE_DEV_SERVER_URL=http://localhost:5173
+
+# Test against a specific GitHub release
+DEV_UPDATE_SOURCE=https://github.com/941design/slim-chat/releases/download/v1.0.0
+
+# Enable pre-release version testing (beta, alpha, rc)
+ALLOW_PRERELEASE=true
+```
+
+### Testing Workflow
+
+**Using Make (recommended)**:
+
+```bash
+# Basic dev mode (auto-enabled)
+make dev
+
+# Test against specific GitHub release
+DEV_UPDATE_SOURCE=https://github.com/941design/slim-chat/releases/download/v1.0.1 make dev-update-release
+
+# Test pre-release versions (beta, alpha, rc)
+make dev-update-prerelease
+```
+
+**Using npm directly**:
+
+```bash
+# Basic dev mode (auto-enabled)
+npm run dev
+
+# Test against specific GitHub release
+export DEV_UPDATE_SOURCE="https://github.com/941design/slim-chat/releases/download/v1.0.1"
+npm run dev
+
+# Test pre-release versions
+export ALLOW_PRERELEASE=true
+npm run dev
+```
+
+**Verify the update flow**:
+1. Click "Check for Updates" in the app to trigger the update check
+2. Check state transitions (idle → checking → available → downloading → verifying → ready)
+3. Verify cryptographic signature validation
+4. Test download and installation process
+
+### Production Safety
+
+**Important**: Dev mode features are automatically disabled in production builds:
+- Pre-release versions are blocked
+- Custom update sources are ignored
+- All updates use official GitHub releases with HTTPS
+- Full cryptographic verification is always enforced
 
 ## Code Quality
 
@@ -318,3 +391,7 @@ The public key is safe to embed directly in the application code.
 ## License
 
 MIT
+
+## TODO
+
+- graceful error handling, e.g. `make dev-update-release DEV_UPDATE_SOURCE=https://github.com/941design/slim-chat/releases/download/v1.0.1` -> check for update

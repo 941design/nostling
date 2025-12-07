@@ -1,4 +1,4 @@
-.PHONY: help clean install dev build test lint package release sign-manifest test-e2e test-e2e-ui test-e2e-headed test-e2e-debug test-e2e-docker test-e2e-docker-clean test-all
+.PHONY: help clean install dev build test lint package release sign-manifest test-e2e test-e2e-ui test-e2e-headed test-e2e-debug test-e2e-docker test-e2e-docker-clean test-all dev-update-release dev-update-prerelease
 
 .DEFAULT_GOAL := help
 
@@ -25,6 +25,17 @@ dev-preload: ## Start preload script development mode only
 
 dev-renderer: ## Start renderer process development mode only
 	npm run dev:renderer
+
+# Dev Mode Update Testing
+dev-update-release: ## Test updates against a specific GitHub release (set DEV_UPDATE_SOURCE)
+	@if [ -z "$$DEV_UPDATE_SOURCE" ]; then \
+		echo "Usage: DEV_UPDATE_SOURCE=https://github.com/941design/slim-chat/releases/download/v1.0.1 make dev-update-release"; \
+		exit 1; \
+	fi
+	npm run dev
+
+dev-update-prerelease: ## Test pre-release updates (beta, alpha, rc versions)
+	ALLOW_PRERELEASE=true npm run dev
 
 build: ## Build the application for production
 	npm run build

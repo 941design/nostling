@@ -7,7 +7,9 @@
 
 import { app } from 'electron';
 import { autoUpdater, ProgressInfo } from 'electron-updater';
-import { UpdateState, DownloadProgress } from '../../shared/types';
+import { UpdateState, DownloadProgress, AppConfig } from '../../shared/types';
+import { DevUpdateConfig } from '../dev-env';
+import { log } from '../logging';
 
 /**
  * Convert electron-updater ProgressInfo to DownloadProgress
@@ -105,11 +107,20 @@ export function formatBytes(bytes: number): string {
 }
 
 /**
- * Setup autoUpdater with manual download configuration
+ * Setup autoUpdater with manual download configuration and dev mode support
  *
  * CONTRACT:
  *   Inputs:
  *     - autoDownloadEnabled: boolean, true for automatic download, false for manual
+ *     - config: AppConfig object with optional dev fields:
+ *       - forceDevUpdateConfig: boolean or undefined
+ *       - devUpdateSource: string (URL or file:// path) or undefined
+ *       - allowPrerelease: boolean or undefined
+ *       - manifestUrl: string or undefined (existing field, used as fallback)
+ *     - devConfig: DevUpdateConfig object from environment:
+ *       - forceDevUpdateConfig: boolean (from env vars)
+ *       - devUpdateSource: string or undefined (from env vars)
+ *       - allowPrerelease: boolean (from env vars)
  *
  *   Outputs:
  *     - void (side effect: configures autoUpdater instance)
@@ -117,34 +128,114 @@ export function formatBytes(bytes: number): string {
  *   Invariants:
  *     - autoUpdater.autoDownload set to autoDownloadEnabled
  *     - autoUpdater.autoInstallOnAppQuit always false (user must restart manually)
- *     - autoUpdater.setFeedURL configured for generic provider
+ *     - autoUpdater.setFeedURL configured for generic provider with correct URL
+ *     - In production builds: forceDevUpdateConfig and allowPrerelease NEVER enabled (constraint C1)
+ *     - Environment variables take precedence over config file for dev settings
+ *     - Config file values used as fallback when env vars not set
  *
  *   Properties:
- *     - Configuration persistence: settings remain until next call
- *     - User control: when autoDownload false, download requires explicit trigger
+ *     - Production safety: dev features disabled when devConfig indicates production mode
+ *     - Precedence: env vars (devConfig) > config file (config) > defaults
+ *     - Security preservation: all verification still required (constraint C2)
+ *     - Backward compatibility: existing production flow unchanged when no dev config (constraint C3)
  *
  *   Algorithm:
- *     1. Set autoUpdater.autoDownload to autoDownloadEnabled
- *     2. Set autoUpdater.autoInstallOnAppQuit to false
- *     3. Configure feed URL for generic provider
+ *     1. Set basic autoUpdater configuration (autoDownload, autoInstallOnAppQuit)
+ *
+ *     2. Determine effective dev mode settings (precedence: env > config > default):
+ *        a. forceDevUpdateConfig = devConfig.forceDevUpdateConfig OR config.forceDevUpdateConfig OR false
+ *        b. devUpdateSource = devConfig.devUpdateSource OR config.devUpdateSource OR undefined
+ *        c. allowPrerelease = devConfig.allowPrerelease OR config.allowPrerelease OR false
+ *
+ *     3. Configure forceDevUpdateConfig:
+ *        - Set autoUpdater.forceDevUpdateConfig to effective value
+ *        - Log if enabled for diagnostics (FR5)
+ *
+ *     4. Configure allowPrerelease:
+ *        - Set autoUpdater.allowPrerelease to effective value
+ *        - Log if enabled for diagnostics (FR5)
+ *
+ *     5. Determine feed URL (precedence: devUpdateSource > manifestUrl > default GitHub):
+ *        a. If devUpdateSource is set:
+ *           - Use devUpdateSource as base URL
+ *           - Log source for diagnostics (FR5)
+ *        b. Else if config.manifestUrl is set:
+ *           - Extract base URL from manifestUrl (remove /manifest.json suffix)
+ *           - Use as feed URL
+ *        c. Else use default GitHub releases URL
+ *
+ *     6. Configure feed URL:
+ *        - Call autoUpdater.setFeedURL with generic provider
+ *        - Set url to determined feed URL
+ *        - Log configured URL for diagnostics (FR5)
+ *
+ *   Examples:
+ *     Production mode (devConfig all false/undefined):
+ *       - config = { manifestUrl: "https://..." }
+ *       - Result: Standard GitHub feed, no dev features enabled
+ *
+ *     Dev mode with GitHub releases:
+ *       - devConfig = { forceDevUpdateConfig: true, devUpdateSource: "https://github.com/941design/slim-chat/releases/download/v1.0.0", allowPrerelease: false }
+ *       - Result: Force dev updates, use specified GitHub release, no prereleases
+ *
+ *     Dev mode with local manifest:
+ *       - devConfig = { forceDevUpdateConfig: true, devUpdateSource: "file://./test-manifests/v1.0.0", allowPrerelease: true }
+ *       - Result: Force dev updates, use local file, allow prereleases
+ *
+ *     Dev mode with env override:
+ *       - config = { forceDevUpdateConfig: false }
+ *       - devConfig = { forceDevUpdateConfig: true, ... }
+ *       - Result: Env var wins, force dev updates enabled
+ *
+ *   Error Handling:
+ *     - Invalid URLs: Passed to autoUpdater as-is (will fail gracefully per FR4)
+ *     - Missing manifest: autoUpdater will transition to 'failed' state (FR4)
+ *     - Network errors: Handled by autoUpdater event system (FR4)
  */
-export function setupUpdater(autoDownloadEnabled: boolean): void {
-  // TRIVIAL: Implemented directly
+export function setupUpdater(
+  autoDownloadEnabled: boolean,
+  config: AppConfig,
+  devConfig: DevUpdateConfig
+): void {
   autoUpdater.autoDownload = autoDownloadEnabled;
   autoUpdater.autoInstallOnAppQuit = false;
 
-  // BUG FIX: Configure electron-updater to use generic provider
-  // Root cause: Without setFeedURL(), electron-updater defaults to GitHub provider
-  //             which expects latest-mac.yml at /latest, causing 404 errors
-  // Bug report: bug-reports/bug-auto-update-404.md
-  // Fixed: 2025-12-07
-  const owner = '941design';
-  const repo = 'slim-chat';
-  const version = app.getVersion();
+  // CRITICAL: Production safety (C1) - config values ONLY used when devConfig indicates dev mode
+  const isDevModeActive = devConfig.forceDevUpdateConfig || Boolean(devConfig.devUpdateSource) || devConfig.allowPrerelease;
+
+  const forceDevUpdateConfig = devConfig.forceDevUpdateConfig || (isDevModeActive && config.forceDevUpdateConfig) || false;
+  const devUpdateSource = devConfig.devUpdateSource || (isDevModeActive && config.devUpdateSource) || undefined;
+  const allowPrerelease = devConfig.allowPrerelease || (isDevModeActive && config.allowPrerelease) || false;
+
+  autoUpdater.forceDevUpdateConfig = forceDevUpdateConfig;
+  if (forceDevUpdateConfig) {
+    log('info', 'Dev mode: forceDevUpdateConfig enabled');
+  }
+
+  autoUpdater.allowPrerelease = allowPrerelease;
+  if (allowPrerelease) {
+    log('info', 'Dev mode: allowPrerelease enabled');
+  }
+
+  let feedUrl: string;
+  if (devUpdateSource) {
+    feedUrl = devUpdateSource;
+    log('info', `Dev mode: using custom update source: ${devUpdateSource}`);
+  } else if (config.manifestUrl) {
+    feedUrl = config.manifestUrl.replace(/\/manifest\.json$/, '');
+  } else {
+    const owner = '941design';
+    const repo = 'slim-chat';
+    const version = app.getVersion();
+    feedUrl = `https://github.com/${owner}/${repo}/releases/download/v${version}`;
+  }
+
   autoUpdater.setFeedURL({
     provider: 'generic',
-    url: `https://github.com/${owner}/${repo}/releases/download/v${version}`
+    url: feedUrl
   });
+
+  log('info', `Update feed URL configured: ${feedUrl}`);
 }
 
 /**

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Dev Mode Update Testing**: Test auto-updates locally before releasing to users
+  - Automatic dev mode detection via `VITE_DEV_SERVER_URL` environment variable
+  - Configure update source via `DEV_UPDATE_SOURCE` environment variable
+  - Test pre-release versions with `ALLOW_PRERELEASE=true` flag
+  - Production safety enforced: dev features automatically disabled in packaged builds
+  - Configurable manifest fetch timeout (default: 30 seconds) prevents indefinite hangs
+  - Concurrency protection: prevents race conditions from overlapping update checks
+  - Comprehensive test coverage: 292 tests including property-based tests for state machine
+  - Full diagnostic logging for update check process, version comparisons, and signature verification
+
 ### Changed
 - **BREAKING**: Migrated auto-update signature verification from Ed25519 to RSA-4096
   - Update manifests now use RSA-4096 signatures (SHA-256 with RSA)

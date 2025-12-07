@@ -109,30 +109,47 @@ export function constructManifestUrl(
  *     - HTTP error (4xx, 5xx): reject with status code
  *     - Invalid JSON: reject with parse error
  */
-export async function fetchManifest(manifestUrl: string): Promise<SignedManifest> {
+export async function fetchManifest(
+  manifestUrl: string,
+  timeoutMs: number = 30000
+): Promise<SignedManifest> {
   validateManifestUrl(manifestUrl);
 
-  const response = await fetch(manifestUrl, {
-    headers: {
-      'Cache-Control': 'no-cache',
-    },
-  });
+  // CRITICAL: Timeout mechanism to prevent indefinite hangs (FR4)
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  if (!response.ok) {
-    throw new Error(`Manifest request failed with status ${response.status}`);
-  }
-
-  let data: unknown;
   try {
-    data = await response.json();
-  } catch (err) {
-    throw new Error(
-      `Failed to parse manifest JSON: ${err instanceof Error ? err.message : 'Unknown error'}`
-    );
-  }
+    const response = await fetch(manifestUrl, {
+      headers: {
+        'Cache-Control': 'no-cache',
+      },
+      signal: controller.signal,
+    });
 
-  validateManifestStructure(data);
-  return data as SignedManifest;
+    if (!response.ok) {
+      throw new Error(`Manifest request failed with status ${response.status}`);
+    }
+
+    let data: unknown;
+    try {
+      data = await response.json();
+    } catch (err) {
+      throw new Error(
+        `Failed to parse manifest JSON: ${err instanceof Error ? err.message : 'Unknown error'}`
+      );
+    }
+
+    validateManifestStructure(data);
+    return data as SignedManifest;
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new Error(`Manifest fetch timed out after ${timeoutMs}ms`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 function validateManifestUrl(url: string): void {

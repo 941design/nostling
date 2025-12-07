@@ -33,6 +33,10 @@ jest.mock('electron-updater', () => ({
   autoUpdater: mockAutoUpdater,
 }));
 
+jest.mock('../logging', () => ({
+  log: jest.fn(),
+}));
+
 describe('Regression: Auto-update 404 error (FIXED)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -44,8 +48,18 @@ describe('Regression: Auto-update 404 error (FIXED)', () => {
     // Import controller module (after mocks are set up)
     const { setupUpdater } = await import('./controller');
 
+    // Mock config and devConfig
+    const mockConfig = {
+      autoUpdate: true,
+      logLevel: 'info' as const,
+    };
+    const mockDevConfig = {
+      forceDevUpdateConfig: false,
+      allowPrerelease: false,
+    };
+
     // Call setupUpdater
-    setupUpdater(false);
+    setupUpdater(false, mockConfig, mockDevConfig);
 
     // VERIFY FIX: setupUpdater() now calls setFeedURL with generic provider
     expect(mockSetFeedURL).toHaveBeenCalledTimes(1);
@@ -62,10 +76,20 @@ describe('Regression: Auto-update 404 error (FIXED)', () => {
   it('verifies feed URL uses app version', async () => {
     const { setupUpdater } = await import('./controller');
 
+    // Mock config and devConfig
+    const mockConfig = {
+      autoUpdate: true,
+      logLevel: 'info' as const,
+    };
+    const mockDevConfig = {
+      forceDevUpdateConfig: false,
+      allowPrerelease: false,
+    };
+
     // Set different version
     mockGetVersion.mockReturnValue('2.3.4');
 
-    setupUpdater(true);
+    setupUpdater(true, mockConfig, mockDevConfig);
 
     // Verify URL includes version
     expect(mockSetFeedURL).toHaveBeenCalledWith({

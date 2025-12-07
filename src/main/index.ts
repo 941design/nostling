@@ -7,6 +7,7 @@ import { loadConfig, saveConfig } from './config';
 import { verifyDownloadedUpdate } from './integration';
 import { registerHandlers, broadcastUpdateState } from './ipc/handlers';
 import { downloadUpdate, setupUpdater } from './update/controller';
+import { getDevUpdateConfig } from './dev-env';
 
 let mainWindow: BrowserWindow | null = null;
 let config: AppConfig = loadConfig();
@@ -49,7 +50,11 @@ function setupAutoUpdater() {
   // Configure autoUpdater based on user preference (GAP-005)
   // Default to 'manual' for safe, privacy-respecting behavior
   const autoDownloadEnabled = config.autoUpdateBehavior === 'auto-download';
-  setupUpdater(autoDownloadEnabled);
+
+  // Get dev mode configuration from environment variables
+  const devConfig = getDevUpdateConfig();
+
+  setupUpdater(autoDownloadEnabled, config, devConfig);
 
   autoUpdater.on('checking-for-update', () => {
     updateState = { phase: 'checking' };
@@ -123,6 +128,11 @@ async function getStatus(): Promise<AppStatus> {
 async function checkForUpdates(): Promise<void> {
   if (!config.autoUpdate) {
     log('warn', 'Auto-update disabled in config');
+    return;
+  }
+  // CRITICAL: Concurrency guard to prevent race conditions on updateState
+  if (updateState.phase === 'checking') {
+    log('warn', 'Update check already in progress, skipping concurrent request');
     return;
   }
   updateState = { phase: 'checking' };

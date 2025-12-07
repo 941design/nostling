@@ -7,6 +7,9 @@ export interface AppConfig {
   autoUpdateBehavior?: 'manual' | 'auto-download'; // GAP-005
   logRetentionDays?: number; // GAP-011
   logMaxFileSizeMB?: number; // GAP-011
+  forceDevUpdateConfig?: boolean; // Dev mode: force update checks in unpacked app
+  devUpdateSource?: string; // Dev mode: custom update source (GitHub URL or local file://)
+  allowPrerelease?: boolean; // Dev mode: allow pre-release versions
 }
 
 export interface AppStatus {

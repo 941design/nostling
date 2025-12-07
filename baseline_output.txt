@@ -1,4 +1,0 @@
-Test Suites: 1 failed, 5 passed, 6 total
-Tests: 175 passed, 175 total
-Failed Test: src/main/security/crypto.test.ts (empty test file)
-Exit Code: 1

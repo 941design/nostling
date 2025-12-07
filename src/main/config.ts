@@ -47,5 +47,13 @@ function normalizeConfig(raw: any): AppConfig {
     autoUpdate: typeof raw?.autoUpdate === 'boolean' ? raw.autoUpdate : DEFAULT_CONFIG.autoUpdate,
     logLevel,
     manifestUrl: typeof raw?.manifestUrl === 'string' ? raw.manifestUrl : undefined,
+    autoUpdateBehavior: ['manual', 'auto-download'].includes(raw?.autoUpdateBehavior)
+      ? raw.autoUpdateBehavior
+      : undefined,
+    logRetentionDays: typeof raw?.logRetentionDays === 'number' ? raw.logRetentionDays : undefined,
+    logMaxFileSizeMB: typeof raw?.logMaxFileSizeMB === 'number' ? raw.logMaxFileSizeMB : undefined,
+    forceDevUpdateConfig: typeof raw?.forceDevUpdateConfig === 'boolean' ? raw.forceDevUpdateConfig : undefined,
+    devUpdateSource: typeof raw?.devUpdateSource === 'string' ? raw.devUpdateSource : undefined,
+    allowPrerelease: typeof raw?.allowPrerelease === 'boolean' ? raw.allowPrerelease : undefined,
   };
 }
