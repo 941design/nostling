@@ -14,7 +14,7 @@
     "dev:main": "tsup src/main/index.ts --format=cjs --target=node18 --out-dir=dist/main --watch --sourcemap",
     "dev:preload": "tsup src/preload/index.ts --format=cjs --target=node18 --out-dir=dist/preload --watch --sourcemap",
     "dev:renderer": "vite --config vite.renderer.config.ts",
-    "dev:app": "wait-on dist/main/index.js dist/preload/index.js && electron .",
+    "dev:app": "wait-on dist/main/index.js dist/preload/index.js http://localhost:5173 && VITE_DEV_SERVER_URL=http://localhost:5173 electron .",
     "dev": "concurrently -k \"npm:dev:main\" \"npm:dev:preload\" \"npm:dev:renderer\" \"npm:dev:app\"",
     "build:main": "tsup src/main/index.ts --format=cjs --target=node18 --out-dir=dist/main --sourcemap",
     "build:preload": "tsup src/preload/index.ts --format=cjs --target=node18 --out-dir=dist/preload --sourcemap",
