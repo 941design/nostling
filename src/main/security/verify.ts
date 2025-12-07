@@ -1,82 +1,79 @@
 /**
- * GAP-001, GAP-006, GAP-008: Manifest verification with Ed25519 signatures and SHA-256 hashes
+ * RSA-based manifest verification (migration from Ed25519)
  *
- * This module verifies downloaded update artifacts against signed manifests.
+ * This module verifies downloaded update artifacts against RSA-signed manifests.
  * Security-critical: all cryptographic operations must succeed before accepting updates.
  */
 
-import nacl from 'tweetnacl';
+import crypto from 'crypto';
 import { SignedManifest, ManifestArtifact } from '../../shared/types';
 import { hashFile, hashMatches } from './crypto';
 import { validateVersion } from './version';
 
 /**
- * Verify Ed25519 signature on manifest
+ * Verify RSA signature on manifest
  *
  * CONTRACT:
  *   Inputs:
  *     - manifest: SignedManifest object with version, artifacts, createdAt, signature fields
- *     - publicKeyBase64: base64-encoded Ed25519 public key (32 bytes → 44 base64 chars)
+ *     - publicKeyPem: RSA public key in PEM format (armor-encoded text block)
+ *       Example format:
+ *       "-----BEGIN PUBLIC KEY-----
+ *        MIICIjANBgkqhkiG9w0BAQ...
+ *        -----END PUBLIC KEY-----"
  *
  *   Outputs:
  *     - boolean: true if signature valid, false otherwise
  *
  *   Invariants:
  *     - Signature covers canonical JSON of { version, artifacts, createdAt }
- *     - Public key must be exactly 32 bytes (Ed25519 requirement)
- *     - Signature must be exactly 64 bytes (Ed25519 requirement)
+ *     - Public key must be valid RSA key in PEM format
+ *     - Signature must be base64-encoded RSA signature bytes
+ *     - Uses SHA-256 hash algorithm for RSA signing
  *
  *   Properties:
  *     - Authenticity: only private key holder can produce valid signature
  *     - Integrity: any modification to version/artifacts/createdAt invalidates signature
  *     - Deterministic: same manifest + key produces same verification result
+ *     - Algorithm compliance: uses RSASSA-PKCS1-v1_5 with SHA-256 (standard)
  *
  *   Algorithm:
  *     1. Extract payload: { version, artifacts, createdAt } from manifest
  *     2. Canonicalize payload as JSON string (no whitespace)
  *     3. Convert payload string to Buffer (UTF-8 encoding)
  *     4. Decode signature from manifest.signature (base64 → Buffer)
- *     5. Decode public key from publicKeyBase64 (base64 → Buffer)
- *     6. Verify signature using nacl.sign.detached.verify(message, signature, publicKey)
- *     7. Return verification result (boolean)
+ *     5. Create verification object: crypto.createVerify('SHA256')
+ *     6. Update verifier with payload buffer
+ *     7. Verify signature using verifier.verify(publicKeyPem, signatureBuffer)
+ *     8. Return verification result (boolean)
  *
  *   Error Conditions:
- *     - Invalid base64 encoding: return false
- *     - Wrong key length: return false
- *     - Wrong signature length: return false
+ *     - Invalid base64 encoding in signature: return false
+ *     - Invalid PEM format in public key: return false
+ *     - Signature algorithm mismatch: return false
+ *     - Any crypto operation error: return false (graceful failure)
  */
 export function verifySignature(
   manifest: SignedManifest,
-  publicKeyBase64: string
+  publicKeyPem: string
 ): boolean {
   try {
-    // Extract payload: { version, artifacts, createdAt }
     const payload = {
       version: manifest.version,
       artifacts: manifest.artifacts,
       createdAt: manifest.createdAt,
     };
 
-    // Canonicalize payload as JSON string (no whitespace)
     const payloadString = JSON.stringify(payload, null, 0);
-    const messageBuffer = Buffer.from(payloadString, 'utf-8');
+    const payloadBuffer = Buffer.from(payloadString, 'utf-8');
 
-    // Decode signature from base64
     const signatureBuffer = Buffer.from(manifest.signature, 'base64');
 
-    // Decode public key from base64
-    const publicKeyBuffer = Buffer.from(publicKeyBase64, 'base64');
+    const verifier = crypto.createVerify('SHA256');
+    verifier.update(payloadBuffer);
 
-    // Verify signature using nacl.sign.detached.verify
-    const isValid = nacl.sign.detached.verify(
-      messageBuffer,
-      signatureBuffer,
-      publicKeyBuffer
-    );
-
-    return isValid;
+    return verifier.verify(publicKeyPem, signatureBuffer);
   } catch {
-    // Handle all errors gracefully: invalid base64, wrong key length, etc.
     return false;
   }
 }
@@ -111,7 +108,6 @@ export function findArtifactForPlatform(
   artifacts: ManifestArtifact[],
   currentPlatform: 'darwin' | 'linux' | 'win32'
 ): ManifestArtifact | undefined {
-  // TRIVIAL: Implemented directly
   return artifacts.find((a) => a.platform === currentPlatform);
 }
 
@@ -124,7 +120,7 @@ export function findArtifactForPlatform(
  *     - downloadedFilePath: absolute path to downloaded update artifact
  *     - currentVersion: current application version string (semver)
  *     - currentPlatform: platform identifier ('darwin' | 'linux' | 'win32')
- *     - publicKeyBase64: base64-encoded Ed25519 public key
+ *     - publicKeyPem: RSA public key in PEM format
  *
  *   Outputs:
  *     - promise resolving to: { verified: true } if all checks pass
@@ -142,7 +138,7 @@ export function findArtifactForPlatform(
  *
  *   Algorithm:
  *     1. Verify manifest signature:
- *        a. Call verifySignature(manifest, publicKeyBase64)
+ *        a. Call verifySignature(manifest, publicKeyPem)
  *        b. If false, reject with "Manifest signature verification failed"
  *     2. Validate manifest version:
  *        a. Call validateVersion(manifest.version, currentVersion)
@@ -169,33 +165,26 @@ export async function verifyManifest(
   downloadedFilePath: string,
   currentVersion: string,
   currentPlatform: 'darwin' | 'linux' | 'win32',
-  publicKeyBase64: string
+  publicKeyPem: string
 ): Promise<{ verified: true }> {
-  // Step 1: Verify manifest signature
-  const signatureValid = verifySignature(manifest, publicKeyBase64);
-  if (!signatureValid) {
+  if (!verifySignature(manifest, publicKeyPem)) {
     throw new Error('Manifest signature verification failed');
   }
 
-  // Step 2: Validate manifest version
   const versionResult = validateVersion(manifest.version, currentVersion);
   if (!versionResult.valid) {
     throw new Error(versionResult.reason);
   }
 
-  // Step 3: Find artifact for current platform
   const artifact = findArtifactForPlatform(manifest.artifacts, currentPlatform);
   if (!artifact) {
     throw new Error(`No artifact found for platform ${currentPlatform}`);
   }
 
-  // Step 4: Verify artifact hash
   const computedHash = await hashFile(downloadedFilePath);
-  const hashValid = hashMatches(artifact.sha256, computedHash);
-  if (!hashValid) {
+  if (!hashMatches(artifact.sha256, computedHash)) {
     throw new Error('Downloaded file hash mismatch');
   }
 
-  // Step 5: All checks passed
   return { verified: true };
 }

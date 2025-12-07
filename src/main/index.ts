@@ -15,8 +15,8 @@ setLogLevel(config.logLevel);
 let updateState: UpdateState = { phase: 'idle' };
 let lastUpdateCheck: string | undefined;
 
-const PUBLIC_KEY = process.env.ED25519_PUBLIC_KEY ||
-  'YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE='; // placeholder base64
+const PUBLIC_KEY = process.env.RSA_PUBLIC_KEY ||
+  '-----BEGIN PUBLIC KEY-----\nMIICIjANBgkqhkiG9w0BAQ...\n-----END PUBLIC KEY-----'; // placeholder PEM
 
 function createWindow() {
   mainWindow = new BrowserWindow({

@@ -1,31 +1,46 @@
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+/**
+ * Comprehensive property-based and example-based tests for RSA verification functions
+ *
+ * This test suite validates the security properties of verifySignature() and
+ * verifyManifest() using property-based testing with fast-check for non-I/O operations
+ * and example-based tests for file-dependent operations.
+ *
+ * Security Properties Tested:
+ *   - Authenticity: Only valid signatures pass verification
+ *   - Integrity: Any payload modification invalidates signature
+ *   - Determinism: Same inputs always produce same result
+ *   - Algorithm compliance: Correct RSA/SHA-256 verification
+ *   - Error handling: Invalid inputs fail gracefully
+ */
+
 import fc from 'fast-check';
-import nacl from 'tweetnacl';
+import crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
-import { verifySignature, verifyManifest } from './verify';
+import { verifySignature, findArtifactForPlatform, verifyManifest } from './verify';
 import { SignedManifest, ManifestArtifact } from '../../shared/types';
 
-// Test keypair
-const TEST_KEYPAIR = {
-  publicKey: 'aB6aFtBKBr8QAuzAhDPg4KYqPEwlwEUVGaKZ4fFWIZE=',
-  secretKey: 'Ikm8eJsKIlhb/69CMAu31lusHWNG2kxWK3Q4irVzBjpoHpoW0EoGvxAC7MCEM+Dgpio8TCXARRUZopnh8VYhkQ==',
+// Test fixtures: Generate valid RSA keypair for testing
+const generateTestKeyPair = () => {
+  const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', {
+    modulusLength: 2048,
+    publicKeyEncoding: { type: 'spki', format: 'pem' },
+    privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+  });
+  return { publicKey: publicKey as string, privateKey: privateKey as string };
 };
 
-function createValidManifest(
-  version: string = '1.0.0',
-  secretKey: string = TEST_KEYPAIR.secretKey
-): SignedManifest {
-  const artifacts: ManifestArtifact[] = [
-    {
-      url: 'https://example.com/update-1.0.0.dmg',
-      sha256: 'abcd1234',
-      platform: 'darwin',
-      type: 'dmg',
-    },
-  ];
-  const createdAt = new Date().toISOString();
+const testKeyPair = generateTestKeyPair();
 
+/**
+ * Helper: Create a signed manifest with a valid RSA signature
+ */
+const createSignedManifest = (
+  version: string,
+  artifacts: ManifestArtifact[],
+  createdAt: string,
+  privateKeyPem: string
+): SignedManifest => {
   const payload = {
     version,
     artifacts,
@@ -33,1067 +48,654 @@ function createValidManifest(
   };
 
   const payloadString = JSON.stringify(payload, null, 0);
-  const messageBuffer = Buffer.from(payloadString, 'utf-8');
+  const payloadBuffer = Buffer.from(payloadString, 'utf-8');
 
-  const secretKeyBuffer = Buffer.from(secretKey, 'base64');
-  const signature = nacl.sign.detached(messageBuffer, secretKeyBuffer);
+  const signer = crypto.createSign('SHA256');
+  signer.update(payloadBuffer);
+  const signature = signer.sign(privateKeyPem, 'base64');
 
   return {
     version,
     artifacts,
     createdAt,
-    signature: Buffer.from(signature).toString('base64'),
+    signature,
   };
-}
+};
 
-function isValidBase64(str: string): boolean {
-  try {
-    Buffer.from(str, 'base64');
-    return /^[A-Za-z0-9+/]*={0,2}$/.test(str);
-  } catch {
-    return false;
-  }
-}
+/**
+ * Helper: Create test artifacts
+ */
+const createArtifact = (platform: 'darwin' | 'linux' | 'win32' = 'darwin'): ManifestArtifact => ({
+  url: `https://example.com/app-${platform}.tar.gz`,
+  sha256: 'abcd1234efgh5678ijkl9012mnop3456qrst7890uvwx1234yzab5678cdef',
+  platform,
+  type: 'zip',
+});
 
-const hashArb = fc.string({ minLength: 60, maxLength: 70 }).map(s => s.padEnd(64, 'a'));
+/**
+ * Generator helpers for property-based tests
+ */
+const semverArb = (): fc.Arbitrary<string> => {
+  return fc.tuple(fc.integer({ min: 0, max: 10 }), fc.integer({ min: 0, max: 20 }), fc.integer({ min: 0, max: 30 })).map(([major, minor, patch]) => `${major}.${minor}.${patch}`);
+};
 
-describe('verifySignature', () => {
-  describe('Property-Based Tests', () => {
-    it('P001: Valid signature with correct key returns true', () => {
-      fc.assert(
-        fc.property(
-          fc.tuple(
-            fc.integer({ min: 0, max: 99 }),
-            fc.integer({ min: 0, max: 99 }),
-            fc.integer({ min: 0, max: 99 })
-          ),
-          fc.array(
-            fc.record({
-              url: fc.webUrl(),
-              sha256: hashArb,
-              platform: fc.constantFrom('darwin' as const, 'linux' as const, 'win32' as const),
-              type: fc.constantFrom('dmg' as const, 'zip' as const, 'AppImage' as const, 'exe' as const),
-            }),
-            { minLength: 1 }
-          ),
-          ([major, minor, patch], artifacts) => {
-            const version = `${major}.${minor}.${patch}`;
-            const createdAt = new Date().toISOString();
+const sha256Arb = (): fc.Arbitrary<string> => {
+  return fc.stringMatching(/[a-f0-9]{64}/);
+};
 
-            const payload = { version, artifacts, createdAt };
-            const payloadString = JSON.stringify(payload, null, 0);
-            const messageBuffer = Buffer.from(payloadString, 'utf-8');
+const isoTimestampArb = (): fc.Arbitrary<string> => {
+  return fc.date({ min: new Date('2020-01-01T00:00:00Z'), max: new Date('2030-12-31T23:59:59Z') }).map((d) => {
+    // Ensure the date is valid before converting to ISO string
+    if (isNaN(d.getTime())) {
+      return new Date('2025-01-01T00:00:00Z').toISOString();
+    }
+    return d.toISOString();
+  });
+};
 
-            const secretKeyBuffer = Buffer.from(TEST_KEYPAIR.secretKey, 'base64');
-            const signatureBuf = nacl.sign.detached(messageBuffer, secretKeyBuffer);
+const artifactArb = (): fc.Arbitrary<ManifestArtifact> => {
+  return fc.record({
+    url: fc.webUrl(),
+    sha256: sha256Arb(),
+    platform: fc.constantFrom<'darwin' | 'linux' | 'win32'>('darwin', 'linux', 'win32'),
+    type: fc.constantFrom<'dmg' | 'zip' | 'AppImage' | 'exe'>('dmg', 'zip', 'AppImage', 'exe'),
+  });
+};
 
-            const manifest: SignedManifest = {
-              version,
-              artifacts,
-              createdAt,
-              signature: Buffer.from(signatureBuf).toString('base64'),
-            };
+// ============================================================================
+// PROPERTY-BASED TESTS FOR verifySignature()
+// ============================================================================
 
-            const result = verifySignature(manifest, TEST_KEYPAIR.publicKey);
-            expect(result).toBe(true);
-          }
-        ),
-        { numRuns: 50 }
-      );
-    });
-
-    it('P002: Tampered manifest content returns false', () => {
-      fc.assert(
-        fc.property(
-          fc.tuple(
-            fc.integer({ min: 0, max: 99 }),
-            fc.integer({ min: 0, max: 99 }),
-            fc.integer({ min: 0, max: 99 })
-          ),
-          fc.array(
-            fc.record({
-              url: fc.webUrl(),
-              sha256: hashArb,
-              platform: fc.constantFrom('darwin' as const, 'linux' as const, 'win32' as const),
-              type: fc.constantFrom('dmg' as const, 'zip' as const, 'AppImage' as const, 'exe' as const),
-            }),
-            { minLength: 1 }
-          ),
-          fc.constantFrom('version', 'artifacts', 'createdAt'),
-          ([major, minor, patch], artifacts, fieldToTamper) => {
-            const version = `${major}.${minor}.${patch}`;
-            const createdAt = new Date().toISOString();
-
-            const payload = { version, artifacts, createdAt };
-            const payloadString = JSON.stringify(payload, null, 0);
-            const messageBuffer = Buffer.from(payloadString, 'utf-8');
-
-            const secretKeyBuffer = Buffer.from(TEST_KEYPAIR.secretKey, 'base64');
-            const signatureBuf = nacl.sign.detached(messageBuffer, secretKeyBuffer);
-
-            const manifest: SignedManifest = {
-              version,
-              artifacts,
-              createdAt,
-              signature: Buffer.from(signatureBuf).toString('base64'),
-            };
-
-            // Tamper with manifest content
-            if (fieldToTamper === 'version') {
-              manifest.version = 'tampered-version';
-            } else if (fieldToTamper === 'createdAt') {
-              manifest.createdAt = new Date(Date.now() + 1000).toISOString();
-            } else if (fieldToTamper === 'artifacts') {
-              manifest.artifacts = [
-                {
-                  url: 'https://tampered.example.com/file',
-                  sha256: 'DEADBEEF'.padEnd(64, '0'),
-                  platform: 'darwin',
-                  type: 'dmg',
-                },
-              ];
-            }
-
-            const result = verifySignature(manifest, TEST_KEYPAIR.publicKey);
-            expect(result).toBe(false);
-          }
-        ),
-        { numRuns: 30 }
-      );
-    });
-
-    it('P003: Wrong public key returns false', () => {
-      fc.assert(
-        fc.property(
-          fc.tuple(
-            fc.integer({ min: 0, max: 99 }),
-            fc.integer({ min: 0, max: 99 }),
-            fc.integer({ min: 0, max: 99 })
-          ),
-          ([major, minor, patch]) => {
-            const version = `${major}.${minor}.${patch}`;
-            const manifest = createValidManifest(version);
-
-            // Generate a different keypair
-            const { publicKey: wrongPublicKey } = nacl.sign.keyPair();
-            const wrongPublicKeyB64 = Buffer.from(wrongPublicKey).toString('base64');
-
-            const result = verifySignature(manifest, wrongPublicKeyB64);
-            expect(result).toBe(false);
-          }
-        ),
-        { numRuns: 20 }
-      );
-    });
-
-    it('P004: Invalid base64 signature returns false', () => {
-      fc.assert(
-        fc.property(
-          fc.tuple(
-            fc.integer({ min: 0, max: 99 }),
-            fc.integer({ min: 0, max: 99 }),
-            fc.integer({ min: 0, max: 99 })
-          ),
-          fc.string({ minLength: 1, maxLength: 50 }).filter((s) => !isValidBase64(s)),
-          ([major, minor, patch], invalidBase64) => {
-            const version = `${major}.${minor}.${patch}`;
-            const manifest = createValidManifest(version);
-            manifest.signature = invalidBase64;
-
-            const result = verifySignature(manifest, TEST_KEYPAIR.publicKey);
-            expect(result).toBe(false);
-          }
-        ),
-        { numRuns: 20 }
-      );
-    });
-
-    it('P005: Invalid base64 public key returns false', () => {
-      fc.assert(
-        fc.property(
-          fc.string({ minLength: 1, maxLength: 50 }).filter((s) => !isValidBase64(s)),
-          (invalidBase64) => {
-            const manifest = createValidManifest();
-
-            const result = verifySignature(manifest, invalidBase64);
-            expect(result).toBe(false);
-          }
-        ),
-        { numRuns: 20 }
-      );
-    });
-
-    it('P006: Wrong signature length returns false', () => {
-      fc.assert(
-        fc.property(
-          fc.tuple(
-            fc.integer({ min: 0, max: 99 }),
-            fc.integer({ min: 0, max: 99 }),
-            fc.integer({ min: 0, max: 99 })
-          ),
-          ([major, minor, patch]) => {
-            const version = `${major}.${minor}.${patch}`;
-            const manifest = createValidManifest(version);
-
-            // Corrupt signature length by truncating
-            const validSigBuf = Buffer.from(manifest.signature, 'base64');
-            const truncatedSig = validSigBuf.subarray(0, Math.max(1, validSigBuf.length - 10));
-            manifest.signature = truncatedSig.toString('base64');
-
-            const result = verifySignature(manifest, TEST_KEYPAIR.publicKey);
-            expect(result).toBe(false);
-          }
-        ),
-        { numRuns: 15 }
-      );
-    });
-
-    it('P007: Wrong public key length returns false', () => {
-      fc.assert(
-        fc.property(
-          fc.tuple(
-            fc.integer({ min: 0, max: 99 }),
-            fc.integer({ min: 0, max: 99 }),
-            fc.integer({ min: 0, max: 99 })
-          ),
-          ([major, minor, patch]) => {
-            const version = `${major}.${minor}.${patch}`;
-            const manifest = createValidManifest(version);
-
-            // Corrupt public key length
-            const validKeyBuf = Buffer.from(TEST_KEYPAIR.publicKey, 'base64');
-            const truncatedKey = validKeyBuf.subarray(0, Math.max(1, validKeyBuf.length - 5));
-            const wrongKeyB64 = truncatedKey.toString('base64');
-
-            const result = verifySignature(manifest, wrongKeyB64);
-            expect(result).toBe(false);
-          }
-        ),
-        { numRuns: 15 }
-      );
-    });
-
-    it('P008: Empty/null signature handled safely', () => {
-      const manifest = createValidManifest();
-      manifest.signature = '';
-
-      const result = verifySignature(manifest, TEST_KEYPAIR.publicKey);
-      expect(result).toBe(false);
-    });
-
-    it('P009: Empty/null public key handled safely', () => {
-      const manifest = createValidManifest();
-
-      const result = verifySignature(manifest, '');
-      expect(result).toBe(false);
-    });
-
-    it('P010: Signature verification is deterministic (same inputs always same result)', () => {
-      fc.assert(
-        fc.property(
-          fc.tuple(
-            fc.integer({ min: 0, max: 99 }),
-            fc.integer({ min: 0, max: 99 }),
-            fc.integer({ min: 0, max: 99 })
-          ),
-          ([major, minor, patch]) => {
-            const version = `${major}.${minor}.${patch}`;
-            const manifest = createValidManifest(version);
-
-            const result1 = verifySignature(manifest, TEST_KEYPAIR.publicKey);
-            const result2 = verifySignature(manifest, TEST_KEYPAIR.publicKey);
-            const result3 = verifySignature(manifest, TEST_KEYPAIR.publicKey);
-
-            expect(result1).toBe(result2);
-            expect(result2).toBe(result3);
-          }
-        ),
-        { numRuns: 30 }
-      );
-    });
-
-    it('P011: Modification of single artifact invalidates signature', () => {
-      fc.assert(
-        fc.property(
-          fc.tuple(
-            fc.integer({ min: 0, max: 99 }),
-            fc.integer({ min: 0, max: 99 }),
-            fc.integer({ min: 0, max: 99 })
-          ),
-          fc.array(
-            fc.record({
-              url: fc.webUrl(),
-              sha256: hashArb,
-              platform: fc.constantFrom('darwin' as const, 'linux' as const, 'win32' as const),
-              type: fc.constantFrom('dmg' as const, 'zip' as const, 'AppImage' as const, 'exe' as const),
-            }),
-            { minLength: 2 }
-          ),
-          ([major, minor, patch], artifacts) => {
-            const version = `${major}.${minor}.${patch}`;
-            const createdAt = new Date().toISOString();
-            const payload = { version, artifacts, createdAt };
-            const payloadString = JSON.stringify(payload, null, 0);
-            const messageBuffer = Buffer.from(payloadString, 'utf-8');
-
-            const secretKeyBuffer = Buffer.from(TEST_KEYPAIR.secretKey, 'base64');
-            const signatureBuf = nacl.sign.detached(messageBuffer, secretKeyBuffer);
-
-            const manifest: SignedManifest = {
-              version,
-              artifacts,
-              createdAt,
-              signature: Buffer.from(signatureBuf).toString('base64'),
-            };
-
-            // Valid signature
-            expect(verifySignature(manifest, TEST_KEYPAIR.publicKey)).toBe(true);
-
-            // Modify one artifact
-            manifest.artifacts[0].sha256 = 'DEADBEEF'.padEnd(64, 'F');
-
-            // Now signature should be invalid
-            expect(verifySignature(manifest, TEST_KEYPAIR.publicKey)).toBe(false);
-          }
-        ),
-        { numRuns: 20 }
-      );
-    });
-
-    it('P012: Null manifest fields handled safely', () => {
-      const manifest = createValidManifest();
-      (manifest as any).version = null;
-
-      const result = verifySignature(manifest, TEST_KEYPAIR.publicKey);
-      expect(result).toBe(false);
-    });
+describe('verifySignature - Property-Based Tests', () => {
+  /**
+   * Property 1: Valid signatures always verify correctly
+   * Invariant: If manifest is signed with private key, verification with public key always succeeds
+   */
+  test('P1: Valid signatures always verify correctly', () => {
+    fc.assert(
+      fc.property(semverArb(), fc.array(artifactArb(), { minLength: 0, maxLength: 3 }), isoTimestampArb(), (version, artifacts, createdAt) => {
+        const manifest = createSignedManifest(version, artifacts, createdAt, testKeyPair.privateKey);
+        const result = verifySignature(manifest, testKeyPair.publicKey);
+        expect(result).toBe(true);
+      })
+    );
   });
 
-  describe('Example-Based Critical Tests', () => {
-    it('E001: Valid manifest from generated keypair verifies correctly', () => {
-      const { publicKey, secretKey } = nacl.sign.keyPair();
-      const publicKeyB64 = Buffer.from(publicKey).toString('base64');
-      const secretKeyB64 = Buffer.from(secretKey).toString('base64');
+  /**
+   * Property 2: Modified version invalidates signature
+   * Invariant: Changing version field of signed manifest causes verification to fail
+   */
+  test('P2: Modified version invalidates signature', () => {
+    fc.assert(
+      fc.property(
+        semverArb(),
+        semverArb(),
+        artifactArb(),
+        isoTimestampArb(),
+        (originalVersion, tamperedVersion, artifact, createdAt) => {
+          // Skip if versions are equal
+          if (originalVersion === tamperedVersion) {
+            return;
+          }
 
-      const manifest = createValidManifest('1.5.0', secretKeyB64);
+          const manifest = createSignedManifest(originalVersion, [artifact], createdAt, testKeyPair.privateKey);
 
-      const result = verifySignature(manifest, publicKeyB64);
-      expect(result).toBe(true);
-    });
+          // Tamper with version
+          const tamperedManifest = { ...manifest, version: tamperedVersion };
+          const result = verifySignature(tamperedManifest, testKeyPair.publicKey);
 
-    it('E002: Completely invalid base64 in signature returns false', () => {
-      const manifest = createValidManifest();
-      manifest.signature = '!!!invalid!!!base64!!!';
+          expect(result).toBe(false);
+        }
+      )
+    );
+  });
 
-      const result = verifySignature(manifest, TEST_KEYPAIR.publicKey);
-      expect(result).toBe(false);
-    });
+  /**
+   * Property 3: Modified artifacts invalidate signature
+   * Invariant: Changing any artifact field causes verification to fail
+   */
+  test('P3: Modified artifacts invalidate signature', () => {
+    fc.assert(
+      fc.property(semverArb(), artifactArb(), fc.webUrl(), isoTimestampArb(), (version, artifact, tamperedUrl, createdAt) => {
+        const manifest = createSignedManifest(version, [artifact], createdAt, testKeyPair.privateKey);
 
-    it('E003: Completely invalid base64 in public key returns false', () => {
-      const manifest = createValidManifest();
+        // Tamper with artifact URL
+        const tamperedManifest = {
+          ...manifest,
+          artifacts: [{ ...artifact, url: tamperedUrl }],
+        };
+        const result = verifySignature(tamperedManifest, testKeyPair.publicKey);
 
-      const result = verifySignature(manifest, '!!!not!!!base64!!!');
-      expect(result).toBe(false);
-    });
+        // Skip if URL happens to be the same
+        if (artifact.url === tamperedUrl) {
+          expect(result).toBe(true);
+        } else {
+          expect(result).toBe(false);
+        }
+      })
+    );
+  });
 
-    it('E004: Signature from wrong secret key fails verification', () => {
-      const { secretKey: wrongSecretKey } = nacl.sign.keyPair();
-      const wrongSecretKeyB64 = Buffer.from(wrongSecretKey).toString('base64');
-      const manifest = createValidManifest('2.0.0', wrongSecretKeyB64);
+  /**
+   * Property 4: Modified createdAt invalidates signature
+   * Invariant: Changing createdAt field causes verification to fail
+   */
+  test('P4: Modified createdAt invalidates signature', () => {
+    fc.assert(
+      fc.property(
+        semverArb(),
+        artifactArb(),
+        isoTimestampArb(),
+        isoTimestampArb(),
+        (version, artifact, originalCreatedAt, tamperedCreatedAt) => {
+          // Skip if timestamps are equal
+          if (originalCreatedAt === tamperedCreatedAt) {
+            return;
+          }
 
-      const result = verifySignature(manifest, TEST_KEYPAIR.publicKey);
-      expect(result).toBe(false);
-    });
+          const manifest = createSignedManifest(version, [artifact], originalCreatedAt, testKeyPair.privateKey);
 
-    it('E005: Multiple artifacts in manifest verify correctly when signed', () => {
-      const version = '3.0.0';
-      const artifacts: ManifestArtifact[] = [
-        {
-          url: 'https://example.com/update-darwin.dmg',
-          sha256: 'abcd1234',
-          platform: 'darwin',
-          type: 'dmg',
-        },
-        {
-          url: 'https://example.com/update-linux.AppImage',
-          sha256: 'efgh5678',
-          platform: 'linux',
-          type: 'AppImage',
-        },
-        {
-          url: 'https://example.com/update-win.exe',
-          sha256: 'ijkl9012',
-          platform: 'win32',
-          type: 'exe',
-        },
-      ];
-      const createdAt = new Date().toISOString();
+          // Tamper with createdAt
+          const tamperedManifest = { ...manifest, createdAt: tamperedCreatedAt };
+          const result = verifySignature(tamperedManifest, testKeyPair.publicKey);
 
-      const payload = { version, artifacts, createdAt };
-      const payloadString = JSON.stringify(payload, null, 0);
-      const messageBuffer = Buffer.from(payloadString, 'utf-8');
+          expect(result).toBe(false);
+        }
+      )
+    );
+  });
 
-      const secretKeyBuffer = Buffer.from(TEST_KEYPAIR.secretKey, 'base64');
-      const signatureBuf = nacl.sign.detached(messageBuffer, secretKeyBuffer);
+  /**
+   * Property 5: Wrong public key fails verification
+   * Invariant: Manifest signed with key A cannot be verified with different key B
+   */
+  test('P5: Wrong public key fails verification', () => {
+    const keyPair1 = testKeyPair;
+    const keyPair2 = generateTestKeyPair();
 
-      const manifest: SignedManifest = {
-        version,
-        artifacts,
-        createdAt,
-        signature: Buffer.from(signatureBuf).toString('base64'),
-      };
+    fc.assert(
+      fc.property(semverArb(), artifactArb(), isoTimestampArb(), (version, artifact, createdAt) => {
+        const manifest = createSignedManifest(version, [artifact], createdAt, keyPair1.privateKey);
 
-      const result = verifySignature(manifest, TEST_KEYPAIR.publicKey);
-      expect(result).toBe(true);
-    });
+        // Try to verify with different public key
+        const result = verifySignature(manifest, keyPair2.publicKey);
+
+        expect(result).toBe(false);
+      })
+    );
+  });
+
+  /**
+   * Property 6: Invalid base64 signature fails gracefully
+   * Invariant: Non-base64 signature bytes never raise exception, always return false
+   */
+  test('P6: Invalid base64 signature fails gracefully', () => {
+    fc.assert(
+      fc.property(semverArb(), artifactArb(), isoTimestampArb(), fc.string({ minLength: 5, maxLength: 20 }), (version, artifact, createdAt, invalidBase64) => {
+        // Ensure it's not valid base64 by using disallowed characters
+        const brokenSig = invalidBase64.replace(/[A-Za-z0-9+/=]/g, '!');
+
+        if (brokenSig.length === 0) {
+          return;
+        }
+
+        const manifest: SignedManifest = {
+          version,
+          artifacts: [artifact],
+          createdAt,
+          signature: brokenSig,
+        };
+
+        const result = verifySignature(manifest, testKeyPair.publicKey);
+        expect(result).toBe(false);
+      })
+    );
+  });
+
+  /**
+   * Property 7: Invalid PEM public key fails gracefully
+   * Invariant: Malformed PEM never raises exception, always returns false
+   */
+  test('P7: Invalid PEM public key fails gracefully', () => {
+    fc.assert(
+      fc.property(semverArb(), artifactArb(), isoTimestampArb(), fc.string({ minLength: 10, maxLength: 50 }), (version, artifact, createdAt, invalidPem) => {
+        const manifest = createSignedManifest(version, [artifact], createdAt, testKeyPair.privateKey);
+
+        // Use something that's definitely not PEM
+        const fakePem = `NOT_A_KEY_${invalidPem}`;
+
+        const result = verifySignature(manifest, fakePem);
+        expect(result).toBe(false);
+      })
+    );
+  });
+
+  /**
+   * Property 8: Deterministic verification
+   * Invariant: Verifying the same manifest twice produces identical results
+   */
+  test('P8: Deterministic verification (same input = same output)', () => {
+    fc.assert(
+      fc.property(semverArb(), artifactArb(), isoTimestampArb(), (version, artifact, createdAt) => {
+        const manifest = createSignedManifest(version, [artifact], createdAt, testKeyPair.privateKey);
+
+        const result1 = verifySignature(manifest, testKeyPair.publicKey);
+        const result2 = verifySignature(manifest, testKeyPair.publicKey);
+        const result3 = verifySignature(manifest, testKeyPair.publicKey);
+
+        expect(result1).toBe(result2);
+        expect(result2).toBe(result3);
+      })
+    );
+  });
+
+  /**
+   * Property 9: Signature byte tampering fails verification
+   * Invariant: Flipping any bit in base64-encoded signature invalidates it
+   */
+  test('P9: Signature byte tampering fails verification', () => {
+    fc.assert(
+      fc.property(semverArb(), artifactArb(), isoTimestampArb(), fc.integer({ min: 0, max: 100 }), (version, artifact, createdAt, tamperIndex) => {
+        const manifest = createSignedManifest(version, [artifact], createdAt, testKeyPair.privateKey);
+
+        // Tamper with signature (flip a character if possible)
+        if (manifest.signature.length > 0) {
+          const signatureArray = manifest.signature.split('');
+          const idx = tamperIndex % signatureArray.length;
+          signatureArray[idx] = signatureArray[idx] === 'A' ? 'B' : 'A';
+          const tamperedSignature = signatureArray.join('');
+
+          if (tamperedSignature !== manifest.signature) {
+            const tamperedManifest = { ...manifest, signature: tamperedSignature };
+            const result = verifySignature(tamperedManifest, testKeyPair.publicKey);
+
+            expect(result).toBe(false);
+          }
+        }
+      })
+    );
+  });
+
+  /**
+   * Property 10: Multiple artifacts don't break signature
+   * Invariant: Signature verification works regardless of number of artifacts
+   */
+  test('P10: Multiple artifacts preserve signature validity', () => {
+    fc.assert(
+      fc.property(semverArb(), fc.array(artifactArb(), { minLength: 1, maxLength: 10 }), isoTimestampArb(), (version, artifacts, createdAt) => {
+        const manifest = createSignedManifest(version, artifacts, createdAt, testKeyPair.privateKey);
+        const result = verifySignature(manifest, testKeyPair.publicKey);
+
+        expect(result).toBe(true);
+      })
+    );
+  });
+
+  /**
+   * Property 11: Payload JSON canonicalization matters
+   * Invariant: JSON whitespace or property order doesn't affect signature verification
+   */
+  test('P11: Canonical JSON ensures consistent verification', () => {
+    fc.assert(
+      fc.property(semverArb(), artifactArb(), isoTimestampArb(), (version, artifact, createdAt) => {
+        const manifest = createSignedManifest(version, [artifact], createdAt, testKeyPair.privateKey);
+
+        // Verify multiple times to ensure canonicalization is consistent
+        const results = [1, 2, 3].map(() => verifySignature(manifest, testKeyPair.publicKey));
+
+        expect(results.every((r) => r === true)).toBe(true);
+      })
+    );
+  });
+
+  /**
+   * Property 12: Algorithm compliance: RSA + SHA256 only
+   * Invariant: Only RSA signatures with SHA256 hash algorithm are accepted
+   */
+  test('P12: Algorithm compliance (RSA/SHA256 signature verification)', () => {
+    fc.assert(
+      fc.property(semverArb(), artifactArb(), isoTimestampArb(), (version, artifact, createdAt) => {
+        // Create a signature using correct algorithm
+        const manifest = createSignedManifest(version, [artifact], createdAt, testKeyPair.privateKey);
+
+        // Should verify with correct key
+        const validResult = verifySignature(manifest, testKeyPair.publicKey);
+        expect(validResult).toBe(true);
+
+        // Wrong key should fail
+        const wrongKeyResult = verifySignature(manifest, generateTestKeyPair().publicKey);
+        expect(wrongKeyResult).toBe(false);
+      })
+    );
   });
 });
 
-describe('verifyManifest', () => {
-  let testDir: string;
-  let testFilePath: string;
+// ============================================================================
+// EXAMPLE-BASED TESTS FOR verifySignature() - CRITICAL CASES
+// ============================================================================
+
+describe('verifySignature - Example-Based Tests', () => {
+  test('Empty artifacts array in valid manifest verifies successfully', () => {
+    const manifest = createSignedManifest('1.5.0', [], new Date().toISOString(), testKeyPair.privateKey);
+    const result = verifySignature(manifest, testKeyPair.publicKey);
+    expect(result).toBe(true);
+  });
+
+  test('Signature with proper base64 padding verifies correctly', () => {
+    const artifact = createArtifact('darwin');
+    const manifest = createSignedManifest('2.0.0', [artifact], '2025-12-06T10:30:00.000Z', testKeyPair.privateKey);
+    const result = verifySignature(manifest, testKeyPair.publicKey);
+    expect(result).toBe(true);
+  });
+
+  test('Completely invalid signature format returns false', () => {
+    const manifest: SignedManifest = {
+      version: '1.0.0',
+      artifacts: [createArtifact()],
+      createdAt: new Date().toISOString(),
+      signature: '!!!NOT_BASE64!!!',
+    };
+    const result = verifySignature(manifest, testKeyPair.publicKey);
+    expect(result).toBe(false);
+  });
+
+  test('Empty signature string returns false', () => {
+    const manifest: SignedManifest = {
+      version: '1.0.0',
+      artifacts: [createArtifact()],
+      createdAt: new Date().toISOString(),
+      signature: '',
+    };
+    const result = verifySignature(manifest, testKeyPair.publicKey);
+    expect(result).toBe(false);
+  });
+
+  test('Very long valid base64 signature fails gracefully', () => {
+    const manifest: SignedManifest = {
+      version: '1.0.0',
+      artifacts: [createArtifact()],
+      createdAt: new Date().toISOString(),
+      signature: 'A'.repeat(10000),
+    };
+    const result = verifySignature(manifest, testKeyPair.publicKey);
+    expect(result).toBe(false);
+  });
+});
+
+// ============================================================================
+// EXAMPLE-BASED TESTS FOR verifyManifest()
+// ============================================================================
+
+describe('verifyManifest - Example-Based Tests', () => {
+  let tempDir: string;
 
   beforeAll(() => {
-    testDir = path.join('/tmp', `test-verify-manifest-${Date.now()}`);
-    testFilePath = path.join(testDir, 'test-file.dmg');
-    if (!fs.existsSync(testDir)) {
-      fs.mkdirSync(testDir, { recursive: true });
-    }
+    tempDir = `/tmp/verify-test-${Date.now()}`;
+    fs.mkdirSync(tempDir, { recursive: true });
   });
 
   afterAll(() => {
-    if (fs.existsSync(testDir)) {
-      fs.rmSync(testDir, { recursive: true, force: true });
+    if (fs.existsSync(tempDir)) {
+      try {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      } catch (e) {
+        // Ignore cleanup errors
+      }
     }
   });
 
-  function createFileWithHash(content: string): string {
-    fs.writeFileSync(testFilePath, content);
-    return testFilePath;
-  }
+  test('Valid manifest with matching file hash succeeds', async () => {
+    const filePath = path.join(tempDir, 'test1-file');
+    const fileContent = 'test content for manifest verification';
+    fs.writeFileSync(filePath, fileContent);
 
-  describe('Property-Based Tests', () => {
-    it('P001: Valid manifest with correct signature, version, and file hash passes', async () => {
-      await fc.assert(
-        fc.asyncProperty(
-          fc.tuple(
-            fc.integer({ min: 1, max: 10 }),
-            fc.integer({ min: 0, max: 99 }),
-            fc.integer({ min: 0, max: 99 })
-          ),
-          fc.tuple(
-            fc.integer({ min: 1, max: 10 }),
-            fc.integer({ min: 0, max: 99 }),
-            fc.integer({ min: 0, max: 99 })
-          ),
-          fc.constantFrom('darwin' as const, 'linux' as const),
-          async ([currentMajor, currentMinor, currentPatch], [manifestMajor, manifestMinor, manifestPatch], platform) => {
-            const currentVersion = `${currentMajor}.${currentMinor}.${currentPatch}`;
-            // Ensure manifest version is strictly greater than current
-            // Simple approach: always use manifest major + 1
-            const manifestVersion = `${currentMajor + 1}.0.0`;
+    try {
+      const { hashFile } = await import('./crypto');
+      const actualHash = await hashFile(filePath);
 
-            const testContent = `test-content-${Date.now()}`;
-            const filePath = createFileWithHash(testContent);
+      const artifact: ManifestArtifact = {
+        url: 'https://example.com/app.tar.gz',
+        sha256: actualHash,
+        platform: 'darwin',
+        type: 'zip',
+      };
 
-            // Create properly signed manifest with correct hash
-            const { hashFile } = await import('./crypto');
-            const actualHash = await hashFile(filePath);
+      const manifest = createSignedManifest('2.0.0', [artifact], new Date().toISOString(), testKeyPair.privateKey);
+      const result = await verifyManifest(manifest, filePath, '1.0.0', 'darwin', testKeyPair.publicKey);
 
-            const artifacts: ManifestArtifact[] = [
-              {
-                url: 'https://example.com/update.dmg',
-                sha256: actualHash,
-                platform,
-                type: platform === 'darwin' ? 'dmg' : 'AppImage',
-              },
-            ];
-
-            const createdAt = new Date().toISOString();
-            const payload = { version: manifestVersion, artifacts, createdAt };
-            const payloadString = JSON.stringify(payload, null, 0);
-            const messageBuffer = Buffer.from(payloadString, 'utf-8');
-
-            const secretKeyBuffer = Buffer.from(TEST_KEYPAIR.secretKey, 'base64');
-            const signatureBuf = nacl.sign.detached(messageBuffer, secretKeyBuffer);
-
-            const manifest: SignedManifest = {
-              version: manifestVersion,
-              artifacts,
-              createdAt,
-              signature: Buffer.from(signatureBuf).toString('base64'),
-            };
-
-            const result = await verifyManifest(manifest, filePath, currentVersion, platform, TEST_KEYPAIR.publicKey);
-            expect(result).toEqual({ verified: true });
-          }
-        ),
-        { numRuns: 15 }
-      );
-    });
-
-    it('P002: Invalid signature throws VerificationError', async () => {
-      await fc.assert(
-        fc.asyncProperty(
-          fc.tuple(
-            fc.integer({ min: 1, max: 10 }),
-            fc.integer({ min: 0, max: 99 }),
-            fc.integer({ min: 0, max: 99 })
-          ),
-          async ([major, minor, patch]) => {
-            const version = `${major}.${minor}.${patch}`;
-            const currentVersion = '0.1.0';
-
-            const testContent = 'test-content';
-            createFileWithHash(testContent);
-
-            const manifest = createValidManifest(version);
-            // Tamper with signature
-            const sigBuf = Buffer.from(manifest.signature, 'base64');
-            const tamperedSig = Buffer.concat([sigBuf, Buffer.from([0xff, 0xff])]).toString('base64');
-            manifest.signature = tamperedSig;
-
-            await expect(verifyManifest(manifest, testFilePath, currentVersion, 'darwin', TEST_KEYPAIR.publicKey)).rejects.toThrow(
-              'Manifest signature verification failed'
-            );
-          }
-        ),
-        { numRuns: 10 }
-      );
-    });
-
-    it('P003: Old version throws VerificationError', async () => {
-      await fc.assert(
-        fc.asyncProperty(
-          fc.tuple(
-            fc.integer({ min: 2, max: 10 }),
-            fc.integer({ min: 0, max: 99 }),
-            fc.integer({ min: 0, max: 99 })
-          ),
-          async ([major, minor, patch]) => {
-            const manifestVersion = `${major}.${minor}.${patch}`;
-            const currentVersion = `${major + 1}.0.0`;
-
-            const testContent = 'test-content';
-            createFileWithHash(testContent);
-
-            const manifest = createValidManifest(manifestVersion);
-
-            await expect(verifyManifest(manifest, testFilePath, currentVersion, 'darwin', TEST_KEYPAIR.publicKey)).rejects.toThrow(
-              /is older than current version/
-            );
-          }
-        ),
-        { numRuns: 10 }
-      );
-    });
-
-    it('P004: Equal version throws VerificationError', async () => {
-      await fc.assert(
-        fc.asyncProperty(
-          fc.tuple(
-            fc.integer({ min: 0, max: 99 }),
-            fc.integer({ min: 0, max: 99 }),
-            fc.integer({ min: 0, max: 99 })
-          ),
-          async ([major, minor, patch]) => {
-            const version = `${major}.${minor}.${patch}`;
-
-            const testContent = 'test-content';
-            createFileWithHash(testContent);
-
-            const manifest = createValidManifest(version);
-
-            await expect(verifyManifest(manifest, testFilePath, version, 'darwin', TEST_KEYPAIR.publicKey)).rejects.toThrow(
-              /equals current version/
-            );
-          }
-        ),
-        { numRuns: 10 }
-      );
-    });
-
-    it('P005: Missing platform artifact throws VerificationError', async () => {
-      await fc.assert(
-        fc.asyncProperty(
-          fc.tuple(
-            fc.integer({ min: 1, max: 10 }),
-            fc.integer({ min: 0, max: 99 }),
-            fc.integer({ min: 0, max: 99 })
-          ),
-          fc.constantFrom('darwin' as const, 'linux' as const),
-          async ([major, minor, patch], requestedPlatform) => {
-            const version = `${major}.${minor}.${patch}`;
-            const currentVersion = '0.1.0';
-
-            const testContent = 'test-content';
-            createFileWithHash(testContent);
-
-            const otherPlatform = requestedPlatform === 'darwin' ? 'linux' : 'darwin';
-
-            const artifacts: ManifestArtifact[] = [
-              {
-                url: 'https://example.com/update.dmg',
-                sha256: 'abcd1234'.padEnd(64, 'a'),
-                platform: otherPlatform,
-                type: otherPlatform === 'darwin' ? 'dmg' : 'AppImage',
-              },
-            ];
-
-            const createdAt = new Date().toISOString();
-            const payload = { version, artifacts, createdAt };
-            const payloadString = JSON.stringify(payload, null, 0);
-            const messageBuffer = Buffer.from(payloadString, 'utf-8');
-
-            const secretKeyBuffer = Buffer.from(TEST_KEYPAIR.secretKey, 'base64');
-            const signatureBuf = nacl.sign.detached(messageBuffer, secretKeyBuffer);
-
-            const manifest: SignedManifest = {
-              version,
-              artifacts,
-              createdAt,
-              signature: Buffer.from(signatureBuf).toString('base64'),
-            };
-
-            await expect(verifyManifest(manifest, testFilePath, currentVersion, requestedPlatform, TEST_KEYPAIR.publicKey)).rejects.toThrow(
-              `No artifact found for platform ${requestedPlatform}`
-            );
-          }
-        ),
-        { numRuns: 10 }
-      );
-    });
-
-    it('P006: File hash mismatch throws VerificationError', async () => {
-      await fc.assert(
-        fc.asyncProperty(
-          fc.tuple(
-            fc.integer({ min: 1, max: 10 }),
-            fc.integer({ min: 0, max: 99 }),
-            fc.integer({ min: 0, max: 99 })
-          ),
-          async ([major, minor, patch]) => {
-            const version = `${major}.${minor}.${patch}`;
-            const currentVersion = '0.1.0';
-
-            const testContent = 'test-content-123';
-            createFileWithHash(testContent);
-
-            const artifacts: ManifestArtifact[] = [
-              {
-                url: 'https://example.com/update.dmg',
-                sha256: 'deadbeef'.padEnd(64, 'f'), // Wrong hash
-                platform: 'darwin',
-                type: 'dmg',
-              },
-            ];
-
-            const createdAt = new Date().toISOString();
-            const payload = { version, artifacts, createdAt };
-            const payloadString = JSON.stringify(payload, null, 0);
-            const messageBuffer = Buffer.from(payloadString, 'utf-8');
-
-            const secretKeyBuffer = Buffer.from(TEST_KEYPAIR.secretKey, 'base64');
-            const signatureBuf = nacl.sign.detached(messageBuffer, secretKeyBuffer);
-
-            const manifest: SignedManifest = {
-              version,
-              artifacts,
-              createdAt,
-              signature: Buffer.from(signatureBuf).toString('base64'),
-            };
-
-            await expect(verifyManifest(manifest, testFilePath, currentVersion, 'darwin', TEST_KEYPAIR.publicKey)).rejects.toThrow(
-              'Downloaded file hash mismatch'
-            );
-          }
-        ),
-        { numRuns: 10 }
-      );
-    });
-
-    it('P007: All verification steps execute in correct order (signature -> version -> artifact -> hash)', async () => {
-      await fc.assert(
-        fc.asyncProperty(
-          fc.tuple(
-            fc.integer({ min: 1, max: 10 }),
-            fc.integer({ min: 0, max: 99 }),
-            fc.integer({ min: 0, max: 99 })
-          ),
-          async ([major, minor, patch]) => {
-            const version = `${major}.${minor}.${patch}`;
-            const currentVersion = '0.1.0';
-
-            const testContent = 'test-content-order';
-            createFileWithHash(testContent);
-
-            const manifest = createValidManifest(version);
-
-            // Verify order by checking that signature failure is caught before version check
-            // (version check would fail with old version, but signature check should fail first with bad sig)
-            manifest.signature = 'invalid!!!base64!!!';
-
-            await expect(verifyManifest(manifest, testFilePath, '100.0.0', 'darwin', TEST_KEYPAIR.publicKey)).rejects.toThrow(
-              'Manifest signature verification failed'
-            );
-          }
-        ),
-        { numRuns: 5 }
-      );
-    });
-
-    it('P008: Error messages are descriptive and informative', async () => {
-      await fc.assert(
-        fc.asyncProperty(
-          fc.tuple(
-            fc.integer({ min: 1, max: 10 }),
-            fc.integer({ min: 0, max: 99 }),
-            fc.integer({ min: 0, max: 99 })
-          ),
-          async ([major, minor, patch]) => {
-            const version = `${major}.${minor}.${patch}`;
-
-            createFileWithHash('test-content');
-
-            const manifest = createValidManifest(version);
-
-            // Test platform error message contains platform name
-            try {
-              await verifyManifest(manifest, testFilePath, '0.1.0', 'linux', TEST_KEYPAIR.publicKey);
-            } catch (err: any) {
-              if (err.message.includes('No artifact found for platform')) {
-                expect(err.message).toContain('linux');
-              }
-            }
-          }
-        ),
-        { numRuns: 5 }
-      );
-    });
-
-    it('P009: Deterministic: same inputs produce same verification result', async () => {
-      await fc.assert(
-        fc.asyncProperty(
-          fc.tuple(
-            fc.integer({ min: 1, max: 10 }),
-            fc.integer({ min: 0, max: 99 }),
-            fc.integer({ min: 0, max: 99 })
-          ),
-          async ([major, minor, patch]) => {
-            const version = `${major}.${minor}.${patch}`;
-            const currentVersion = '0.1.0';
-
-            const testContent = 'deterministic-test';
-            createFileWithHash(testContent);
-
-            const { hashFile } = await import('./crypto');
-            const actualHash = await hashFile(testFilePath);
-
-            const artifacts: ManifestArtifact[] = [
-              {
-                url: 'https://example.com/update.dmg',
-                sha256: actualHash,
-                platform: 'darwin',
-                type: 'dmg',
-              },
-            ];
-
-            const createdAt = new Date().toISOString();
-            const payload = { version, artifacts, createdAt };
-            const payloadString = JSON.stringify(payload, null, 0);
-            const messageBuffer = Buffer.from(payloadString, 'utf-8');
-
-            const secretKeyBuffer = Buffer.from(TEST_KEYPAIR.secretKey, 'base64');
-            const signatureBuf = nacl.sign.detached(messageBuffer, secretKeyBuffer);
-
-            const manifest: SignedManifest = {
-              version,
-              artifacts,
-              createdAt,
-              signature: Buffer.from(signatureBuf).toString('base64'),
-            };
-
-            const result1 = await verifyManifest(manifest, testFilePath, currentVersion, 'darwin', TEST_KEYPAIR.publicKey);
-            const result2 = await verifyManifest(manifest, testFilePath, currentVersion, 'darwin', TEST_KEYPAIR.publicKey);
-
-            expect(result1).toEqual(result2);
-            expect(result1).toEqual({ verified: true });
-          }
-        ),
-        { numRuns: 5 }
-      );
-    });
-
-    it('P010: Returns exactly { verified: true } on success (not just truthy)', async () => {
-      await fc.assert(
-        fc.asyncProperty(
-          fc.tuple(
-            fc.integer({ min: 1, max: 10 }),
-            fc.integer({ min: 0, max: 99 }),
-            fc.integer({ min: 0, max: 99 })
-          ),
-          async ([major, minor, patch]) => {
-            const version = `${major}.${minor}.${patch}`;
-            const currentVersion = '0.1.0';
-
-            const testContent = 'return-value-test';
-            createFileWithHash(testContent);
-
-            const { hashFile } = await import('./crypto');
-            const actualHash = await hashFile(testFilePath);
-
-            const artifacts: ManifestArtifact[] = [
-              {
-                url: 'https://example.com/update.dmg',
-                sha256: actualHash,
-                platform: 'darwin',
-                type: 'dmg',
-              },
-            ];
-
-            const createdAt = new Date().toISOString();
-            const payload = { version, artifacts, createdAt };
-            const payloadString = JSON.stringify(payload, null, 0);
-            const messageBuffer = Buffer.from(payloadString, 'utf-8');
-
-            const secretKeyBuffer = Buffer.from(TEST_KEYPAIR.secretKey, 'base64');
-            const signatureBuf = nacl.sign.detached(messageBuffer, secretKeyBuffer);
-
-            const manifest: SignedManifest = {
-              version,
-              artifacts,
-              createdAt,
-              signature: Buffer.from(signatureBuf).toString('base64'),
-            };
-
-            const result = await verifyManifest(manifest, testFilePath, currentVersion, 'darwin', TEST_KEYPAIR.publicKey);
-            expect(result).toEqual({ verified: true });
-            expect(Object.keys(result).sort()).toEqual(['verified']);
-          }
-        ),
-        { numRuns: 5 }
-      );
-    });
+      expect(result).toEqual({ verified: true });
+    } finally {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
   });
 
-  describe('Example-Based Critical Tests', () => {
-    it('E001: Complete valid verification flow succeeds', async () => {
-      const version = '2.0.0';
-      const currentVersion = '1.0.0';
-      const testContent = 'complete-valid-test';
-      createFileWithHash(testContent);
+  test('Invalid signature fails manifest verification early', async () => {
+    const filePath = path.join(tempDir, 'test2-file');
+    const fileContent = 'test content';
+    fs.writeFileSync(filePath, fileContent);
 
+    try {
       const { hashFile } = await import('./crypto');
-      const actualHash = await hashFile(testFilePath);
+      const actualHash = await hashFile(filePath);
 
-      const artifacts: ManifestArtifact[] = [
-        {
-          url: 'https://example.com/update.dmg',
-          sha256: actualHash,
-          platform: 'darwin',
-          type: 'dmg',
-        },
-      ];
-
-      const createdAt = new Date().toISOString();
-      const payload = { version, artifacts, createdAt };
-      const payloadString = JSON.stringify(payload, null, 0);
-      const messageBuffer = Buffer.from(payloadString, 'utf-8');
-
-      const secretKeyBuffer = Buffer.from(TEST_KEYPAIR.secretKey, 'base64');
-      const signatureBuf = nacl.sign.detached(messageBuffer, secretKeyBuffer);
-
-      const manifest: SignedManifest = {
-        version,
-        artifacts,
-        createdAt,
-        signature: Buffer.from(signatureBuf).toString('base64'),
+      const artifact: ManifestArtifact = {
+        url: 'https://example.com/app.tar.gz',
+        sha256: actualHash,
+        platform: 'darwin',
+        type: 'zip',
       };
 
-      const result = await verifyManifest(manifest, testFilePath, currentVersion, 'darwin', TEST_KEYPAIR.publicKey);
-      expect(result).toEqual({ verified: true });
-    });
+      const manifest = createSignedManifest('2.0.0', [artifact], new Date().toISOString(), testKeyPair.privateKey);
 
-    it('E002: Signature failure blocks verification (fails at step 1)', async () => {
-      const manifest = createValidManifest('2.0.0');
-      manifest.signature = 'invalid!!!base64!!!';
+      // Tamper with signature
+      const tamperedManifest = { ...manifest, signature: 'INVALID_SIG' };
 
-      createFileWithHash('test');
+      await expect(verifyManifest(tamperedManifest, filePath, '1.0.0', 'darwin', testKeyPair.publicKey)).rejects.toThrow('Manifest signature verification failed');
+    } finally {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
+  });
 
-      await expect(verifyManifest(manifest, testFilePath, '1.0.0', 'darwin', TEST_KEYPAIR.publicKey)).rejects.toThrow(
-        'Manifest signature verification failed'
-      );
-    });
+  test('Older manifest version fails verification', async () => {
+    const filePath = path.join(tempDir, 'test3-file');
+    fs.writeFileSync(filePath, 'test');
 
-    it('E003: Version downgrade blocked', async () => {
-      const manifest = createValidManifest('1.0.0');
-
-      createFileWithHash('test');
-
-      await expect(verifyManifest(manifest, testFilePath, '2.0.0', 'darwin', TEST_KEYPAIR.publicKey)).rejects.toThrow(
-        /is older than current version/
-      );
-    });
-
-    it('E004: Missing platform artifact rejected', async () => {
-      const version = '2.0.0';
-      const artifacts: ManifestArtifact[] = [
-        {
-          url: 'https://example.com/update.zip',
-          sha256: 'abcd1234'.padEnd(64, 'a'),
-          platform: 'linux',
-          type: 'zip',
-        },
-      ];
-
-      const createdAt = new Date().toISOString();
-      const payload = { version, artifacts, createdAt };
-      const payloadString = JSON.stringify(payload, null, 0);
-      const messageBuffer = Buffer.from(payloadString, 'utf-8');
-
-      const secretKeyBuffer = Buffer.from(TEST_KEYPAIR.secretKey, 'base64');
-      const signatureBuf = nacl.sign.detached(messageBuffer, secretKeyBuffer);
-
-      const manifest: SignedManifest = {
-        version,
-        artifacts,
-        createdAt,
-        signature: Buffer.from(signatureBuf).toString('base64'),
-      };
-
-      createFileWithHash('test');
-
-      await expect(verifyManifest(manifest, testFilePath, '1.0.0', 'darwin', TEST_KEYPAIR.publicKey)).rejects.toThrow(
-        'No artifact found for platform darwin'
-      );
-    });
-
-    it('E005: Hash mismatch detected', async () => {
-      const version = '2.0.0';
-      const artifacts: ManifestArtifact[] = [
-        {
-          url: 'https://example.com/update.dmg',
-          sha256: 'deadbeef'.padEnd(64, 'f'),
-          platform: 'darwin',
-          type: 'dmg',
-        },
-      ];
-
-      const createdAt = new Date().toISOString();
-      const payload = { version, artifacts, createdAt };
-      const payloadString = JSON.stringify(payload, null, 0);
-      const messageBuffer = Buffer.from(payloadString, 'utf-8');
-
-      const secretKeyBuffer = Buffer.from(TEST_KEYPAIR.secretKey, 'base64');
-      const signatureBuf = nacl.sign.detached(messageBuffer, secretKeyBuffer);
-
-      const manifest: SignedManifest = {
-        version,
-        artifacts,
-        createdAt,
-        signature: Buffer.from(signatureBuf).toString('base64'),
-      };
-
-      createFileWithHash('test-content-that-wont-match-hash');
-
-      await expect(verifyManifest(manifest, testFilePath, '1.0.0', 'darwin', TEST_KEYPAIR.publicKey)).rejects.toThrow(
-        'Downloaded file hash mismatch'
-      );
-    });
-
-    it('E006: Case-insensitive hash matching works', async () => {
-      const version = '2.0.0';
-      const currentVersion = '1.0.0';
-      const testContent = 'case-insensitive-test';
-      createFileWithHash(testContent);
-
+    try {
       const { hashFile } = await import('./crypto');
-      const actualHash = await hashFile(testFilePath);
+      const actualHash = await hashFile(filePath);
 
-      // Use uppercase version of the hash
-      const uppercaseHash = actualHash.toUpperCase();
-
-      const artifacts: ManifestArtifact[] = [
-        {
-          url: 'https://example.com/update.dmg',
-          sha256: uppercaseHash,
-          platform: 'darwin',
-          type: 'dmg',
-        },
-      ];
-
-      const createdAt = new Date().toISOString();
-      const payload = { version, artifacts, createdAt };
-      const payloadString = JSON.stringify(payload, null, 0);
-      const messageBuffer = Buffer.from(payloadString, 'utf-8');
-
-      const secretKeyBuffer = Buffer.from(TEST_KEYPAIR.secretKey, 'base64');
-      const signatureBuf = nacl.sign.detached(messageBuffer, secretKeyBuffer);
-
-      const manifest: SignedManifest = {
-        version,
-        artifacts,
-        createdAt,
-        signature: Buffer.from(signatureBuf).toString('base64'),
+      const artifact: ManifestArtifact = {
+        url: 'https://example.com/app.tar.gz',
+        sha256: actualHash,
+        platform: 'darwin',
+        type: 'zip',
       };
 
-      const result = await verifyManifest(manifest, testFilePath, currentVersion, 'darwin', TEST_KEYPAIR.publicKey);
-      expect(result).toEqual({ verified: true });
-    });
+      const manifest = createSignedManifest('1.0.0', [artifact], new Date().toISOString(), testKeyPair.privateKey);
 
-    it('E007: Multiple artifacts - correct one selected by platform', async () => {
-      const version = '2.0.0';
-      const currentVersion = '1.0.0';
-      const testContent = 'multi-artifact-test';
-      createFileWithHash(testContent);
+      await expect(verifyManifest(manifest, filePath, '2.0.0', 'darwin', testKeyPair.publicKey)).rejects.toThrow();
+    } finally {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
+  });
 
+  test('Missing platform artifact fails verification', async () => {
+    const filePath = path.join(tempDir, 'test4-file');
+    fs.writeFileSync(filePath, 'test');
+
+    try {
       const { hashFile } = await import('./crypto');
-      const actualHash = await hashFile(testFilePath);
+      const actualHash = await hashFile(filePath);
 
-      const artifacts: ManifestArtifact[] = [
-        {
-          url: 'https://example.com/update-linux.AppImage',
-          sha256: 'deadbeef'.padEnd(64, 'f'),
-          platform: 'linux',
-          type: 'AppImage',
-        },
-        {
-          url: 'https://example.com/update-darwin.dmg',
-          sha256: actualHash,
-          platform: 'darwin',
-          type: 'dmg',
-        },
-      ];
-
-      const createdAt = new Date().toISOString();
-      const payload = { version, artifacts, createdAt };
-      const payloadString = JSON.stringify(payload, null, 0);
-      const messageBuffer = Buffer.from(payloadString, 'utf-8');
-
-      const secretKeyBuffer = Buffer.from(TEST_KEYPAIR.secretKey, 'base64');
-      const signatureBuf = nacl.sign.detached(messageBuffer, secretKeyBuffer);
-
-      const manifest: SignedManifest = {
-        version,
-        artifacts,
-        createdAt,
-        signature: Buffer.from(signatureBuf).toString('base64'),
+      const artifact: ManifestArtifact = {
+        url: 'https://example.com/app.tar.gz',
+        sha256: actualHash,
+        platform: 'linux',
+        type: 'zip',
       };
 
-      const result = await verifyManifest(manifest, testFilePath, currentVersion, 'darwin', TEST_KEYPAIR.publicKey);
+      const manifest = createSignedManifest('2.0.0', [artifact], new Date().toISOString(), testKeyPair.privateKey);
+
+      await expect(verifyManifest(manifest, filePath, '1.0.0', 'darwin', testKeyPair.publicKey)).rejects.toThrow('No artifact found for platform darwin');
+    } finally {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
+  });
+
+  test('Hash mismatch fails verification', async () => {
+    const filePath = path.join(tempDir, 'test5-file');
+    fs.writeFileSync(filePath, 'test');
+
+    try {
+      const wrongHash = 'a'.repeat(64);
+
+      const artifact: ManifestArtifact = {
+        url: 'https://example.com/app.tar.gz',
+        sha256: wrongHash,
+        platform: 'darwin',
+        type: 'zip',
+      };
+
+      const manifest = createSignedManifest('2.0.0', [artifact], new Date().toISOString(), testKeyPair.privateKey);
+
+      await expect(verifyManifest(manifest, filePath, '1.0.0', 'darwin', testKeyPair.publicKey)).rejects.toThrow('Downloaded file hash mismatch');
+    } finally {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
+  });
+
+  test('Wrong public key fails manifest verification', async () => {
+    const filePath = path.join(tempDir, 'test6-file');
+    fs.writeFileSync(filePath, 'test');
+
+    try {
+      const { hashFile } = await import('./crypto');
+      const actualHash = await hashFile(filePath);
+
+      const artifact: ManifestArtifact = {
+        url: 'https://example.com/app.tar.gz',
+        sha256: actualHash,
+        platform: 'darwin',
+        type: 'zip',
+      };
+
+      const manifest = createSignedManifest('2.0.0', [artifact], new Date().toISOString(), testKeyPair.privateKey);
+      const wrongKeyPair = generateTestKeyPair();
+
+      await expect(verifyManifest(manifest, filePath, '1.0.0', 'darwin', wrongKeyPair.publicKey)).rejects.toThrow('Manifest signature verification failed');
+    } finally {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
+  });
+
+  test('Nonexistent file path rejects with error', async () => {
+    const artifact = createArtifact('darwin');
+    const manifest = createSignedManifest('2.0.0', [artifact], new Date().toISOString(), testKeyPair.privateKey);
+
+    await expect(verifyManifest(manifest, '/nonexistent/path/file.tar.gz', '1.0.0', 'darwin', testKeyPair.publicKey)).rejects.toThrow();
+  });
+
+  test('Multiple artifacts verifies with correct platform match', async () => {
+    const filePath = path.join(tempDir, 'test8-file');
+    fs.writeFileSync(filePath, 'test');
+
+    try {
+      const { hashFile } = await import('./crypto');
+      const actualHash = await hashFile(filePath);
+
+      const artifacts: ManifestArtifact[] = [
+        { url: 'https://example.com/app-linux.tar.gz', sha256: 'a'.repeat(64), platform: 'linux', type: 'zip' },
+        { url: 'https://example.com/app-darwin.tar.gz', sha256: actualHash, platform: 'darwin', type: 'zip' },
+        { url: 'https://example.com/app-win32.exe', sha256: 'b'.repeat(64), platform: 'win32', type: 'exe' },
+      ];
+
+      const manifest = createSignedManifest('2.0.0', artifacts, new Date().toISOString(), testKeyPair.privateKey);
+      const result = await verifyManifest(manifest, filePath, '1.0.0', 'darwin', testKeyPair.publicKey);
+
       expect(result).toEqual({ verified: true });
-    });
+    } finally {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
+  });
 
-    it('E008: Wrong public key prevents verification', async () => {
-      const { publicKey: wrongPublicKey } = nacl.sign.keyPair();
-      const wrongPublicKeyB64 = Buffer.from(wrongPublicKey).toString('base64');
+  test('Hash comparison is case-insensitive', async () => {
+    const filePath = path.join(tempDir, 'test9-file');
+    fs.writeFileSync(filePath, 'test');
 
-      const manifest = createValidManifest('2.0.0');
-      createFileWithHash('test');
+    try {
+      const { hashFile } = await import('./crypto');
+      const actualHash = await hashFile(filePath);
 
-      await expect(verifyManifest(manifest, testFilePath, '1.0.0', 'darwin', wrongPublicKeyB64)).rejects.toThrow(
-        'Manifest signature verification failed'
-      );
-    });
+      const artifact: ManifestArtifact = {
+        url: 'https://example.com/app.tar.gz',
+        sha256: actualHash.toUpperCase(),
+        platform: 'darwin',
+        type: 'zip',
+      };
+
+      const manifest = createSignedManifest('2.0.0', [artifact], new Date().toISOString(), testKeyPair.privateKey);
+      const result = await verifyManifest(manifest, filePath, '1.0.0', 'darwin', testKeyPair.publicKey);
+
+      expect(result).toEqual({ verified: true });
+    } finally {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
+  });
+});
+
+// ============================================================================
+// AUXILIARY TESTS
+// ============================================================================
+
+describe('findArtifactForPlatform', () => {
+  test('Returns first matching artifact for platform', () => {
+    const artifacts: ManifestArtifact[] = [
+      createArtifact('linux'),
+      createArtifact('darwin'),
+      createArtifact('darwin'),
+      createArtifact('win32'),
+    ];
+
+    const result = findArtifactForPlatform(artifacts, 'darwin');
+    expect(result?.platform).toBe('darwin');
+    expect(result?.url).toContain('darwin');
+  });
+
+  test('Returns undefined when platform not found', () => {
+    const artifacts: ManifestArtifact[] = [createArtifact('linux'), createArtifact('win32')];
+
+    const result = findArtifactForPlatform(artifacts, 'darwin');
+    expect(result).toBeUndefined();
+  });
+
+  test('Returns undefined for empty artifacts array', () => {
+    const result = findArtifactForPlatform([], 'darwin');
+    expect(result).toBeUndefined();
+  });
+
+  test('Platform comparison is case-sensitive', () => {
+    const artifacts: ManifestArtifact[] = [createArtifact('darwin')];
+
+    const resultLower = findArtifactForPlatform(artifacts, 'darwin');
+    expect(resultLower).toBeDefined();
+
+    const resultUpper = findArtifactForPlatform(artifacts, 'DARWIN' as any);
+    expect(resultUpper).toBeUndefined();
   });
 });

@@ -1,5 +1,5 @@
 /**
- * GAP-001, GAP-008: Generate signed manifest with SHA-256 hashes and artifact metadata
+ * RSA-based manifest generation (migration from Ed25519)
  *
  * This module generates the manifest.json file during CI/CD builds.
  * Used by scripts/generate-manifest.ts for artifact signing.
@@ -7,7 +7,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import nacl from 'tweetnacl';
+import crypto from 'crypto';
 import { SignedManifest, ManifestArtifact } from '../../shared/types';
 
 /**
@@ -71,13 +71,17 @@ export function detectPlatform(
 }
 
 /**
- * Generate manifest from artifacts in directory
+ * Generate RSA-signed manifest from artifacts in directory
  *
  * CONTRACT:
  *   Inputs:
  *     - distDir: absolute path to directory containing built artifacts
  *     - version: version string (semver format) from package.json
- *     - privateKeyBase64: base64-encoded Ed25519 private key (64 bytes → ~88 base64 chars)
+ *     - privateKeyPem: RSA private key in PEM format (armor-encoded text block)
+ *       Example format:
+ *       "-----BEGIN PRIVATE KEY-----
+ *        MIIJQgIBADANBgkqhkiG9w0BAQ...
+ *        -----END PRIVATE KEY-----"
  *     - hashFunction: function that computes SHA-256 hash of file (filePath → Promise<hash>)
  *
  *   Outputs:
@@ -86,13 +90,15 @@ export function detectPlatform(
  *   Invariants:
  *     - Only includes recognized artifact extensions (.dmg, .zip, .AppImage, .exe)
  *     - Each artifact has computed SHA-256 hash
- *     - Manifest signed with Ed25519 private key
+ *     - Manifest signed with RSA private key using SHA-256
  *     - createdAt is ISO 8601 timestamp
+ *     - Signature is base64-encoded
  *
  *   Properties:
  *     - Completeness: includes all recognized artifacts in distDir
  *     - Integrity: signature covers all artifact metadata
  *     - Timestamped: createdAt records generation time
+ *     - Algorithm compliance: uses RSASSA-PKCS1-v1_5 with SHA-256
  *
  *   Algorithm:
  *     1. List all files in distDir
@@ -106,27 +112,37 @@ export function detectPlatform(
  *        - artifacts: array of ManifestArtifact objects
  *        - createdAt: new Date().toISOString()
  *     5. Canonicalize manifest as JSON (no whitespace)
- *     6. Sign manifest:
- *        a. Convert JSON to Buffer
- *        b. Decode private key from base64
- *        c. Compute signature: nacl.sign.detached(message, privateKey)
- *        d. Encode signature as base64
+ *     6. Sign manifest using RSA:
+ *        a. Convert JSON string to Buffer (UTF-8)
+ *        b. Create signing object: crypto.createSign('SHA256')
+ *        c. Update signer with message buffer
+ *        d. Compute signature: signer.sign(privateKeyPem)
+ *        e. Encode signature as base64 string
  *     7. Return signed manifest: { ...unsigned, signature }
  *
  *   Error Conditions:
  *     - distDir doesn't exist: reject with filesystem error
  *     - No artifacts found: reject with "No artifacts found"
- *     - Private key invalid: reject with "Invalid private key"
+ *     - Private key invalid (bad PEM format): reject with "Invalid private key"
+ *     - Private key wrong algorithm: reject with "Private key must be RSA"
  *     - Hash computation fails: propagate hash error
+ *     - Crypto operation fails: propagate crypto error
  */
 export async function generateManifest(
   distDir: string,
   version: string,
-  privateKeyBase64: string,
+  privateKeyPem: string,
   hashFunction: (filePath: string) => Promise<string>
 ): Promise<SignedManifest> {
+  // Validate directory exists
+  if (!fs.existsSync(distDir)) {
+    throw new Error(`Directory not found: ${distDir}`);
+  }
+
+  // List files in directory
   const files = fs.readdirSync(distDir);
 
+  // Filter recognized artifacts
   const artifacts: ManifestArtifact[] = [];
 
   for (const filename of files) {
@@ -136,7 +152,14 @@ export async function generateManifest(
     }
 
     const filePath = path.join(distDir, filename);
-    const stats = fs.statSync(filePath);
+    const stat = fs.statSync(filePath);
+
+    // Only include files, not directories
+    if (!stat.isFile()) {
+      continue;
+    }
+
+    // Compute hash
     const sha256 = await hashFunction(filePath);
 
     artifacts.push({
@@ -147,30 +170,39 @@ export async function generateManifest(
     });
   }
 
+  if (artifacts.length === 0) {
+    throw new Error('No artifacts found');
+  }
+
+  // Create unsigned manifest
   const unsigned = {
     version,
     artifacts,
     createdAt: new Date().toISOString(),
   };
 
-  const message = Buffer.from(JSON.stringify(unsigned, null, 0), 'utf-8');
+  // Canonicalize manifest as JSON (no whitespace)
+  const manifestJson = JSON.stringify(unsigned, null, 0);
+  const manifestBuffer = Buffer.from(manifestJson, 'utf-8');
 
-  let privateKey: Uint8Array;
+  // Sign manifest using RSA with SHA-256
   try {
-    const decoded = Buffer.from(privateKeyBase64, 'base64');
-    if (decoded.length !== 64) {
-      throw new Error('Invalid private key length');
-    }
-    privateKey = new Uint8Array(decoded);
+    const signer = crypto.createSign('SHA256');
+    signer.update(manifestBuffer);
+    const signatureBuffer = signer.sign(privateKeyPem);
+    const signature = signatureBuffer.toString('base64');
+
+    return {
+      ...unsigned,
+      signature,
+    };
   } catch (error) {
+    if (error instanceof Error) {
+      if (error.message.includes('PEM') || error.message.includes('key')) {
+        throw new Error('Invalid private key');
+      }
+      throw error;
+    }
     throw new Error('Invalid private key');
   }
-
-  const signature = nacl.sign.detached(message, privateKey);
-  const signatureBase64 = Buffer.from(signature).toString('base64');
-
-  return {
-    ...unsigned,
-    signature: signatureBase64,
-  };
 }

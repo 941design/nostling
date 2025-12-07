@@ -15,7 +15,7 @@ test.describe('SlimChat Application', () => {
     await expect(page.locator('.subtitle')).toHaveText('Secure auto-update shell');
 
     await expect(page.locator('.app-footer')).toBeVisible();
-    await expect(page.locator('.app-footer .mono')).toHaveText('Ed25519 manifest verification enabled');
+    await expect(page.locator('.app-footer .mono')).toHaveText('RSA manifest verification enabled');
   });
 
   test('should display version information', async ({ page }) => {

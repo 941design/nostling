@@ -246,61 +246,74 @@ make dist-clean              # Deep clean including node_modules
 ## Security Features
 
 This application includes a secure auto-update system with:
-- Cryptographic signature verification using Ed25519
+- Cryptographic signature verification using RSA-4096
 - Version validation
 - Manifest-based update distribution
 - Protection against downgrade attacks
 
-### Ed25519 Key Setup
+### RSA Key Setup
 
-The auto-update system requires Ed25519 cryptographic keys for signing and verifying update manifests.
+The auto-update system requires RSA-4096 cryptographic keys for signing and verifying update manifests.
 
 #### Generating Keys
 
-Generate a new Ed25519 keypair using GPG:
+Generate a new RSA-4096 keypair using openssl:
 
 ```bash
-# Generate a new Ed25519 key
-gpg --quick-gen-key "SlimChat Release <release@example.com>" ed25519 sign
+# Generate a new RSA-4096 key
+openssl genrsa -out slimchat-release.key 4096
 
-# List keys to get the key ID
-gpg --list-keys
-
-# Export the private key (raw 32-byte seed)
-gpg --export-secret-keys --armor "SlimChat Release" | gpg --list-packets --verbose
-
-# Extract and encode keys for the application
-# Use the following helper script:
-gpg --export-secret-keys "SlimChat Release" | tail -c 32 | base64
-
-# Export public key
-gpg --export "SlimChat Release" | tail -c 32 | base64
+# Derive public key
+openssl rsa -in slimchat-release.key -pubout -out slimchat-release.pub
+chmod 600 slimchat-release.key
 ```
 
 #### Configuring Keys
 
 **For Development/Testing:**
 
-Set the environment variable when running manifest generation:
+Set the environment variable when running manifest generation (assuming gopass):
 
 ```bash
-export ED25519_PRIVATE_KEY="your-base64-private-key"
+# Export private key as single-line format (required)
+export SLIM_CHAT_RSA_PRIVATE_KEY=$(gopass show slimchat/slimchat-release.key)
+
 npm run package
 ```
 
 **For Production/CI:**
 
-Add the private key to your CI/CD secrets as `ED25519_PRIVATE_KEY`.
+Add the private key to your CI/CD secrets:
+1. Copy the entire contents of `slimchat-release.key` (including `-----BEGIN PRIVATE KEY-----` and `-----END PRIVATE KEY-----` lines)
+2. Create a secret named `SLIM_CHAT_RSA_PRIVATE_KEY`
+3. Paste the full PEM content as the secret value
+
+Example GitHub Actions configuration:
+```yaml
+- name: Generate signed manifest
+  env:
+    SLIM_CHAT_RSA_PRIVATE_KEY: ${{ secrets.SLIM_CHAT_RSA_PRIVATE_KEY }}
+  run: npm run package
+```
 
 **In Application Code:**
 
-Update the public key in your source code (location varies based on implementation) to verify downloaded manifests. The public key is safe to embed in the application binary.
+Update the public key in `src/main/index.ts`:
+
+```typescript
+const PUBLIC_KEY = process.env.RSA_PUBLIC_KEY || `-----BEGIN PUBLIC KEY-----
+MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEA...
+-----END PUBLIC KEY-----`;
+```
+
+The public key is safe to embed directly in the application code.
 
 #### Key Security
 
 - **Private Key**: NEVER commit to version control. Only store in CI/CD secrets or secure key management systems.
 - **Public Key**: Safe to embed in application code and distribute with binaries.
 - **Key Rotation**: Generate new keypairs if private key is compromised. Users will need to update to a version with the new public key using the old signing key before rotation completes.
+- **Key Format**: Private key must be in PKCS8 PEM format. Public key must be in SPKI PEM format.
 
 ## License
 

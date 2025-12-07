@@ -45,7 +45,7 @@ function Footer({ version }: { version?: string }) {
   return (
     <footer className="app-footer">
       <span>{version ? `v${version}` : 'Loading version...'}</span>
-      <span className="mono">Ed25519 manifest verification enabled</span>
+      <span className="mono">RSA manifest verification enabled</span>
     </footer>
   );
 }

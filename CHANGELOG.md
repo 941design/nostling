@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **BREAKING**: Migrated auto-update signature verification from Ed25519 to RSA-4096
+  - Update manifests now use RSA-4096 signatures (SHA-256 with RSA)
+  - Build script requires `SLIM_CHAT_RSA_PRIVATE_KEY` environment variable (PEM format)
+  - Application requires `RSA_PUBLIC_KEY` for manifest verification (PEM format)
+  - **Migration Required**: Developers and CI/CD pipelines must generate new RSA-4096 keypairs
+  - See README.md "RSA Key Setup" section for key generation and configuration instructions
+
 ### Fixed
 - Fixed crypto test error handling assertion to use duck-typing instead of instanceof check
   - Root cause: Error constructors don't preserve instanceof across module boundaries in Jest

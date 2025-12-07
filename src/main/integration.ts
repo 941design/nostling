@@ -188,7 +188,7 @@ function validateManifestStructure(data: unknown): void {
  *     - downloadEvent: UpdateDownloadedEvent from electron-updater
  *     - currentVersion: current app version string
  *     - currentPlatform: platform identifier ('darwin' | 'linux' | 'win32')
- *     - publicKeyBase64: Ed25519 public key (base64)
+ *     - publicKeyPem: RSA public key in PEM format
  *     - manifestUrl: URL to fetch manifest from
  *
  *   Outputs:
@@ -217,7 +217,7 @@ function validateManifestStructure(data: unknown): void {
  *          filePath,
  *          currentVersion,
  *          currentPlatform,
- *          publicKeyBase64
+ *          publicKeyPem
  *        )
  *     5. Log: "Manifest verified for version {manifest.version}"
  *     6. Return { verified: true }
@@ -231,7 +231,7 @@ export async function verifyDownloadedUpdate(
   downloadEvent: UpdateDownloadedEvent,
   currentVersion: string,
   currentPlatform: 'darwin' | 'linux' | 'win32',
-  publicKeyBase64: string,
+  publicKeyPem: string,
   manifestUrl: string
 ): Promise<{ verified: true }> {
   // Step 1: Log fetch start
@@ -249,7 +249,7 @@ export async function verifyDownloadedUpdate(
   }
 
   // Step 4: Verify manifest
-  await verifyManifest(manifest, filePath, currentVersion, currentPlatform, publicKeyBase64);
+  await verifyManifest(manifest, filePath, currentVersion, currentPlatform, publicKeyPem);
 
   // Step 5: Log verification success
   console.log(`Manifest verified for version ${manifest.version}`);
