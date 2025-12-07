@@ -10,6 +10,12 @@
  * This test catches payload structure mismatches between build and runtime
  */
 
+import { jest } from '@jest/globals';
+
+jest.mock('../logging', () => ({
+  log: jest.fn(),
+}));
+
 import crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';

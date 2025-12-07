@@ -9,6 +9,7 @@ import crypto from 'crypto';
 import { SignedManifest, ManifestArtifact } from '../../shared/types';
 import { hashFile, hashMatches } from './crypto';
 import { validateVersion } from './version';
+import { log } from '../logging';
 
 /**
  * Verify RSA signature on manifest
@@ -167,24 +168,34 @@ export async function verifyManifest(
   currentPlatform: 'darwin' | 'linux' | 'win32',
   publicKeyPem: string
 ): Promise<{ verified: true }> {
+  log('info', `Verifying manifest: version=${manifest.version}, platform=${currentPlatform}, currentVersion=${currentVersion}`);
+
   if (!verifySignature(manifest, publicKeyPem)) {
+    log('error', 'Signature verification failed - manifest may be tampered or signed with different key');
     throw new Error('Manifest signature verification failed');
   }
+  log('info', 'Signature verification passed');
 
   const versionResult = validateVersion(manifest.version, currentVersion);
   if (!versionResult.valid) {
+    log('error', `Version validation failed: ${versionResult.reason}`);
     throw new Error(versionResult.reason);
   }
+  log('info', 'Version validation passed');
 
   const artifact = findArtifactForPlatform(manifest.artifacts, currentPlatform);
   if (!artifact) {
+    log('error', `No artifact found for platform ${currentPlatform}, available: ${manifest.artifacts.map(a => a.platform).join(', ')}`);
     throw new Error(`No artifact found for platform ${currentPlatform}`);
   }
+  log('info', `Found artifact for platform: ${artifact.platform}, expected hash: ${artifact.sha256.substring(0, 16)}...`);
 
   const computedHash = await hashFile(downloadedFilePath);
   if (!hashMatches(artifact.sha256, computedHash)) {
+    log('error', `Hash mismatch - expected: ${artifact.sha256.substring(0, 16)}..., computed: ${computedHash.substring(0, 16)}...`);
     throw new Error('Downloaded file hash mismatch');
   }
+  log('info', 'File hash verification passed');
 
   return { verified: true };
 }

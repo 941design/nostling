@@ -132,6 +132,26 @@ export function sanitizeError(error: unknown, isDev: boolean): Error {
     return new Error('Manifest fetch timed out');
   }
 
+  // Signature verification errors: preserve category without exposing internals
+  if (lowerMessage.includes('signature')) {
+    return new Error('Manifest signature verification failed');
+  }
+
+  // Hash mismatch errors: preserve category
+  if (lowerMessage.includes('hash')) {
+    return new Error('Downloaded file integrity check failed');
+  }
+
+  // Version validation errors: preserve category
+  if (lowerMessage.includes('version')) {
+    return new Error('Manifest version validation failed');
+  }
+
+  // Platform/artifact errors: preserve category
+  if (lowerMessage.includes('artifact') || lowerMessage.includes('platform')) {
+    return new Error('No compatible update artifact found');
+  }
+
   // Otherwise: generic fallback
   return new Error('Update verification failed');
 }
@@ -511,18 +531,33 @@ export async function verifyDownloadedUpdate(
   log('info', `Fetching manifest from ${manifestUrl}`);
 
   // Step 2: Fetch manifest
-  const manifest = await fetchManifest(manifestUrl, 30000, allowFileProtocol);
+  let manifest: SignedManifest;
+  try {
+    manifest = await fetchManifest(manifestUrl, 30000, allowFileProtocol);
+    log('info', `Manifest fetched successfully, version: ${manifest.version}`);
+  } catch (err) {
+    log('error', `Manifest fetch failed: ${err instanceof Error ? err.message : String(err)}`);
+    throw err;
+  }
 
   // Step 3: Extract downloaded file path from event
   const filePath =
     (downloadEvent as any).downloadedFile || downloadEvent.downloadedFile;
 
   if (!filePath) {
+    log('error', 'Downloaded file path missing from update event');
     throw new Error('Downloaded file path missing');
   }
+  log('info', `Downloaded file path: ${filePath}`);
 
   // Step 4: Verify manifest
-  await verifyManifest(manifest, filePath, currentVersion, currentPlatform, publicKeyPem);
+  try {
+    await verifyManifest(manifest, filePath, currentVersion, currentPlatform, publicKeyPem);
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    log('error', `Manifest verification failed at step: ${errorMsg}`);
+    throw err;
+  }
 
   // Step 5: Log verification success
   log('info', `Manifest verified for version ${manifest.version}`);

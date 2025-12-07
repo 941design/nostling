@@ -13,6 +13,12 @@
  *   - Error handling: Invalid inputs fail gracefully
  */
 
+import { jest } from '@jest/globals';
+
+jest.mock('../logging', () => ({
+  log: jest.fn(),
+}));
+
 import fc from 'fast-check';
 import crypto from 'crypto';
 import * as fs from 'fs';
