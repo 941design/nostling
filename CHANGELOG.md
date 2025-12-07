@@ -66,3 +66,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Bug report: bug-reports/electron-app-evaluate.md
 - Removed unused app import that caused dead code warning
   - Cleaned up imports to eliminate unnecessary dependencies
+- Fixed download update button calling checkForUpdates() instead of downloadUpdate()
+  - Root cause: handlePrimary() called onCheck() for all non-ready phases including 'available'
+  - Added explicit else-if case for 'available' phase to call onDownload()
+  - Added error handling for async IPC calls with proper error state transitions
+  - Disabled button during 'checking' phase to prevent user-triggered concurrency issues
+  - Added regression test to verify download button behavior
+  - Bug report: bug-reports/download-update-button-not-working-report.md

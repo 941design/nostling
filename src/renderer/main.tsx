@@ -21,15 +21,37 @@ function useStatus() {
     return unsubscribe;
   }, []);
 
+  // CODE QUALITY: Add error handling for async IPC calls
+  // Prevents unhandled promise rejections from IPC failures
   const refresh = async () => {
-    await window.api.checkForUpdates();
+    try {
+      await window.api.checkForUpdates();
+    } catch (error) {
+      console.error('Failed to check for updates:', error);
+    }
   };
 
   const restart = async () => {
-    await window.api.restartToUpdate();
+    try {
+      await window.api.restartToUpdate();
+    } catch (error) {
+      console.error('Failed to restart:', error);
+    }
   };
 
-  return { status, updateState, refresh, restart };
+  // BUG FIX: Add download function for 'available' phase
+  // Root cause: handlePrimary() was calling onCheck() for all non-ready phases
+  // Bug report: bug-reports/download-update-button-not-working-report.md
+  // Fixed: 2025-12-07
+  const download = async () => {
+    try {
+      await window.api.updates.downloadUpdate();
+    } catch (error) {
+      console.error('Failed to download update:', error);
+    }
+  };
+
+  return { status, updateState, refresh, restart, download };
 }
 
 function Header() {
@@ -50,7 +72,7 @@ function Footer({ version }: { version?: string }) {
   );
 }
 
-function Sidebar({ updateState, onCheck, onRestart }: { updateState: UpdateState; onCheck: () => void; onRestart: () => void }) {
+function Sidebar({ updateState, onCheck, onRestart, onDownload }: { updateState: UpdateState; onCheck: () => void; onRestart: () => void; onDownload: () => void }) {
   const buttonLabel = useMemo(() => {
     switch (updateState.phase) {
       case 'checking':
@@ -73,9 +95,15 @@ function Sidebar({ updateState, onCheck, onRestart }: { updateState: UpdateState
 
   const detail = updateState.detail || updateState.version;
 
+  // BUG FIX: Differentiate 'available' phase to call onDownload
+  // Root cause: Was calling onCheck() for all non-ready phases including 'available'
+  // Bug report: bug-reports/download-update-button-not-working-report.md
+  // Fixed: 2025-12-07
   const handlePrimary = () => {
     if (updateState.phase === 'ready') {
       onRestart();
+    } else if (updateState.phase === 'available') {
+      onDownload();
     } else {
       onCheck();
     }
@@ -89,7 +117,7 @@ function Sidebar({ updateState, onCheck, onRestart }: { updateState: UpdateState
         {detail && <p className="muted">{detail}</p>}
       </div>
       <div className="sidebar-section">
-        <button className="primary" onClick={handlePrimary} disabled={updateState.phase === 'downloading' || updateState.phase === 'verifying'}>
+        <button className="primary" onClick={handlePrimary} disabled={updateState.phase === 'checking' || updateState.phase === 'downloading' || updateState.phase === 'verifying'}>
           {buttonLabel}
         </button>
         {updateState.phase === 'ready' && (
@@ -150,13 +178,13 @@ function LogPanel({ logs }: { logs: AppStatus['logs'] }) {
 }
 
 function App() {
-  const { status, updateState, refresh, restart } = useStatus();
+  const { status, updateState, refresh, restart, download } = useStatus();
 
   return (
     <div className="app-shell">
       <Header />
       <div className="body">
-        <Sidebar updateState={updateState} onCheck={refresh} onRestart={restart} />
+        <Sidebar updateState={updateState} onCheck={refresh} onRestart={restart} onDownload={download} />
         <main className="content">
           {status ? <StatusDashboard status={{ ...status, updateState }} /> : <div className="muted">Loading...</div>}
         </main>
