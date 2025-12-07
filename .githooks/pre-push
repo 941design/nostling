@@ -1,0 +1,33 @@
+#!/bin/bash
+#
+# Pre-push hook: Validates that any tags being pushed match package.json version
+#
+# Install with: make install-hooks
+#
+
+# Read stdin for refs being pushed
+while read local_ref local_sha remote_ref remote_sha; do
+    # Check if this is a tag push
+    if [[ "$remote_ref" == refs/tags/* ]]; then
+        tag_name="${remote_ref#refs/tags/}"
+
+        # Only validate version-like tags (semver pattern)
+        if [[ "$tag_name" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            pkg_version=$(node -p "require('./package.json').version")
+
+            if [ "$tag_name" != "$pkg_version" ]; then
+                echo ""
+                echo "ERROR: Tag '$tag_name' does not match package.json version '$pkg_version'"
+                echo ""
+                echo "To fix this, use 'make version-patch|minor|major' which keeps them in sync."
+                echo "Or manually update package.json to match the tag."
+                echo ""
+                exit 1
+            fi
+
+            echo "Version check passed: tag '$tag_name' matches package.json"
+        fi
+    fi
+done
+
+exit 0

@@ -1,4 +1,4 @@
-.PHONY: help clean install dev build test lint package release sign-manifest test-e2e test-e2e-ui test-e2e-headed test-e2e-debug test-e2e-docker test-e2e-docker-clean test-all dev-update-release dev-update-prerelease dev-update-local local-release local-release-clean test-version-upgrade
+.PHONY: help clean install dev build test lint package release sign-manifest test-e2e test-e2e-ui test-e2e-headed test-e2e-debug test-e2e-docker test-e2e-docker-clean test-all dev-update-release dev-update-prerelease dev-update-local local-release local-release-clean test-version-upgrade version-patch version-minor version-major install-hooks
 
 .DEFAULT_GOAL := help
 
@@ -188,3 +188,25 @@ test-version-upgrade: ## Interactive guide for testing version upgrades
 	@echo "Available tags:"
 	@git tag --sort=-creatordate | head -10 || echo "  (no tags found)"
 	@echo ""
+
+# Version Management
+version-patch: ## Bump patch version (0.0.x), commit, and tag
+	npm version patch
+	@echo ""
+	@echo "Version bumped. Push with: git push && git push --tags"
+
+version-minor: ## Bump minor version (0.x.0), commit, and tag
+	npm version minor
+	@echo ""
+	@echo "Version bumped. Push with: git push && git push --tags"
+
+version-major: ## Bump major version (x.0.0), commit, and tag
+	npm version major
+	@echo ""
+	@echo "Version bumped. Push with: git push && git push --tags"
+
+install-hooks: ## Install git hooks for version validation
+	@mkdir -p .git/hooks
+	@cp .githooks/pre-push .git/hooks/pre-push
+	@chmod +x .git/hooks/pre-push
+	@echo "Git hooks installed successfully."
