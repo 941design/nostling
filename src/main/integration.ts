@@ -183,12 +183,12 @@ export function sanitizeError(error: unknown, isDev: boolean): Error {
  *       → "https://github.com/941design/slim-chat/releases/latest/download/manifest.json"
  *
  *     Dev mode with GitHub release:
- *       constructManifestUrl({}, "https://github.com/941design/slim-chat/releases/download/v1.0.0")
- *       → "https://github.com/941design/slim-chat/releases/download/v1.0.0/manifest.json"
+ *       constructManifestUrl({}, "https://github.com/941design/slim-chat/releases/download/1.0.0")
+ *       → "https://github.com/941design/slim-chat/releases/download/1.0.0/manifest.json"
  *
  *     Dev mode with local file:
- *       constructManifestUrl({}, "file://./test-manifests/v1.0.0")
- *       → "file://./test-manifests/v1.0.0/manifest.json"
+ *       constructManifestUrl({}, "file://./test-manifests/1.0.0")
+ *       → "file://./test-manifests/1.0.0/manifest.json"
  */
 export function constructManifestUrl(
   publishConfig: { owner?: string; repo?: string },
@@ -280,7 +280,7 @@ export function constructManifestUrl(
  *       → Error: "Manifest URL must use HTTPS protocol"
  *
  *     Dev mode (file:// allowed):
- *       fetchManifest("file:///tmp/test-manifests/v1.0.0/manifest.json", 30000, true)
+ *       fetchManifest("file:///tmp/test-manifests/1.0.0/manifest.json", 30000, true)
  *       → Success if file exists and valid JSON
  *       fetchManifest("https://github.com/.../manifest.json", 30000, true)
  *       → Success (HTTPS still allowed in dev mode)

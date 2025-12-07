@@ -384,13 +384,13 @@ Example `manifest.json`:
     {
       "platform": "darwin",
       "type": "dmg",
-      "url": "https://github.com/941design/slim-chat/releases/download/v1.2.3/SlimChat-1.2.3.dmg",
+      "url": "https://github.com/941design/slim-chat/releases/download/1.2.3/SlimChat-1.2.3.dmg",
       "sha256": "<hex-encoded-sha256>"
     },
     {
       "platform": "linux",
       "type": "AppImage",
-      "url": "https://github.com/941design/slim-chat/releases/download/v1.2.3/SlimChat-1.2.3-x64.AppImage",
+      "url": "https://github.com/941design/slim-chat/releases/download/1.2.3/SlimChat-1.2.3-x64.AppImage",
       "sha256": "<hex-encoded-sha256>"
     }
   ],
@@ -530,7 +530,7 @@ This is enforced in `getDevUpdateConfig()` which returns safe defaults for produ
 npm run dev
 
 # Test against specific GitHub release
-DEV_UPDATE_SOURCE=https://github.com/941design/slim-chat/releases/download/v1.0.1 npm run dev
+DEV_UPDATE_SOURCE=https://github.com/941design/slim-chat/releases/download/1.0.1 npm run dev
 
 # Test pre-release versions
 ALLOW_PRERELEASE=true npm run dev

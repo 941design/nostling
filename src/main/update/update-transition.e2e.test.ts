@@ -367,7 +367,7 @@ describe('Version Transition E2E', () => {
     test('should handle dev mode manifest URL with custom source', async () => {
       const { constructManifestUrl } = await import('../integration');
 
-      const devUrl = 'file:///tmp/test-updates/v0.0.1';
+      const devUrl = 'file:///tmp/test-updates/0.0.1';
       const result = constructManifestUrl({}, devUrl);
 
       expect(result).toBe(devUrl + '/manifest.json');
@@ -376,7 +376,7 @@ describe('Version Transition E2E', () => {
     test('should handle dev mode with GitHub release URL', async () => {
       const { constructManifestUrl } = await import('../integration');
 
-      const devUrl = 'https://github.com/941design/slim-chat/releases/download/v0.0.1';
+      const devUrl = 'https://github.com/941design/slim-chat/releases/download/0.0.1';
       const result = constructManifestUrl({}, devUrl);
 
       expect(result).toBe(devUrl + '/manifest.json');
@@ -455,7 +455,7 @@ describe('Version Transition E2E', () => {
         version: '0.0.1',
         artifacts: [
           {
-            url: 'https://github.com/941design/slim-chat/releases/download/v0.0.1/slim-chat-0.0.1.dmg',
+            url: 'https://github.com/941design/slim-chat/releases/download/0.0.1/slim-chat-0.0.1.dmg',
             sha256: 'a'.repeat(64),
             platform: 'darwin' as const,
             type: 'dmg' as const,

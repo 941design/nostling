@@ -89,11 +89,11 @@ export const GITHUB_REPO = 'slim-chat';
  *       - Result: GitHub provider, no dev features enabled
  *
  *     Dev mode with GitHub releases:
- *       - devConfig = { forceDevUpdateConfig: true, devUpdateSource: "https://github.com/941design/slim-chat/releases/download/v1.0.0", allowPrerelease: false }
+ *       - devConfig = { forceDevUpdateConfig: true, devUpdateSource: "https://github.com/941design/slim-chat/releases/download/1.0.0", allowPrerelease: false }
  *       - Result: Force dev updates, generic provider with specified GitHub release, no prereleases
  *
  *     Dev mode with local manifest:
- *       - devConfig = { forceDevUpdateConfig: true, devUpdateSource: "file://./test-manifests/v1.0.0", allowPrerelease: true }
+ *       - devConfig = { forceDevUpdateConfig: true, devUpdateSource: "file://./test-manifests/1.0.0", allowPrerelease: true }
  *       - Result: Force dev updates, generic provider with local file, allow prereleases
  *
  *     Dev mode with env override:

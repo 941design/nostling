@@ -29,7 +29,7 @@ All dev mode features are automatically disabled in production builds for securi
 make dev
 
 # Test against specific GitHub release
-DEV_UPDATE_SOURCE=https://github.com/941design/slim-chat/releases/download/v1.0.1 make dev-update-release
+DEV_UPDATE_SOURCE=https://github.com/941design/slim-chat/releases/download/1.0.1 make dev-update-release
 
 # Test with local manifest files
 DEV_UPDATE_SOURCE=file:///tmp/test-updates make dev-update-local
@@ -185,7 +185,7 @@ gh release list --repo 941design/slim-chat
 
 ```bash
 # Format: https://github.com/{owner}/{repo}/releases/download/{tag}
-DEV_UPDATE_SOURCE=https://github.com/941design/slim-chat/releases/download/v1.0.1 make dev-update-release
+DEV_UPDATE_SOURCE=https://github.com/941design/slim-chat/releases/download/1.0.1 make dev-update-release
 ```
 
 ### Test Against Latest Release
@@ -215,7 +215,7 @@ The app constructs manifest URLs as follows:
 https://github.com/941design/slim-chat/releases/latest/download/manifest.json
 
 # Specific version
-https://github.com/941design/slim-chat/releases/download/v1.0.1/manifest.json
+https://github.com/941design/slim-chat/releases/download/1.0.1/manifest.json
 
 # Local file
 file:///tmp/test-updates/manifest.json
@@ -241,15 +241,15 @@ ALLOW_PRERELEASE=true npm run dev
 
 ```bash
 # Test a specific pre-release
-ALLOW_PRERELEASE=true DEV_UPDATE_SOURCE=https://github.com/941design/slim-chat/releases/download/v2.0.0-beta.1 npm run dev
+ALLOW_PRERELEASE=true DEV_UPDATE_SOURCE=https://github.com/941design/slim-chat/releases/download/2.0.0-beta.1 npm run dev
 ```
 
 ### Pre-release Version Formats
 
 Supported pre-release tags:
-- `v2.0.0-alpha.1`
-- `v2.0.0-beta.1`
-- `v2.0.0-rc.1`
+- `2.0.0-alpha.1`
+- `2.0.0-beta.1`
+- `2.0.0-rc.1`
 
 ---
 
@@ -337,7 +337,7 @@ Recommended testing sequence before releasing:
 DEV_UPDATE_SOURCE=file:///tmp/test-updates make dev-update-local
 
 # 2. Verify against known good release
-DEV_UPDATE_SOURCE=https://github.com/941design/slim-chat/releases/download/v1.0.0 make dev-update-release
+DEV_UPDATE_SOURCE=https://github.com/941design/slim-chat/releases/download/1.0.0 make dev-update-release
 
 # 3. Test latest release (production-like)
 make dev
@@ -467,7 +467,7 @@ git tag --sort=-creatordate | head -10
 git stash
 
 # Checkout older version
-git checkout v1.0.0
+git checkout 1.0.0
 ```
 
 #### Step 3: Install Dependencies for Older Version
@@ -485,7 +485,7 @@ DEV_UPDATE_SOURCE=file://$PWD/local-release make dev-update-local
 
 #### Step 5: Test the Update Flow
 
-1. App launches (running old version, e.g., v1.0.0)
+1. App launches (running old version, e.g., 1.0.0)
 2. Click "Check for Updates"
 3. App discovers new version from local release
 4. Verify update notification shows correct version
@@ -545,12 +545,12 @@ To test version upgrade:
   5. Click 'Check for Updates' in the app
 
 $ git stash
-$ git checkout v0.0.1-beta
+$ git checkout 0.0.1-beta
 $ npm install
 $ DEV_UPDATE_SOURCE=file://$PWD/local-release make dev-update-local
-# App launches, showing v0.0.1-beta
+# App launches, showing 0.0.1-beta
 # Click "Check for Updates"
-# App discovers v0.0.0 (HEAD version) available
+# App discovers 0.0.2 (HEAD version) available
 # Update flow proceeds...
 
 $ git checkout -

@@ -180,7 +180,7 @@ Configure update testing via environment variables:
 VITE_DEV_SERVER_URL=http://localhost:5173
 
 # Test against a specific GitHub release
-DEV_UPDATE_SOURCE=https://github.com/941design/slim-chat/releases/download/v1.0.0
+DEV_UPDATE_SOURCE=https://github.com/941design/slim-chat/releases/download/1.0.0
 
 # Enable pre-release version testing (beta, alpha, rc)
 ALLOW_PRERELEASE=true
@@ -195,7 +195,7 @@ ALLOW_PRERELEASE=true
 make dev
 
 # Test against specific GitHub release
-DEV_UPDATE_SOURCE=https://github.com/941design/slim-chat/releases/download/v1.0.1 make dev-update-release
+DEV_UPDATE_SOURCE=https://github.com/941design/slim-chat/releases/download/1.0.1 make dev-update-release
 
 # Test pre-release versions (beta, alpha, rc)
 make dev-update-prerelease
@@ -211,7 +211,7 @@ DEV_UPDATE_SOURCE=file:///tmp/test-updates make dev-update-local
 npm run dev
 
 # Test against specific GitHub release
-export DEV_UPDATE_SOURCE="https://github.com/941design/slim-chat/releases/download/v1.0.1"
+export DEV_UPDATE_SOURCE="https://github.com/941design/slim-chat/releases/download/1.0.1"
 npm run dev
 
 # Test pre-release versions
@@ -345,7 +345,13 @@ Every push to any branch triggers the test workflow, which:
 To create an automated release:
 
 1. Ensure all changes are committed and pushed
-2. Tag the commit with a semantic version (x.x.x format):
+2. Bump version and create tag using Make commands (recommended):
+   ```bash
+   make version-patch   # or version-minor, version-major
+   git push && git push --tags
+   ```
+
+   Or manually tag (ensure it matches `package.json` version):
    ```bash
    git tag 1.0.0
    git push origin 1.0.0
@@ -357,7 +363,7 @@ To create an automated release:
    - Generate and sign the update manifest
    - Create a GitHub release with all artifacts
 
-**Important**: Only tags matching the pattern `x.x.x` (e.g., `1.0.0`, `2.1.3`) will trigger a release.
+**Important - Tag Format**: Tags must be `x.x.x` format **without a 'v' prefix** (e.g., `1.0.0`, not `v1.0.0`). Only tags matching this pattern trigger releases. The `make version-*` commands handle this automatically.
 
 ## Available Make Commands
 

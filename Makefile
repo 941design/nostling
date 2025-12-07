@@ -29,7 +29,7 @@ dev-renderer: ## Start renderer process development mode only
 # Dev Mode Update Testing
 dev-update-release: ## Test updates against a specific GitHub release (set DEV_UPDATE_SOURCE)
 	@if [ -z "$$DEV_UPDATE_SOURCE" ]; then \
-		echo "Usage: DEV_UPDATE_SOURCE=https://github.com/941design/slim-chat/releases/download/v1.0.1 make dev-update-release"; \
+		echo "Usage: DEV_UPDATE_SOURCE=https://github.com/941design/slim-chat/releases/download/1.0.1 make dev-update-release"; \
 		exit 1; \
 	fi
 	npm run dev
@@ -190,18 +190,20 @@ test-version-upgrade: ## Interactive guide for testing version upgrades
 	@echo ""
 
 # Version Management
+# Note: --tag-version-prefix="" removes the 'v' prefix from tags
+# Convention: tags are x.y.z (not vx.y.z) to match release.yml pattern
 version-patch: ## Bump patch version (0.0.x), commit, and tag
-	npm version patch
+	npm version patch --tag-version-prefix=""
 	@echo ""
 	@echo "Version bumped. Push with: git push && git push --tags"
 
 version-minor: ## Bump minor version (0.x.0), commit, and tag
-	npm version minor
+	npm version minor --tag-version-prefix=""
 	@echo ""
 	@echo "Version bumped. Push with: git push && git push --tags"
 
 version-major: ## Bump major version (x.0.0), commit, and tag
-	npm version major
+	npm version major --tag-version-prefix=""
 	@echo ""
 	@echo "Version bumped. Push with: git push && git push --tags"
 

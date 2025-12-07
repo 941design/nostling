@@ -2,7 +2,7 @@
 
 ## Problem Statement
 
-Currently, the auto-updater constructs a version-specific feed URL that prevents cross-version updates. When v0.0.0 is running, it looks for updates at `https://github.com/941design/slim-chat/releases/download/v0.0.0/latest-mac.yml`, which means it can never discover v0.0.1 because each version only checks its own release folder.
+Currently, the auto-updater constructs a version-specific feed URL that prevents cross-version updates. When 0.0.0 is running, it looks for updates at `https://github.com/941design/slim-chat/releases/download/0.0.0/latest-mac.yml`, which means it can never discover 0.0.1 because each version only checks its own release folder.
 
 This breaks the fundamental purpose of auto-updates: allowing older app versions to discover and install newer releases.
 

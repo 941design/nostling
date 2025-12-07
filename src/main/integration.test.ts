@@ -17,7 +17,7 @@ import { UpdateDownloadedEvent } from 'electron-updater';
 describe('constructManifestUrl', () => {
   describe('Property: Dev mode takes precedence when devUpdateSource provided', () => {
     it('should return devUpdateSource with /manifest.json appended when provided', () => {
-      const devUpdateSource = 'https://github.com/941design/slim-chat/releases/download/v1.0.0';
+      const devUpdateSource = 'https://github.com/941design/slim-chat/releases/download/1.0.0';
       const publishConfig = { owner: 'user', repo: 'app' };
 
       const result = constructManifestUrl(publishConfig, devUpdateSource);
@@ -26,7 +26,7 @@ describe('constructManifestUrl', () => {
     });
 
     it('should handle devUpdateSource ending with /', () => {
-      const devUpdateSource = 'https://github.com/941design/slim-chat/releases/download/v1.0.0/';
+      const devUpdateSource = 'https://github.com/941design/slim-chat/releases/download/1.0.0/';
       const publishConfig = { owner: 'user', repo: 'app' };
 
       const result = constructManifestUrl(publishConfig, devUpdateSource);
@@ -163,17 +163,17 @@ describe('constructManifestUrl', () => {
     it('should match dev example with GitHub release URL', () => {
       const result = constructManifestUrl(
         {},
-        'https://github.com/941design/slim-chat/releases/download/v1.0.0'
+        'https://github.com/941design/slim-chat/releases/download/1.0.0'
       );
-      expect(result).toBe('https://github.com/941design/slim-chat/releases/download/v1.0.0/manifest.json');
+      expect(result).toBe('https://github.com/941design/slim-chat/releases/download/1.0.0/manifest.json');
     });
 
     it('should match dev example with local file URL', () => {
       const result = constructManifestUrl(
         {},
-        'file://./test-manifests/v1.0.0'
+        'file://./test-manifests/1.0.0'
       );
-      expect(result).toBe('file://./test-manifests/v1.0.0/manifest.json');
+      expect(result).toBe('file://./test-manifests/1.0.0/manifest.json');
     });
   });
 });
@@ -1165,12 +1165,12 @@ describe('TR5: File Protocol Dev Mode Test (FR2)', () => {
 
   describe('Example-Based Tests: Dev Mode File Protocol Scenarios', () => {
     it('E001: Dev mode with file:// URL loads manifest successfully', async () => {
-      const fileUrl = 'file:///tmp/test-manifests/v1.0.0/manifest.json';
+      const fileUrl = 'file:///tmp/test-manifests/1.0.0/manifest.json';
       const manifest = {
         version: '1.0.0',
         artifacts: [
           {
-            url: 'file:///tmp/test-manifests/v1.0.0/app.dmg',
+            url: 'file:///tmp/test-manifests/1.0.0/app.dmg',
             sha256: 'a'.repeat(64),
             platform: 'darwin' as const,
             type: 'dmg' as const,
@@ -1186,7 +1186,7 @@ describe('TR5: File Protocol Dev Mode Test (FR2)', () => {
 
       expect(result.version).toBe('1.0.0');
       expect(result.artifacts).toHaveLength(1);
-      expect(result.artifacts[0].url).toBe('file:///tmp/test-manifests/v1.0.0/app.dmg');
+      expect(result.artifacts[0].url).toBe('file:///tmp/test-manifests/1.0.0/app.dmg');
     });
 
     it('E002: Production mode rejects file:// URL with clear error', async () => {

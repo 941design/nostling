@@ -211,12 +211,12 @@ CONTRACT for constructManifestUrl (updated):
       → "https://github.com/941design/slim-chat/releases/latest/download/manifest.json"
 
     Dev mode with GitHub release:
-      constructManifestUrl({}, "https://github.com/941design/slim-chat/releases/download/v1.0.0")
-      → "https://github.com/941design/slim-chat/releases/download/v1.0.0/manifest.json"
+      constructManifestUrl({}, "https://github.com/941design/slim-chat/releases/download/1.0.0")
+      → "https://github.com/941design/slim-chat/releases/download/1.0.0/manifest.json"
 
     Dev mode with local file:
-      constructManifestUrl({}, "file://./test-manifests/v1.0.0")
-      → "file://./test-manifests/v1.0.0/manifest.json"
+      constructManifestUrl({}, "file://./test-manifests/1.0.0")
+      → "file://./test-manifests/1.0.0/manifest.json"
 
   Changes from current implementation:
     - REMOVED: version parameter
