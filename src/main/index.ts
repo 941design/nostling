@@ -16,8 +16,8 @@ setLogLevel(config.logLevel);
 let updateState: UpdateState = { phase: 'idle' };
 let lastUpdateCheck: string | undefined;
 
-const PUBLIC_KEY = process.env.RSA_PUBLIC_KEY ||
-  '-----BEGIN PUBLIC KEY-----\nMIICIjANBgkqhkiG9w0BAQ...\n-----END PUBLIC KEY-----'; // placeholder PEM
+// Public key for manifest verification (injected at build time from keys/slimchat-release.pub)
+const PUBLIC_KEY = process.env.RSA_PUBLIC_KEY || process.env.EMBEDDED_RSA_PUBLIC_KEY || '';
 
 function createWindow() {
   mainWindow = new BrowserWindow({
