@@ -24,14 +24,6 @@ test.describe('Update System', () => {
     expect(statusText).toContain('Update:');
   });
 
-  test('should have sidebar footer with security information', async ({ page }) => {
-    await waitForAppReady(page);
-
-    await expect(page.locator('.sidebar-footer')).toBeVisible();
-    await expect(page.locator('.sidebar-footer .small:has-text("Updates served via GitHub Releases")')).toBeVisible();
-    await expect(page.locator('.sidebar-footer .small:has-text("Manifest signature required")')).toBeVisible();
-  });
-
   test('button should be disabled during downloading state', async ({ page, electronApp }) => {
     await waitForAppReady(page);
 

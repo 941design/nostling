@@ -72,7 +72,6 @@ function Header() {
   return (
     <header className="app-header">
       <div className="brand">SlimChat Bootstrap</div>
-      <div className="subtitle">Secure auto-update shell</div>
     </header>
   );
 }
@@ -81,7 +80,6 @@ function Footer({ version, lastUpdateCheck }: { version?: string; lastUpdateChec
   return (
     <footer className="app-footer">
       <span>{version ? `v${version}` : 'Loading version...'}</span>
-      <span className="mono">RSA manifest verification enabled</span>
       <span className="mono">Last check: {lastUpdateCheck ? new Date(lastUpdateCheck).toLocaleString() : 'Not yet checked'}</span>
     </footer>
   );
@@ -140,10 +138,6 @@ function Sidebar({ updateState, onCheck, onRestart, onDownload }: { updateState:
             Restart now
           </button>
         )}
-      </div>
-      <div className="sidebar-footer">
-        <div className="small">Updates served via GitHub Releases</div>
-        <div className="small">Manifest signature required</div>
       </div>
     </aside>
   );
