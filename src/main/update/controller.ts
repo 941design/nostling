@@ -114,6 +114,14 @@ export function setupUpdater(
   autoUpdater.autoDownload = autoDownloadEnabled;
   autoUpdater.autoInstallOnAppQuit = false;
 
+  // BUG FIX: Log macOS code signing configuration for production debugging
+  // Root cause: Missing visibility into electron-builder signing behavior
+  // Bug report: bug-reports/macos-gatekeeper-warning-unsigned-app.md
+  // Fixed: 2025-12-08
+  if (process.platform === 'darwin') {
+    log('info', 'macOS code signing: identity=null (unsigned), autoInstallOnAppQuit=false - users must approve in System Settings');
+  }
+
   // CRITICAL: Production safety (C1) - config values ONLY used when devConfig indicates dev mode
   const isDevModeActive = devConfig.forceDevUpdateConfig || Boolean(devConfig.devUpdateSource) || devConfig.allowPrerelease;
 

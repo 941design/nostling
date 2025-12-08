@@ -421,6 +421,20 @@ This application includes a secure auto-update system with:
 
 For RSA key generation and configuration, see [docs/rsa-key-setup.md](docs/rsa-key-setup.md).
 
+### macOS Code Signing
+
+**This app is not code-signed with an Apple Developer ID.** Applications are intentionally built unsigned (`identity: null` in `package.json`) to avoid macOS Gatekeeper warnings.
+
+**Why unsigned?**
+- Ad-hoc signatures (default electron-builder behavior) trigger Gatekeeper warnings on auto-updated apps
+- Apple Developer ID signing requires a paid Apple Developer account ($99/year)
+- Unsigned apps can be approved once by users and work reliably thereafter
+
+**Installation behavior:**
+- Initial install: Users must approve the app in System Settings (see [Installing Releases](#installing-releases) above)
+- Auto-updates: Updated apps install correctly without additional Gatekeeper warnings
+- Manifest verification: All updates are cryptographically verified with RSA-4096 signatures (separate from code signing)
+
 ## License
 
 MIT

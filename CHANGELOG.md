@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Fixed macOS Gatekeeper warnings on auto-updated applications (auto-updates)
+  - Configured electron-builder to use unsigned builds with `identity: null`
+  - Apps remain unsigned but install correctly; users approve once in System Settings
+  - Root cause: electron-builder was attempting to sign with ad-hoc signature
+  - Added production logging for signing configuration and update installation
+  - Added regression test validating package.json configuration
+  - Bug report: bug-reports/macos-gatekeeper-warning-unsigned-app.md
+
 ### Changed
 - Simplified UI by removing Status Dashboard from main area
   - Moved "Last Update Check" timestamp to footer alongside version info

@@ -158,6 +158,11 @@ async function checkForUpdates(): Promise<void> {
 
 async function restartToUpdate(): Promise<void> {
   if (updateState.phase === 'ready') {
+    // BUG FIX: Log quitAndInstall() invocation for production debugging
+    // Root cause: Missing visibility into update installation flow
+    // Bug report: bug-reports/macos-gatekeeper-warning-unsigned-app.md
+    // Fixed: 2025-12-08
+    log('info', `Initiating app restart to install update: ${app.getVersion()} -> ${updateState.version}`);
     autoUpdater.quitAndInstall();
   }
 }

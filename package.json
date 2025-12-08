@@ -89,7 +89,8 @@
         "zip"
       ],
       "category": "public.app-category.developer-tools",
-      "minimumSystemVersion": "12.0.0"
+      "minimumSystemVersion": "12.0.0",
+      "identity": null
     },
     "linux": {
       "target": [
