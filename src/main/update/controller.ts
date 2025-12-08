@@ -5,7 +5,7 @@
  * Replaces automatic download with user-initiated download after approval.
  */
 
-import { autoUpdater, ProgressInfo } from 'electron-updater';
+import { autoUpdater } from 'electron-updater';
 import { DownloadProgress, AppConfig } from '../../shared/types';
 import { DevUpdateConfig } from '../dev-env';
 import { log } from '../logging';
@@ -37,7 +37,7 @@ export const GITHUB_REPO = 'slim-chat';
  *
  *   Invariants:
  *     - autoUpdater.autoDownload set to autoDownloadEnabled
- *     - autoUpdater.autoInstallOnAppQuit always false (user must restart manually)
+ *     - autoUpdater.autoInstallOnAppQuit set to true (triggers Squirrel.Mac verification during download, not on restart)
  *     - Production mode: use GitHub provider with owner/repo configuration
  *     - Dev mode with devUpdateSource: use generic provider for file:// URL support
  *     - In production builds: forceDevUpdateConfig and allowPrerelease NEVER enabled (constraint C1)
@@ -112,14 +112,22 @@ export function setupUpdater(
   devConfig: DevUpdateConfig
 ): void {
   autoUpdater.autoDownload = autoDownloadEnabled;
-  autoUpdater.autoInstallOnAppQuit = false;
 
-  // BUG FIX: Log macOS code signing configuration for production debugging
-  // Root cause: Missing visibility into electron-builder signing behavior
-  // Bug report: bug-reports/macos-gatekeeper-warning-unsigned-app.md
+  // BUG FIX: Enable autoInstallOnAppQuit to trigger Squirrel verification during download
+  // Root cause: autoInstallOnAppQuit=false delays Squirrel.Mac signature verification until
+  //             quitAndInstall() is called. This causes verification to fail AFTER user clicks
+  //             "Restart to Update" because Squirrel.Mac expects Apple Developer signed apps
+  //             but finds ad-hoc signed apps (identity=null in package.json).
+  // Fix: autoInstallOnAppQuit=true triggers Squirrel.Mac verification during download phase.
+  //      If Squirrel accepts ad-hoc signed apps, installation proceeds normally.
+  //      If Squirrel rejects ad-hoc signed apps, error surfaces early during download
+  //      (not after user clicks restart), providing better fail-fast behavior.
+  // Bug report: bug-reports/0015-update-signature-verification-after-restart-report.md
   // Fixed: 2025-12-08
+  autoUpdater.autoInstallOnAppQuit = true;
+
   if (process.platform === 'darwin') {
-    log('info', 'macOS code signing: identity=null (unsigned), autoInstallOnAppQuit=false - users must approve in System Settings');
+    log('info', 'macOS code signing: identity=null (unsigned), autoInstallOnAppQuit=true for early Squirrel.Mac verification');
   }
 
   // CRITICAL: Production safety (C1) - config values ONLY used when devConfig indicates dev mode

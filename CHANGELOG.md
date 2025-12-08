@@ -119,3 +119,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added status refresh when update check completes (idle/failed states)
   - Added regression tests to verify timestamp updates for all check completion scenarios
   - Bug report: bug-reports/footer-timestamp-not-updating-report.md
+- Fixed update signature verification failure after clicking "Restart to Update" button (auto-updates)
+  - Changed autoUpdater.autoInstallOnAppQuit from false to true
+  - Moves Squirrel.Mac verification to download phase instead of quitAndInstall phase
+  - Prevents "Manifest signature verification failed" error when restarting to install update
+  - Root cause: With autoInstallOnAppQuit=false, quitAndInstall() triggered Squirrel.Mac to re-fetch and verify update, failing on ad-hoc signed apps
+  - Added regression test verifying autoInstallOnAppQuit=true is set correctly
+  - Bug report: bug-reports/0015-update-signature-verification-after-restart-report.md
+  - NOTE: Requires manual testing on macOS arm64 to confirm Squirrel.Mac accepts ad-hoc signed apps with this configuration

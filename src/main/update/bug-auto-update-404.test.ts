@@ -71,7 +71,9 @@ describe('Regression: Auto-update 404 error (FIXED)', () => {
 
     // Verify other configuration
     expect(mockAutoUpdater.autoDownload).toBe(false);
-    expect(mockAutoUpdater.autoInstallOnAppQuit).toBe(false);
+    // BUG FIX: autoInstallOnAppQuit changed from false to true to fix bug 0015
+    // Bug report: bug-reports/0015-update-signature-verification-after-restart-report.md
+    expect(mockAutoUpdater.autoInstallOnAppQuit).toBe(true);
   });
 
   it('verifies GitHub provider does not use version-specific URLs', async () => {
