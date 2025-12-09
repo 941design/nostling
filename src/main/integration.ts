@@ -57,7 +57,14 @@ import { validateUpdateUrl } from './update/url-validation';
  *        e. Timeout errors (contains "timed out", "timeout"):
  *           - Preserve: "Manifest fetch timed out" (no implementation details leaked)
  *
- *        f. Otherwise:
+ *        f. Squirrel.Mac code signature errors (contains "code signature", "designated requirement", "did not pass validation"):
+ *           - Replace with: "macOS code signature verification failed (Squirrel.Mac)"
+ *           - This distinguishes electron-updater's macOS code signing errors from our RSA verification
+ *
+ *        g. Custom RSA signature errors (contains "signature" but not caught above):
+ *           - Replace with: "Manifest signature verification failed"
+ *
+ *        h. Otherwise:
  *           - Generic fallback: "Update verification failed"
  *
  *     4. Return new Error with sanitized message
@@ -132,7 +139,20 @@ export function sanitizeError(error: unknown, isDev: boolean): Error {
     return new Error('Manifest fetch timed out');
   }
 
-  // Signature verification errors: preserve category without exposing internals
+  // Squirrel.Mac / macOS code signature errors (from electron-updater on macOS)
+  // Pattern: "Code signature at URL ... did not pass validation", "designated requirement"
+  // These are different from our custom RSA manifest signature verification
+  // Bug report reference: bug-reports/0015-update-signature-verification-after-restart-report.md
+  if (
+    lowerMessage.includes('code signature') ||
+    lowerMessage.includes('designated requirement') ||
+    lowerMessage.includes('did not pass validation')
+  ) {
+    return new Error('macOS code signature verification failed (Squirrel.Mac)');
+  }
+
+  // Custom RSA manifest signature verification errors (our verification)
+  // This catches "Manifest signature verification failed" from verifyManifest()
   if (lowerMessage.includes('signature')) {
     return new Error('Manifest signature verification failed');
   }

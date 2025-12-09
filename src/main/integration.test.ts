@@ -1512,6 +1512,54 @@ describe('sanitizeError', () => {
     });
   });
 
+  describe('Production Mode - Squirrel.Mac Code Signature Errors (macOS)', () => {
+    it('P019: "Code signature" errors are sanitized as macOS code signature', () => {
+      const error = new Error('Code signature at URL file:///app.app did not pass validation');
+      const result = sanitizeError(error, false);
+      expect(result.message).toBe('macOS code signature verification failed (Squirrel.Mac)');
+      expect(result.message).not.toContain('URL');
+    });
+
+    it('P020: "designated requirement" errors are sanitized as macOS code signature', () => {
+      const error = new Error('code failed to satisfy specified designated requirement(s)');
+      const result = sanitizeError(error, false);
+      expect(result.message).toBe('macOS code signature verification failed (Squirrel.Mac)');
+    });
+
+    it('P021: "did not pass validation" errors are sanitized as macOS code signature', () => {
+      const error = new Error('Update did not pass validation: code object is not signed');
+      const result = sanitizeError(error, false);
+      expect(result.message).toBe('macOS code signature verification failed (Squirrel.Mac)');
+    });
+
+    it('P022: Custom RSA "signature" errors NOT caught by Squirrel.Mac pattern', () => {
+      // Our custom RSA verification throws "Manifest signature verification failed"
+      // This should NOT be caught by the Squirrel.Mac pattern
+      const error = new Error('Manifest signature verification failed');
+      const result = sanitizeError(error, false);
+      // Should fall through to generic signature handler, which returns same message
+      expect(result.message).toBe('Manifest signature verification failed');
+    });
+
+    it('P023: Generic "signature" errors sanitized as manifest signature', () => {
+      // Errors with just "signature" but not "code signature" patterns
+      const error = new Error('RSA signature invalid');
+      const result = sanitizeError(error, false);
+      expect(result.message).toBe('Manifest signature verification failed');
+    });
+
+    it('P024: Complex Squirrel.Mac error with multiple patterns', () => {
+      // Real-world Squirrel.Mac error message
+      const error = new Error(
+        'Error Domain=SQRLCodeSignatureErrorDomain Code=-1 "Code signature at URL file:///private/var/folders/.../SlimChat.app did not pass validation: code failed to satisfy specified code requirement(s)"'
+      );
+      const result = sanitizeError(error, false);
+      expect(result.message).toBe('macOS code signature verification failed (Squirrel.Mac)');
+      expect(result.message).not.toContain('SQRLCodeSignatureErrorDomain');
+      expect(result.message).not.toContain('private/var');
+    });
+  });
+
   describe('Specification Examples', () => {
     it('E002: Dev mode preserves 404 error', () => {
       const error = new Error('Manifest request failed with status 404');
