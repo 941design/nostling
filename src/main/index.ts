@@ -152,7 +152,7 @@ async function getStatus(): Promise<AppStatus> {
 
 let checkInProgress = false;
 
-async function checkForUpdates(): Promise<void> {
+async function checkForUpdates(manual = false): Promise<void> {
   if (!config.autoUpdate) {
     log('warn', 'Auto-update disabled in config');
     return;
@@ -173,7 +173,12 @@ async function checkForUpdates(): Promise<void> {
     checkInProgress = false;
   }
 
-  restartAutoCheckTimer();
+  // Only restart the timer on manual checks to reset the countdown.
+  // Automatic timer-triggered checks should not restart the timer
+  // (otherwise we'd get checks every 5 seconds instead of hourly).
+  if (manual) {
+    restartAutoCheckTimer();
+  }
 }
 
 async function restartToUpdate(): Promise<void> {
@@ -266,7 +271,7 @@ app.on('ready', () => {
   // Register IPC handlers with domain-based organization
   registerHandlers({
     getStatus,
-    checkForUpdates,
+    checkForUpdates: () => checkForUpdates(true), // Manual check via IPC
     downloadUpdate,
     restartToUpdate,
     getConfig,
