@@ -83,6 +83,15 @@ jest.mock('./dev-env', () => ({
   })),
 }));
 
+jest.mock('./database', () => ({
+  initializeDatabaseWithMigrations: jest.fn(() => Promise.resolve()),
+  closeDatabaseConnection: jest.fn(() => Promise.resolve()),
+  getStateValue: jest.fn(() => Promise.resolve(null)),
+  setStateValue: jest.fn(() => Promise.resolve()),
+  deleteStateValue: jest.fn(() => Promise.resolve()),
+  getAllStateValues: jest.fn(() => Promise.resolve({})),
+}));
+
 jest.mock('./update/dmg-installer', () => ({
   cleanupStaleMounts: jest.fn(() => Promise.resolve()),
   findDmgArtifact: jest.fn(),

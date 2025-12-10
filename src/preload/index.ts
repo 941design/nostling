@@ -54,6 +54,20 @@ const api: RendererApi = {
       return ipcRenderer.invoke('system:get-status') as Promise<AppStatus>;
     },
   },
+  state: {
+    async get(key: string) {
+      return ipcRenderer.invoke('state:get', key) as Promise<string | null>;
+    },
+    async set(key: string, value: string) {
+      return ipcRenderer.invoke('state:set', key, value);
+    },
+    async delete(key: string) {
+      return ipcRenderer.invoke('state:delete', key);
+    },
+    async getAll() {
+      return ipcRenderer.invoke('state:get-all') as Promise<Record<string, string>>;
+    },
+  },
 };
 
 // Expose both APIs during transition

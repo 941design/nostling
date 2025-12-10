@@ -27,7 +27,7 @@ import { AppConfig, AppStatus, UpdateState } from '../../shared/types';
  *   Invariants:
  *     - All handlers use domain:action naming pattern
  *     - Handlers registered with ipcMain.handle (async invoke pattern)
- *     - Domain prefixes: 'updates:', 'config:', 'system:'
+ *     - Domain prefixes: 'updates:', 'config:', 'system:', 'state:'
  *
  *   Properties:
  *     - Completeness: all RendererApi methods have corresponding handlers
@@ -52,6 +52,10 @@ import { AppConfig, AppStatus, UpdateState } from '../../shared/types';
  *     - updates:restart
  *     - config:get
  *     - config:set
+ *     - state:get
+ *     - state:set
+ *     - state:delete
+ *     - state:get-all
  */
 export function registerHandlers(dependencies: {
   getStatus: () => Promise<AppStatus>;
@@ -60,6 +64,11 @@ export function registerHandlers(dependencies: {
   restartToUpdate: () => Promise<void>;
   getConfig: () => Promise<AppConfig>;
   setConfig: (config: Partial<AppConfig>) => Promise<AppConfig>;
+  // State domain handlers (persistence layer)
+  getState: (key: string) => Promise<string | null>;
+  setState: (key: string, value: string) => Promise<void>;
+  deleteState: (key: string) => Promise<void>;
+  getAllState: () => Promise<Record<string, string>>;
 }): void {
   // System domain: status queries
   ipcMain.handle('system:get-status', async () => {
@@ -86,6 +95,23 @@ export function registerHandlers(dependencies: {
 
   ipcMain.handle('config:set', async (_, config: Partial<AppConfig>) => {
     return dependencies.setConfig(config);
+  });
+
+  // State domain: persistent key-value storage
+  ipcMain.handle('state:get', async (_, key: string) => {
+    return dependencies.getState(key);
+  });
+
+  ipcMain.handle('state:set', async (_, key: string, value: string) => {
+    return dependencies.setState(key, value);
+  });
+
+  ipcMain.handle('state:delete', async (_, key: string) => {
+    return dependencies.deleteState(key);
+  });
+
+  ipcMain.handle('state:get-all', async () => {
+    return dependencies.getAllState();
   });
 
   // BUG FIX: Legacy IPC handlers for backward compatibility

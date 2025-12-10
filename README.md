@@ -6,6 +6,7 @@ A desktop application bootstrap with secure auto-updates, built with Electron, R
 
 - **Secure auto-updates** with RSA-4096 cryptographic verification
 - **Auto-update footer** with real-time progress, configurable check intervals, and manual refresh
+- **Persistence layer** with SQLite database and automatic schema migrations
 - **Cross-platform** support for macOS and Linux
 - **Dev mode testing** for validating updates before release
 - Built with Electron 30, React 18, and TypeScript
@@ -146,9 +147,13 @@ Artifacts will be in the `release/` directory.
 
 ## Configuration
 
-The app stores configuration in:
-- **macOS**: `~/Library/Application Support/SlimChat/config.json`
-- **Linux**: `~/.config/SlimChat/config.json`
+The app stores configuration and data in:
+- **macOS**: `~/Library/Application Support/SlimChat/`
+- **Linux**: `~/.config/SlimChat/`
+
+Files:
+- `config.json` - Application configuration
+- `slim-chat.db` - SQLite database for application state
 
 ## Log Files
 

@@ -88,10 +88,27 @@ export interface SystemApi {
   getStatus(): Promise<AppStatus>;
 }
 
+// Persistence Layer: Application state types
+export type ThemePreference = 'light' | 'dark' | 'system';
+
+export interface AppStateValue {
+  theme?: ThemePreference;
+  // Additional state fields can be added here
+  [key: string]: string | number | boolean | undefined;
+}
+
+export interface StateApi {
+  get(key: string): Promise<string | null>;
+  set(key: string, value: string): Promise<void>;
+  delete(key: string): Promise<void>;
+  getAll(): Promise<Record<string, string>>;
+}
+
 export interface RendererApi {
   updates: UpdatesApi;
   config: ConfigApi;
   system: SystemApi;
+  state: StateApi; // Added persistence layer API
 }
 
 // Legacy flat API for backward compatibility (optional)

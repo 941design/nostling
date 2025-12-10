@@ -18,6 +18,14 @@ import {
   getUpdaterCacheDir,
 } from './update/dmg-installer';
 import { getDevUpdateConfig, isDevMode } from './dev-env';
+import {
+  initializeDatabaseWithMigrations,
+  closeDatabaseConnection,
+  getStateValue,
+  setStateValue,
+  deleteStateValue,
+  getAllStateValues,
+} from './database';
 
 let mainWindow: BrowserWindow | null = null;
 let config: AppConfig = loadConfig();
@@ -417,6 +425,9 @@ function restartAutoCheckTimer(): void {
 }
 
 app.on('ready', async () => {
+  // Initialize database and run migrations before window creation
+  await initializeDatabaseWithMigrations();
+
   // macOS: Clean up any stale DMG mounts from previous update attempts
   if (process.platform === 'darwin') {
     await cleanupStaleMounts().catch((err) => {
@@ -432,6 +443,11 @@ app.on('ready', async () => {
     restartToUpdate,
     getConfig,
     setConfig,
+    // State domain handlers
+    getState: getStateValue,
+    setState: setStateValue,
+    deleteState: deleteStateValue,
+    getAllState: getAllStateValues,
   });
   log('info', `Starting SlimChat ${app.getVersion()}`);
   config = loadConfig();
@@ -439,6 +455,11 @@ app.on('ready', async () => {
   createWindow();
   setupAutoUpdater();
   startAutoCheckTimer();
+});
+
+app.on('will-quit', async () => {
+  // Close database connection and persist to disk
+  await closeDatabaseConnection();
 });
 
 app.on('before-quit', () => {

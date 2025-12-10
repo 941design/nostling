@@ -465,16 +465,21 @@ describe('registerHandlers', () => {
       restartToUpdate: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
       getConfig: jest.fn<() => Promise<any>>().mockResolvedValue({ autoUpdate: true, logLevel: 'info' as const }),
       setConfig: jest.fn<(config: any) => Promise<any>>().mockResolvedValue({ autoUpdate: true, logLevel: 'info' as const }),
+      getState: jest.fn<(key: string) => Promise<string | null>>().mockResolvedValue(null),
+      setState: jest.fn<(key: string, value: string) => Promise<void>>().mockResolvedValue(undefined),
+      deleteState: jest.fn<(key: string) => Promise<void>>().mockResolvedValue(undefined),
+      getAllState: jest.fn<() => Promise<Record<string, string>>>().mockResolvedValue({}),
     };
   }
 
   describe('Property: Completeness - all handlers registered', () => {
-    it('should register 9 IPC handlers (6 new + 3 legacy)', () => {
+    it('should register 13 IPC handlers (10 new + 3 legacy)', () => {
       const deps = createMockDependencies();
       registerHandlers(deps);
-      // BUG FIX: Updated to reflect legacy handlers for backward compatibility
-      // Bug report: bug-reports/e2e-legacy-ipc-handlers.md
-      expect(handlers.size).toBe(9);
+      // 10 new handlers: system:get-status, updates:check, updates:download, updates:restart,
+      //                  config:get, config:set, state:get, state:set, state:delete, state:get-all
+      // 3 legacy handlers: status:get, update:check, update:restart
+      expect(handlers.size).toBe(13);
     });
 
     it('should register all required channel names', () => {
@@ -520,9 +525,8 @@ describe('registerHandlers', () => {
 
       const allChannels = Array.from(handlers.keys());
       allChannels.forEach((channel) => {
-        // BUG FIX: Updated regex to include legacy handlers (status:, update:)
-        // Bug report: bug-reports/e2e-legacy-ipc-handlers.md
-        expect(channel).toMatch(/^(system|updates|config|status|update):[a-z-]+$/);
+        // Updated regex to include state: domain and legacy handlers (status:, update:)
+        expect(channel).toMatch(/^(system|updates|config|state|status|update):[a-z-]+$/);
       });
     });
   });
@@ -673,15 +677,14 @@ describe('registerHandlers', () => {
       const deps2 = createMockDependencies();
 
       registerHandlers(deps1);
-      // BUG FIX: Updated to reflect 9 handlers (6 new + 3 legacy)
-      // Bug report: bug-reports/e2e-legacy-ipc-handlers.md
-      expect(mockIpcMain.handle).toHaveBeenCalledTimes(9);
+      // Updated to reflect 13 handlers (10 new + 3 legacy)
+      expect(mockIpcMain.handle).toHaveBeenCalledTimes(13);
 
       handlers.clear();
       registerHandlers(deps2);
-      expect(mockIpcMain.handle).toHaveBeenCalledTimes(18);
+      expect(mockIpcMain.handle).toHaveBeenCalledTimes(26);
 
-      expect(handlers.size).toBe(9);
+      expect(handlers.size).toBe(13);
     });
   });
 
@@ -722,9 +725,8 @@ describe('registerHandlers', () => {
       const deps = createMockDependencies();
       registerHandlers(deps);
 
-      // BUG FIX: Updated to reflect 9 handlers (6 new + 3 legacy)
-      // Bug report: bug-reports/e2e-legacy-ipc-handlers.md
-      expect(handlers.size).toBe(9);
+      // Updated to reflect 13 handlers (10 new + 3 legacy)
+      expect(handlers.size).toBe(13);
       expect(handlers.has('system:get-status')).toBe(true);
       expect(handlers.has('updates:check')).toBe(true);
       expect(handlers.has('updates:download')).toBe(true);

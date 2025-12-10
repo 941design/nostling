@@ -14,6 +14,7 @@ import {
   VStack,
   HStack,
   Spacer,
+  Table,
 } from '@chakra-ui/react';
 import { AppStatus, UpdateState } from '../shared/types';
 import './types.d.ts';
@@ -112,6 +113,72 @@ function useStatus() {
   };
 
   return { status, updateState, refresh, restart, download };
+}
+
+function useStateEntries() {
+  const [entries, setEntries] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const data = await window.api.state.getAll();
+        setEntries(data);
+      } catch (error) {
+        console.error('Failed to load state entries:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  return { entries, loading };
+}
+
+function StateTable() {
+  const { entries, loading } = useStateEntries();
+  const rows = Object.entries(entries);
+
+  if (loading) {
+    return <Text color="gray.500">Loading...</Text>;
+  }
+
+  if (rows.length === 0) {
+    return (
+      <Text className="state-table-empty" color="gray.500">
+        No state entries found
+      </Text>
+    );
+  }
+
+  return (
+    <Box className="state-table-container">
+      <Heading size="sm" color="gray.300" mb="3">
+        Database State Entries
+      </Heading>
+      <Table.Root size="sm" variant="outline">
+        <Table.Header>
+          <Table.Row>
+            <Table.ColumnHeader color="gray.400">Key</Table.ColumnHeader>
+            <Table.ColumnHeader color="gray.400">Value</Table.ColumnHeader>
+          </Table.Row>
+        </Table.Header>
+        <Table.Body>
+          {rows.map(([key, value]) => (
+            <Table.Row key={key} className="state-table-row">
+              <Table.Cell color="gray.300" fontFamily="mono" fontSize="xs">
+                {key}
+              </Table.Cell>
+              <Table.Cell color="gray.400" fontFamily="mono" fontSize="xs">
+                {value}
+              </Table.Cell>
+            </Table.Row>
+          ))}
+        </Table.Body>
+      </Table.Root>
+    </Box>
+  );
 }
 
 function Header() {
@@ -237,7 +304,7 @@ function App() {
       <Flex flex="1" overflow="hidden">
         <Sidebar />
         <Box as="main" flex="1" p="4" overflowY="auto">
-          {/* Main content area */}
+          <StateTable />
         </Box>
       </Flex>
       <Footer

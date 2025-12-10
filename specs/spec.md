@@ -263,9 +263,75 @@ Dev mode features are **automatically disabled** in production builds:
 
 ---
 
-## 7. IPC Interface
+## 7. Persistence Layer
 
-### 7.1 API Structure
+### 7.1 Purpose
+
+Provide local data persistence for application state, preferences, and feature-specific data using SQLite with automatic schema migrations.
+
+### 7.2 Architecture
+
+* **Database**: SQLite via sql.js WebAssembly implementation
+* **Location**: `{userData}/slim-chat.db`
+* **Migrations**: Knex.js-compatible migration system
+* **Schema versioning**: Automatic migration execution on startup
+
+### 7.3 Migration System
+
+**Migration format**:
+```typescript
+interface Migration {
+  up(knex: Knex): Promise<void>;    // Apply migration
+  down(knex: Knex): Promise<void>;  // Rollback migration
+}
+```
+
+**Properties**:
+* Migrations run automatically on application startup
+* Migrations are idempotent (safe to run multiple times)
+* Each migration runs in a transaction for atomicity
+* Migration failures prevent application startup
+* Migrations tracked in `knex_migrations` table
+* Migrations run sequentially in filename order
+
+**Limitations**:
+* sql.js does not support WAL mode; migrations use default rollback journal
+* Each migration must be self-contained and independent
+* No concurrent migration execution (single-process protection)
+
+### 7.4 State Storage
+
+Key-value store for application preferences and settings:
+
+```typescript
+interface StateStore {
+  get(key: string): Promise<unknown>;
+  set(key: string, value: unknown): Promise<void>;
+  delete(key: string): Promise<void>;
+  getAll(): Promise<Record<string, unknown>>;
+}
+```
+
+**Properties**:
+* Values stored as JSON-serialized strings
+* Automatic JSON serialization/deserialization
+* Key uniqueness enforced by schema
+* Upsert semantics for `set` operation
+
+**Schema**:
+```sql
+CREATE TABLE app_state (
+  key TEXT PRIMARY KEY NOT NULL,
+  value TEXT NOT NULL,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+---
+
+## 8. IPC Interface
+
+### 8.1 API Structure
 
 Nested structure:
 ```typescript
@@ -286,7 +352,7 @@ interface RendererApi {
 }
 ```
 
-### 7.2 Data Types
+### 8.2 Data Types
 
 ```typescript
 type UpdatePhase =
@@ -315,11 +381,24 @@ interface AppStatus {
 }
 ```
 
+### 8.3 Persistence API
+
+```typescript
+interface RendererApi {
+  state: {
+    get(key: string): Promise<unknown>;
+    set(key: string, value: unknown): Promise<void>;
+    delete(key: string): Promise<void>;
+    getAll(): Promise<Record<string, unknown>>;
+  };
+}
+```
+
 ---
 
-## 8. State Machine
+## 9. State Machine
 
-### 8.1 Update State Transitions
+### 9.1 Update State Transitions
 
 ```
                     ┌─────────────────────────────────────┐
@@ -367,7 +446,7 @@ interface AppStatus {
 Error from any state → failed
 ```
 
-### 8.2 Properties
+### 9.2 Properties
 
 * **Deterministic**: Same event from same state always produces same next state
 * **Broadcast Consistency**: Every state change notifies renderer
@@ -377,14 +456,14 @@ Error from any state → failed
 
 ---
 
-## 9. Build & Release
+## 10. Build & Release
 
-### 9.1 Packaging
+### 10.1 Packaging
 
 * macOS: `.dmg` (installer) and `.zip` (for updates)
 * Linux: `.AppImage` (portable, no root required)
 
-### 9.2 Release Process
+### 10.2 Release Process
 
 * Tags in format `MAJOR.MINOR.PATCH` (no 'v' prefix)
 * `package.json` version must match tag exactly
@@ -393,29 +472,37 @@ Error from any state → failed
 
 ---
 
-## 10. Acceptance Criteria
+## 11. Acceptance Criteria
 
-### 10.1 Installation & Startup
+### 11.1 Installation & Startup
 
 * App installs and starts on macOS 12+ and supported Linux distributions
 * Layout visible: header, footer, sidebar, main area
 * Footer displays version and update status
 
-### 10.2 Update Behavior
+### 11.2 Update Behavior
 
 * New release triggers: `idle → checking → available → downloading → downloaded → verifying → ready`
 * Footer reflects states with appropriate labels and progress
 * "Restart to Update" button appears when ready
 * Update failures logged at error level, retry available, app remains usable
 
-### 10.3 Security
+### 11.3 Security
 
 * Renderer has no direct Node access
 * All operations via IPC
 * Update blocked if: signature fails, hash fails, or version not newer
 
-### 10.4 Dev Mode
+### 11.4 Dev Mode
 
 * Custom update sources work in dev mode
 * Pre-release testing available
 * Dev features disabled in production builds
+
+### 11.5 Persistence
+
+* Database created automatically on first startup
+* Migrations execute successfully on application startup
+* State operations (get/set/delete/getAll) work correctly
+* Data persists across application restarts
+* Migration failures prevent application startup with clear error messages
