@@ -18,18 +18,10 @@ import {
   Table,
   Badge,
   Input,
-  FormControl,
-  FormLabel,
-  FormErrorMessage,
-  Modal,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalCloseButton,
-  ModalBody,
-  ModalFooter,
-  Select,
-  Divider,
+  Field,
+  Dialog,
+  NativeSelect,
+  Separator,
   Icon,
   Textarea,
   Checkbox,
@@ -324,9 +316,10 @@ interface NostlingStatusCardProps {
   queueSummary: { queued: number; sending: number; errors: number; lastActivity?: string };
   lastSync: string | null;
   lastError: string | null;
+  onRetryFailed?: () => void;
 }
 
-function NostlingStatusCard({ statusText, queueSummary, lastSync, lastError }: NostlingStatusCardProps) {
+function NostlingStatusCard({ statusText, queueSummary, lastSync, lastError, onRetryFailed }: NostlingStatusCardProps) {
   const hasQueue = queueSummary.queued > 0 || queueSummary.sending > 0 || queueSummary.errors > 0;
 
   return (
@@ -352,6 +345,11 @@ function NostlingStatusCard({ statusText, queueSummary, lastSync, lastError }: N
           <Text color="gray.300">
             {queueSummary.queued} queued • {queueSummary.sending} sending • {queueSummary.errors} errors
           </Text>
+          {queueSummary.errors > 0 && onRetryFailed && (
+            <Button size="xs" colorPalette="orange" variant="outline" onClick={onRetryFailed}>
+              Retry Failed
+            </Button>
+          )}
         </HStack>
         <Text color="gray.400">Last activity: {formatTimestamp(queueSummary.lastActivity)}</Text>
         <Text color="gray.400">Last sync: {formatTimestamp(lastSync || undefined)}</Text>
@@ -376,37 +374,45 @@ function RelayEndpointRow({
 }) {
   return (
     <Stack direction={{ base: 'column', md: 'row' }} gap="3" align="start" borderWidth="1px" p="3" borderRadius="md">
-      <FormControl flex="1" minW="0">
-        <FormLabel color="gray.400" fontSize="sm">
+      <Field.Root flex="1" minW="0">
+        <Field.Label color="gray.400" fontSize="sm">
           Relay URL
-        </FormLabel>
+        </Field.Label>
         <Input
           value={endpoint.url}
           placeholder="wss://relay.example.com"
           onChange={(event: React.ChangeEvent<HTMLInputElement>) => onChange({ ...endpoint, url: event.target.value })}
         />
-      </FormControl>
+      </Field.Root>
       <VStack align="start" gap="1" minW="160px">
-        <FormLabel color="gray.400" fontSize="sm" m="0">
+        <Text color="gray.400" fontSize="sm">
           Permissions
-        </FormLabel>
+        </Text>
         <HStack>
-          <Checkbox
-            isChecked={endpoint.read}
-            onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-              onChange({ ...endpoint, read: event.target.checked })
+          <Checkbox.Root
+            checked={endpoint.read}
+            onCheckedChange={(details) =>
+              onChange({ ...endpoint, read: Boolean(details.checked) })
             }
           >
-            Read
-          </Checkbox>
-          <Checkbox
-            isChecked={endpoint.write}
-            onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-              onChange({ ...endpoint, write: event.target.checked })
+            <Checkbox.HiddenInput />
+            <Checkbox.Control>
+              <Checkbox.Indicator />
+            </Checkbox.Control>
+            <Checkbox.Label>Read</Checkbox.Label>
+          </Checkbox.Root>
+          <Checkbox.Root
+            checked={endpoint.write}
+            onCheckedChange={(details) =>
+              onChange({ ...endpoint, write: Boolean(details.checked) })
             }
           >
-            Write
-          </Checkbox>
+            <Checkbox.HiddenInput />
+            <Checkbox.Control>
+              <Checkbox.Indicator />
+            </Checkbox.Control>
+            <Checkbox.Label>Write</Checkbox.Label>
+          </Checkbox.Root>
         </HStack>
         <Text color="gray.500" fontSize="xs">
           Added {formatTimestamp(endpoint.createdAt)}
@@ -573,7 +579,7 @@ function RelayConfigCard({ config, identities, loading, hasBridge, onRefresh, on
           </VStack>
         </Box>
 
-        <Divider borderColor="whiteAlpha.200" />
+        <Separator borderColor="whiteAlpha.200" />
 
         <Box>
           <Heading size="xs" color="gray.300" mb="2">
@@ -1016,7 +1022,7 @@ function ConversationPane({
         ))}
       </Box>
 
-      <Divider borderColor="whiteAlpha.100" />
+      <Separator borderColor="whiteAlpha.100" />
       <Box p="4" bg="blackAlpha.300" borderBottomRadius="md">
         <Stack gap="2">
           <Textarea
@@ -1074,44 +1080,48 @@ function IdentityModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} closeOnOverlayClick={!submitting}>
-      <ModalOverlay />
-      <ModalContent>
-        <ModalHeader>Create or Import Identity</ModalHeader>
-        <ModalCloseButton disabled={submitting} />
-        <ModalBody>
-          <VStack gap="3">
-            <FormControl isInvalid={labelError} isRequired>
-              <FormLabel>Label</FormLabel>
-              <Input
-                placeholder="Personal account"
-                value={form.label}
-                onChange={(event) => setForm((prev) => ({ ...prev, label: event.target.value }))}
-              />
-              {labelError && <FormErrorMessage>Label is required.</FormErrorMessage>}
-            </FormControl>
-            <FormControl>
-              <FormLabel>nsec (optional, for import)</FormLabel>
-              <Input
-                placeholder="nsec..."
-                value={form.nsec}
-                onChange={(event) => setForm((prev) => ({ ...prev, nsec: event.target.value }))}
-              />
-            </FormControl>
-          </VStack>
-        </ModalBody>
-        <ModalFooter>
-          <HStack gap="2">
-            <Button variant="ghost" onClick={onClose} disabled={submitting}>
-              Cancel
-            </Button>
-            <Button colorPalette="blue" onClick={handleSubmit} loading={submitting}>
-              Save
-            </Button>
-          </HStack>
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
+    <Dialog.Root open={isOpen} onOpenChange={(e) => !e.open && onClose()} closeOnInteractOutside={!submitting}>
+      <Dialog.Backdrop />
+      <Dialog.Positioner>
+        <Dialog.Content>
+          <Dialog.Header>
+            <Dialog.Title>Create or Import Identity</Dialog.Title>
+          </Dialog.Header>
+          <Dialog.CloseTrigger disabled={submitting} />
+          <Dialog.Body>
+            <VStack gap="3">
+              <Field.Root invalid={labelError} required>
+                <Field.Label>Label</Field.Label>
+                <Input
+                  placeholder="Personal account"
+                  value={form.label}
+                  onChange={(event) => setForm((prev) => ({ ...prev, label: event.target.value }))}
+                />
+                {labelError && <Field.ErrorText>Label is required.</Field.ErrorText>}
+              </Field.Root>
+              <Field.Root>
+                <Field.Label>nsec (optional, for import)</Field.Label>
+                <Input
+                  placeholder="nsec..."
+                  value={form.nsec}
+                  onChange={(event) => setForm((prev) => ({ ...prev, nsec: event.target.value }))}
+                />
+              </Field.Root>
+            </VStack>
+          </Dialog.Body>
+          <Dialog.Footer>
+            <HStack gap="2">
+              <Button variant="ghost" onClick={onClose} disabled={submitting}>
+                Cancel
+              </Button>
+              <Button colorPalette="blue" onClick={handleSubmit} loading={submitting}>
+                Save
+              </Button>
+            </HStack>
+          </Dialog.Footer>
+        </Dialog.Content>
+      </Dialog.Positioner>
+    </Dialog.Root>
   );
 }
 
@@ -1154,61 +1164,68 @@ function ContactModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} closeOnOverlayClick={!submitting}>
-      <ModalOverlay />
-      <ModalContent>
-        <ModalHeader>Add Contact</ModalHeader>
-        <ModalCloseButton disabled={submitting} />
-        <ModalBody>
-          <VStack gap="3">
-            <FormControl isInvalid={identityMissing} isRequired>
-              <FormLabel>Identity</FormLabel>
-              <Select
-                value={form.identityId}
-                onChange={(event) => setForm((prev) => ({ ...prev, identityId: event.target.value }))}
-              >
-                <option value="" disabled>
-                  Select identity
-                </option>
-                {identities.map((identity) => (
-                  <option key={identity.id} value={identity.id}>
-                    {identity.label || identity.npub}
-                  </option>
-                ))}
-              </Select>
-              {identityMissing && <FormErrorMessage>Select an identity.</FormErrorMessage>}
-            </FormControl>
-            <FormControl isInvalid={npubMissing} isRequired>
-              <FormLabel>Contact npub</FormLabel>
-              <Input
-                placeholder="npub..."
-                value={form.npub}
-                onChange={(event) => setForm((prev) => ({ ...prev, npub: event.target.value }))}
-              />
-              {npubMissing && <FormErrorMessage>npub is required.</FormErrorMessage>}
-            </FormControl>
-            <FormControl>
-              <FormLabel>Alias (optional)</FormLabel>
-              <Input
-                placeholder="Friend"
-                value={form.alias}
-                onChange={(event) => setForm((prev) => ({ ...prev, alias: event.target.value }))}
-              />
-            </FormControl>
-          </VStack>
-        </ModalBody>
-        <ModalFooter>
-          <HStack gap="2">
-            <Button variant="ghost" onClick={onClose} disabled={submitting}>
-              Cancel
-            </Button>
-            <Button colorPalette="blue" onClick={handleSubmit} loading={submitting}>
-              Save
-            </Button>
-          </HStack>
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
+    <Dialog.Root open={isOpen} onOpenChange={(e) => !e.open && onClose()} closeOnInteractOutside={!submitting}>
+      <Dialog.Backdrop />
+      <Dialog.Positioner>
+        <Dialog.Content>
+          <Dialog.Header>
+            <Dialog.Title>Add Contact</Dialog.Title>
+          </Dialog.Header>
+          <Dialog.CloseTrigger disabled={submitting} />
+          <Dialog.Body>
+            <VStack gap="3">
+              <Field.Root invalid={identityMissing} required>
+                <Field.Label>Identity</Field.Label>
+                <NativeSelect.Root>
+                  <NativeSelect.Field
+                    value={form.identityId}
+                    onChange={(event) => setForm((prev) => ({ ...prev, identityId: event.target.value }))}
+                  >
+                    <option value="" disabled>
+                      Select identity
+                    </option>
+                    {identities.map((identity) => (
+                      <option key={identity.id} value={identity.id}>
+                        {identity.label || identity.npub}
+                      </option>
+                    ))}
+                  </NativeSelect.Field>
+                  <NativeSelect.Indicator />
+                </NativeSelect.Root>
+                {identityMissing && <Field.ErrorText>Select an identity.</Field.ErrorText>}
+              </Field.Root>
+              <Field.Root invalid={npubMissing} required>
+                <Field.Label>Contact npub</Field.Label>
+                <Input
+                  placeholder="npub..."
+                  value={form.npub}
+                  onChange={(event) => setForm((prev) => ({ ...prev, npub: event.target.value }))}
+                />
+                {npubMissing && <Field.ErrorText>npub is required.</Field.ErrorText>}
+              </Field.Root>
+              <Field.Root>
+                <Field.Label>Alias (optional)</Field.Label>
+                <Input
+                  placeholder="Friend"
+                  value={form.alias}
+                  onChange={(event) => setForm((prev) => ({ ...prev, alias: event.target.value }))}
+                />
+              </Field.Root>
+            </VStack>
+          </Dialog.Body>
+          <Dialog.Footer>
+            <HStack gap="2">
+              <Button variant="ghost" onClick={onClose} disabled={submitting}>
+                Cancel
+              </Button>
+              <Button colorPalette="blue" onClick={handleSubmit} loading={submitting}>
+                Save
+              </Button>
+            </HStack>
+          </Dialog.Footer>
+        </Dialog.Content>
+      </Dialog.Positioner>
+    </Dialog.Root>
   );
 }
 
@@ -1250,7 +1267,7 @@ function Sidebar({
           onSelect={onSelectIdentity}
           onOpenCreate={onOpenIdentityModal}
         />
-        <Divider borderColor="whiteAlpha.200" />
+        <Separator borderColor="whiteAlpha.200" />
         <ContactList
           contacts={currentContacts}
           selectedId={selectedContactId}
@@ -1382,6 +1399,7 @@ function App() {
               queueSummary={nostling.queueSummary}
               lastSync={nostling.lastSync}
               lastError={nostling.lastError}
+              onRetryFailed={nostling.retryFailedMessages}
             />
             <RelayConfigCard
               config={nostling.relayConfig}

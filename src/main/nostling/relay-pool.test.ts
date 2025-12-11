@@ -1,0 +1,553 @@
+import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import * as fc from 'fast-check';
+import { RelayPool, type RelayEndpoint, type Filter, type RelayStatus } from './relay-pool';
+import { SimplePool } from 'nostr-tools';
+import type { NostrEvent } from './crypto';
+
+jest.mock('nostr-tools', () => ({
+  SimplePool: jest.fn()
+}));
+
+const MockedSimplePool = SimplePool as jest.MockedClass<typeof SimplePool>;
+
+describe('RelayPool', () => {
+  let pool: RelayPool;
+  let mockPool: jest.Mocked<SimplePool>;
+
+  beforeEach(() => {
+    mockPool = {
+      ensureRelay: jest.fn(),
+      close: jest.fn(),
+      publish: jest.fn(),
+      subscribeMany: jest.fn(),
+      listConnectionStatus: jest.fn(() => new Map())
+    } as any;
+
+    MockedSimplePool.mockImplementation(() => mockPool);
+    pool = new RelayPool();
+  });
+
+  afterEach(() => {
+    pool.disconnect();
+    jest.clearAllMocks();
+    jest.clearAllTimers();
+  });
+
+  describe('Constructor', () => {
+    it('initializes with empty state', () => {
+      const newPool = new RelayPool();
+      const status = newPool.getStatus();
+      expect(status.size).toBe(0);
+    });
+  });
+
+  describe('connect', () => {
+    it('connects to single relay', async () => {
+      mockPool.ensureRelay.mockResolvedValue({} as any);
+
+      const endpoints: RelayEndpoint[] = [
+        { url: 'wss://relay.example.com', read: true, write: true }
+      ];
+
+      await pool.connect(endpoints);
+
+      expect(mockPool.ensureRelay).toHaveBeenCalledWith(
+        'wss://relay.example.com',
+        { connectionTimeout: 5000 }
+      );
+    });
+
+    it('connects to multiple relays concurrently', async () => {
+      mockPool.ensureRelay.mockResolvedValue({} as any);
+
+      const endpoints: RelayEndpoint[] = [
+        { url: 'wss://relay1.example.com', read: true, write: true },
+        { url: 'wss://relay2.example.com', read: true, write: false },
+        { url: 'wss://relay3.example.com', read: false, write: true }
+      ];
+
+      await pool.connect(endpoints);
+
+      expect(mockPool.ensureRelay).toHaveBeenCalledTimes(3);
+      expect(mockPool.ensureRelay).toHaveBeenCalledWith(
+        'wss://relay1.example.com',
+        { connectionTimeout: 5000 }
+      );
+      expect(mockPool.ensureRelay).toHaveBeenCalledWith(
+        'wss://relay2.example.com',
+        { connectionTimeout: 5000 }
+      );
+      expect(mockPool.ensureRelay).toHaveBeenCalledWith(
+        'wss://relay3.example.com',
+        { connectionTimeout: 5000 }
+      );
+    });
+
+    it('handles connection failures gracefully', async () => {
+      mockPool.ensureRelay.mockRejectedValue(new Error('Connection failed'));
+
+      const endpoints: RelayEndpoint[] = [
+        { url: 'wss://relay.example.com', read: true, write: true }
+      ];
+
+      await pool.connect(endpoints);
+
+      const status = pool.getStatus();
+      expect(status.get('wss://relay.example.com')).toBe('error');
+    });
+
+    it('is idempotent - calling connect multiple times is safe', async () => {
+      mockPool.ensureRelay.mockResolvedValue({} as any);
+
+      const endpoints: RelayEndpoint[] = [
+        { url: 'wss://relay.example.com', read: true, write: true }
+      ];
+
+      await pool.connect(endpoints);
+      await pool.connect(endpoints);
+
+      expect(mockPool.close).toHaveBeenCalled();
+    });
+  });
+
+  describe('disconnect', () => {
+    it('closes all connections', async () => {
+      mockPool.ensureRelay.mockResolvedValue({} as any);
+
+      const endpoints: RelayEndpoint[] = [
+        { url: 'wss://relay1.example.com', read: true, write: true },
+        { url: 'wss://relay2.example.com', read: true, write: false }
+      ];
+
+      await pool.connect(endpoints);
+      pool.disconnect();
+
+      expect(mockPool.close).toHaveBeenCalledWith([
+        'wss://relay1.example.com',
+        'wss://relay2.example.com'
+      ]);
+    });
+
+    it('is idempotent - calling disconnect when disconnected is safe', () => {
+      pool.disconnect();
+      pool.disconnect();
+
+      expect(true).toBe(true);
+    });
+
+    it('clears status map', async () => {
+      mockPool.ensureRelay.mockResolvedValue({} as any);
+
+      const endpoints: RelayEndpoint[] = [
+        { url: 'wss://relay.example.com', read: true, write: true }
+      ];
+
+      await pool.connect(endpoints);
+      pool.disconnect();
+
+      const status = pool.getStatus();
+      expect(status.size).toBe(0);
+    });
+  });
+
+  describe('publish', () => {
+    const createMockEvent = (): NostrEvent => ({
+      id: 'event-id-123',
+      pubkey: 'pubkey-hex',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 4,
+      tags: [['p', 'recipient-pubkey']],
+      content: 'encrypted-content',
+      sig: 'signature-hex'
+    });
+
+    it('publishes to write-enabled relays', async () => {
+      mockPool.ensureRelay.mockResolvedValue({} as any);
+      mockPool.publish.mockReturnValue([Promise.resolve('OK')]);
+
+      const endpoints: RelayEndpoint[] = [
+        { url: 'wss://relay1.example.com', read: true, write: true },
+        { url: 'wss://relay2.example.com', read: true, write: false }
+      ];
+
+      await pool.connect(endpoints);
+
+      const event = createMockEvent();
+      const results = await pool.publish(event);
+
+      expect(results).toHaveLength(1);
+      expect(results[0].relay).toBe('wss://relay1.example.com');
+      expect(results[0].success).toBe(true);
+    });
+
+    it('returns empty array when no write relays connected', async () => {
+      const event = createMockEvent();
+      const results = await pool.publish(event);
+
+      expect(results).toEqual([]);
+    });
+
+    it('handles publish timeout', async () => {
+      mockPool.ensureRelay.mockResolvedValue({} as any);
+      mockPool.publish.mockReturnValue([
+        new Promise((resolve) => setTimeout(resolve, 10000))
+      ]);
+
+      const endpoints: RelayEndpoint[] = [
+        { url: 'wss://relay.example.com', read: true, write: true }
+      ];
+
+      await pool.connect(endpoints);
+
+      const event = createMockEvent();
+      const results = await pool.publish(event);
+
+      expect(results).toHaveLength(1);
+      expect(results[0].success).toBe(false);
+      expect(results[0].message).toContain('Timeout');
+    }, 10000);
+
+    it('handles partial publish failures', async () => {
+      mockPool.ensureRelay.mockResolvedValue({} as any);
+      mockPool.publish.mockReturnValue([
+        Promise.resolve('OK'),
+        Promise.reject(new Error('Failed'))
+      ]);
+
+      const endpoints: RelayEndpoint[] = [
+        { url: 'wss://relay1.example.com', read: true, write: true },
+        { url: 'wss://relay2.example.com', read: true, write: true }
+      ];
+
+      await pool.connect(endpoints);
+
+      const event = createMockEvent();
+      const results = await pool.publish(event);
+
+      expect(results).toHaveLength(2);
+      const successResults = results.filter(r => r.success);
+      const failureResults = results.filter(r => !r.success);
+
+      expect(successResults.length).toBe(1);
+      expect(failureResults.length).toBe(1);
+    });
+  });
+
+  describe('subscribe', () => {
+    it('subscribes to read-enabled relays', async () => {
+      mockPool.ensureRelay.mockResolvedValue({} as any);
+      const mockSub = { close: jest.fn() };
+      mockPool.subscribeMany.mockReturnValue(mockSub as any);
+
+      const endpoints: RelayEndpoint[] = [
+        { url: 'wss://relay1.example.com', read: true, write: true },
+        { url: 'wss://relay2.example.com', read: false, write: true }
+      ];
+
+      await pool.connect(endpoints);
+
+      const filters: Filter[] = [{ kinds: [4] }];
+      const onEvent = jest.fn();
+
+      const subscription = pool.subscribe(filters, onEvent);
+
+      expect(mockPool.subscribeMany).toHaveBeenCalledWith(
+        ['wss://relay1.example.com'],
+        { kinds: [4] },
+        expect.objectContaining({
+          onevent: expect.any(Function)
+        })
+      );
+
+      subscription.close();
+      expect(mockSub.close).toHaveBeenCalled();
+    });
+
+    it('deduplicates events by event.id', async () => {
+      mockPool.ensureRelay.mockResolvedValue({} as any);
+
+      let capturedEventHandler: ((event: any) => void) | undefined;
+      mockPool.subscribeMany.mockImplementation((relays, filter, params) => {
+        capturedEventHandler = params.onevent;
+        return { close: jest.fn() } as any;
+      });
+
+      const endpoints: RelayEndpoint[] = [
+        { url: 'wss://relay.example.com', read: true, write: true }
+      ];
+
+      await pool.connect(endpoints);
+
+      const filters: Filter[] = [{ kinds: [4] }];
+      const onEvent = jest.fn();
+
+      pool.subscribe(filters, onEvent);
+
+      const event = {
+        id: 'duplicate-id',
+        pubkey: 'pubkey',
+        created_at: 123456,
+        kind: 4,
+        tags: [],
+        content: 'test',
+        sig: 'sig'
+      };
+
+      capturedEventHandler!(event);
+      capturedEventHandler!(event);
+      capturedEventHandler!(event);
+
+      expect(onEvent).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns no-op subscription when no read relays connected', () => {
+      const filters: Filter[] = [{ kinds: [4] }];
+      const onEvent = jest.fn();
+
+      const subscription = pool.subscribe(filters, onEvent);
+
+      expect(subscription).toBeDefined();
+      expect(() => subscription.close()).not.toThrow();
+    });
+  });
+
+  describe('getStatus', () => {
+    it('returns current status snapshot', async () => {
+      mockPool.ensureRelay.mockResolvedValue({} as any);
+
+      const endpoints: RelayEndpoint[] = [
+        { url: 'wss://relay.example.com', read: true, write: true }
+      ];
+
+      await pool.connect(endpoints);
+
+      const status = pool.getStatus();
+      expect(status).toBeInstanceOf(Map);
+      expect(status.has('wss://relay.example.com')).toBe(true);
+    });
+
+    it('returns a copy, not reference to internal state', async () => {
+      mockPool.ensureRelay.mockResolvedValue({} as any);
+
+      const endpoints: RelayEndpoint[] = [
+        { url: 'wss://relay.example.com', read: true, write: true }
+      ];
+
+      await pool.connect(endpoints);
+
+      const status1 = pool.getStatus();
+      const status2 = pool.getStatus();
+
+      expect(status1).not.toBe(status2);
+      expect(status1.size).toBe(status2.size);
+    });
+  });
+
+  describe('onStatusChange', () => {
+    it('registers callback for status changes', async () => {
+      mockPool.ensureRelay.mockResolvedValue({} as any);
+
+      const callback = jest.fn();
+      pool.onStatusChange(callback);
+
+      const endpoints: RelayEndpoint[] = [
+        { url: 'wss://relay.example.com', read: true, write: true }
+      ];
+
+      await pool.connect(endpoints);
+
+      expect(callback).toHaveBeenCalled();
+      const calls = (callback as jest.Mock).mock.calls;
+      expect(calls.some(([url]) => url === 'wss://relay.example.com')).toBe(true);
+    });
+
+    it('supports multiple callbacks', async () => {
+      mockPool.ensureRelay.mockResolvedValue({} as any);
+
+      const callback1 = jest.fn();
+      const callback2 = jest.fn();
+
+      pool.onStatusChange(callback1);
+      pool.onStatusChange(callback2);
+
+      const endpoints: RelayEndpoint[] = [
+        { url: 'wss://relay.example.com', read: true, write: true }
+      ];
+
+      await pool.connect(endpoints);
+
+      expect(callback1).toHaveBeenCalled();
+      expect(callback2).toHaveBeenCalled();
+    });
+  });
+
+  describe('Property-Based Tests', () => {
+    it('connect maintains invariant: each relay has at most one status', async () => {
+      await fc.assert(
+        fc.asyncProperty(
+          fc.array(
+            fc.record({
+              url: fc.webUrl({ validSchemes: ['wss', 'ws'] }),
+              read: fc.boolean(),
+              write: fc.boolean()
+            }),
+            { minLength: 1, maxLength: 5 }
+          ),
+          async (endpoints) => {
+            mockPool.ensureRelay.mockResolvedValue({} as any);
+
+            const uniqueUrls = new Set(endpoints.map(e => e.url));
+            const uniqueEndpoints = Array.from(uniqueUrls).map(url => {
+              const ep = endpoints.find(e => e.url === url)!;
+              return { url, read: ep.read, write: ep.write };
+            });
+
+            await pool.connect(uniqueEndpoints);
+
+            const status = pool.getStatus();
+            expect(status.size).toBe(uniqueEndpoints.length);
+
+            for (const endpoint of uniqueEndpoints) {
+              expect(status.has(endpoint.url)).toBe(true);
+            }
+          }
+        ),
+        { numRuns: 20 }
+      );
+    });
+
+    it('publish only sends to write-enabled relays', async () => {
+      await fc.assert(
+        fc.asyncProperty(
+          fc.array(
+            fc.record({
+              url: fc.webUrl({ validSchemes: ['wss'] }),
+              read: fc.boolean(),
+              write: fc.boolean()
+            }),
+            { minLength: 1, maxLength: 5 }
+          ),
+          async (endpoints) => {
+            mockPool.ensureRelay.mockResolvedValue({} as any);
+            mockPool.publish.mockReturnValue(
+              endpoints.filter(e => e.write).map(() => Promise.resolve('OK'))
+            );
+
+            await pool.connect(endpoints);
+
+            const event: NostrEvent = {
+              id: 'test-id',
+              pubkey: 'test-pubkey',
+              created_at: Math.floor(Date.now() / 1000),
+              kind: 4,
+              tags: [],
+              content: 'test',
+              sig: 'test-sig'
+            };
+
+            const results = await pool.publish(event);
+
+            const writeRelayCount = endpoints.filter(e => e.write).length;
+            expect(results.length).toBe(writeRelayCount);
+          }
+        ),
+        { numRuns: 20 }
+      );
+    });
+
+    it('disconnect is idempotent', async () => {
+      await fc.assert(
+        fc.asyncProperty(
+          fc.integer({ min: 1, max: 10 }),
+          async (disconnectCount) => {
+            mockPool.ensureRelay.mockResolvedValue({} as any);
+
+            const endpoints: RelayEndpoint[] = [
+              { url: 'wss://relay.example.com', read: true, write: true }
+            ];
+
+            await pool.connect(endpoints);
+
+            for (let i = 0; i < disconnectCount; i++) {
+              pool.disconnect();
+            }
+
+            const status = pool.getStatus();
+            expect(status.size).toBe(0);
+          }
+        ),
+        { numRuns: 10 }
+      );
+    });
+
+    it('event deduplication works for any number of duplicates', async () => {
+      await fc.assert(
+        fc.asyncProperty(
+          fc.string({ minLength: 1, maxLength: 50 }),
+          fc.integer({ min: 1, max: 100 }),
+          async (eventId, duplicateCount) => {
+            mockPool.ensureRelay.mockResolvedValue({} as any);
+
+            let capturedEventHandler: ((event: any) => void) | undefined;
+            mockPool.subscribeMany.mockImplementation((relays, filter, params) => {
+              capturedEventHandler = params.onevent;
+              return { close: jest.fn() } as any;
+            });
+
+            const endpoints: RelayEndpoint[] = [
+              { url: 'wss://relay.example.com', read: true, write: true }
+            ];
+
+            await pool.connect(endpoints);
+
+            const onEvent = jest.fn();
+            pool.subscribe([{ kinds: [4] }], onEvent);
+
+            const event = {
+              id: eventId,
+              pubkey: 'pubkey',
+              created_at: 123456,
+              kind: 4,
+              tags: [],
+              content: 'test',
+              sig: 'sig'
+            };
+
+            for (let i = 0; i < duplicateCount; i++) {
+              capturedEventHandler!(event);
+            }
+
+            expect(onEvent).toHaveBeenCalledTimes(1);
+          }
+        ),
+        { numRuns: 20 }
+      );
+    });
+
+    it('status callbacks are invoked for every status change', async () => {
+      await fc.assert(
+        fc.asyncProperty(
+          fc.integer({ min: 1, max: 5 }),
+          async (callbackCount) => {
+            mockPool.ensureRelay.mockResolvedValue({} as any);
+
+            const callbacks = Array.from({ length: callbackCount }, () => jest.fn());
+
+            callbacks.forEach(cb => pool.onStatusChange(cb));
+
+            const endpoints: RelayEndpoint[] = [
+              { url: 'wss://relay.example.com', read: true, write: true }
+            ];
+
+            await pool.connect(endpoints);
+
+            callbacks.forEach(cb => {
+              expect(cb).toHaveBeenCalled();
+            });
+          }
+        ),
+        { numRuns: 10 }
+      );
+    });
+  });
+});

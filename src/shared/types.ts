@@ -207,6 +207,7 @@ export interface NostlingApi {
     list(identityId: string, contactId: string): Promise<NostlingMessage[]>;
     send(request: SendNostrMessageRequest): Promise<NostlingMessage>;
     discardUnknown(eventId: string): Promise<void>;
+    retry(identityId?: string): Promise<NostlingMessage[]>;
   };
   relays: {
     get(): Promise<NostlingRelayConfig>;

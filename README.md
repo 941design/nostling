@@ -21,6 +21,11 @@ A desktop application bootstrap with secure auto-updates, built with Electron, R
 
 ## Features
 
+- **Nostr encrypted messaging** with NIP-04 encryption via nostr-tools
+- **Identity management** - Create/import identities from nsec keys
+- **Contact whitelist** - Only receive messages from known contacts
+- **Relay connectivity** - WebSocket connections to Nostr relays with auto-reconnection
+- **Offline support** - Queue messages when offline, publish when connectivity restored
 - **Secure auto-updates** with RSA-4096 cryptographic verification
 - **Auto-update footer** with real-time progress, configurable check intervals, and manual refresh
 - **Persistence layer** with SQLite database and automatic schema migrations

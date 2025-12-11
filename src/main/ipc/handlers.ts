@@ -27,6 +27,7 @@ interface NostlingIpcDependencies {
   listMessages: (identityId: string, contactId: string) => Promise<any>;
   sendMessage: (request: SendNostrMessageRequest) => Promise<any>;
   discardUnknown: (eventId: string) => Promise<void>;
+  retryFailedMessages: (identityId?: string) => Promise<any>;
   getRelayConfig: () => Promise<NostlingRelayConfig>;
   setRelayConfig: (config: NostlingRelayConfig) => Promise<NostlingRelayConfig>;
 }
@@ -172,6 +173,9 @@ export function registerHandlers(dependencies: {
     );
     ipcMain.handle('nostling:messages:discard-unknown', async (_, eventId: string) =>
       dependencies.nostling!.discardUnknown(eventId)
+    );
+    ipcMain.handle('nostling:messages:retry', async (_, identityId?: string) =>
+      dependencies.nostling!.retryFailedMessages(identityId)
     );
 
     // Relay configuration

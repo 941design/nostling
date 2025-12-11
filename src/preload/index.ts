@@ -118,6 +118,11 @@ const api: RendererApi = {
       async discardUnknown(eventId: string) {
         return ipcRenderer.invoke('nostling:messages:discard-unknown', eventId) as Promise<void>;
       },
+      async retry(identityId?: string) {
+        return ipcRenderer.invoke('nostling:messages:retry', identityId) as Promise<
+          Awaited<NostlingApi['messages']['retry']>
+        >;
+      },
     },
     relays: {
       async get() {

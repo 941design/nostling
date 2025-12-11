@@ -7,6 +7,7 @@ This document lists the exact tasks required to start implementing the Nostr cli
 - **In Progress** – actively being implemented.
 - **Blocked** – paused pending a dependency or decision.
 - **Done** – task completed and verified.
+- **Done (with gaps)** – implemented but has documented shortcomings.
 
 ## Execution Plan
 
@@ -53,7 +54,9 @@ This document lists the exact tasks required to start implementing the Nostr cli
 8. **Renderer UI: sidebar and identity/contact workflows**
    - Replace placeholder sidebar with identity list and contact list (pending/connected indicators) as described in the spec.
    - Implement create/import identity modal and add-contact (scan/paste npub) modal flows using Chakra UI conventions.
-   - **Status:** Done
+   - **Status:** Done (with gaps)
+   - **Gaps:**
+     - No QR code scanning (only text paste for npub supported).
 
 9. **Renderer UI: messaging pane**
    - Build threaded conversation view with incoming/outgoing grouping, timestamps, and status badges (queued/sending/sent/error).
@@ -68,8 +71,61 @@ This document lists the exact tasks required to start implementing the Nostr cli
     - Ensure nostling flows log via the existing main-process logger and surface non-blocking footer messages in the renderer.
     - Verify unknown sender handling, relay errors, and decryption failures follow spec (silent discard + log).
     - **Status:** Done
+    - **Note:** Relay connectivity status available via `getRelayStatus()` API.
 
 12. **Testing and validation**
     - Add unit tests for new services (secret store, nostr service, database migrations) and renderer components where feasible.
     - Include basic integration/IPC tests to confirm handshake/queue logic and whitelist enforcement.
-    - **Status:** Not Started
+    - **Status:** In Progress
+    - **Progress:**
+      - Service unit tests implemented (`src/main/nostling/service.test.ts`) covering identity creation, welcome message queueing, pending→connected transitions, whitelist enforcement, decryption failure handling, and relay filter generation.
+    - **Gaps:**
+      - No UI/component tests for sidebar, messaging pane, or modals.
+      - No integration/E2E tests for full flow (identity → contact → message).
+      - No preload/IPC handler tests.
+
+---
+
+## Critical Shortcomings Summary
+
+~~The following gaps block actual Nostr protocol functionality~~ **RESOLVED** (2025-12-11):
+
+### High Priority (Blocks MVP completion) - ✅ ALL RESOLVED
+1. ~~**No actual message encryption**~~ ✅ – NIP-04 encryption implemented via nostr-tools.
+2. ~~**No actual relay connections**~~ ✅ – RelayPool with WebSocket subscription/publishing integrated.
+3. ~~**No key derivation**~~ ✅ – bip340 key derivation implemented (nsec → keypair).
+4. ~~**No message polling**~~ ✅ – Relay subscriptions with real-time event handling.
+
+### Medium Priority (MVP usability)
+1. **No QR code scanning** – Only text paste for npub.
+2. ~~**No relay connectivity status**~~ ✅ – `getRelayStatus()` API available.
+
+### Low Priority (Post-MVP)
+1. **No UI tests** – Component tests missing.
+2. **No integration tests** – Full flow tests missing.
+3. **No external secret store integration** – Pluggable but not implemented.
+
+---
+
+## Completed Improvements
+
+- **Auto-retry for failed sends** – Added `retryFailedMessages()` to service, IPC, preload, and renderer state. UI button appears in NostlingStatusCard when errors exist.
+- **Nostr Protocol Integration** (2025-12-11) – Full implementation of:
+  - Key derivation from nsec using nostr-tools bip340
+  - NIP-04 message encryption/decryption
+  - RelayPool with WebSocket connection management
+  - Real-time subscriptions for kind-4 events
+  - Service lifecycle management (initialize/destroy)
+  - 68 passing tests covering crypto, relay-pool, and service
+
+---
+
+## Next Steps
+
+~~A feature specification for the core protocol work has been drafted: `specs/nostr-protocol-integration.md`~~ **IMPLEMENTED**
+
+The protocol integration is complete. Remaining work:
+- QR code scanning for npub import
+- UI component tests
+- End-to-end integration tests
+- External secret store integration (optional)

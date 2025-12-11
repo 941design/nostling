@@ -92,6 +92,38 @@ jest.mock('./database', () => ({
   getAllStateValues: jest.fn(() => Promise.resolve({})),
 }));
 
+jest.mock('./database/connection', () => ({
+  getDatabase: jest.fn(() => ({})), // Return mock database object
+}));
+
+jest.mock('./nostling/secret-store', () => ({
+  createSecretStore: jest.fn(() => ({
+    kind: 'local',
+    getSecret: jest.fn(),
+    saveSecret: jest.fn(),
+    deleteSecret: jest.fn(),
+    listSecretRefs: jest.fn(),
+  })),
+}));
+
+jest.mock('./nostling/service', () => ({
+  NostlingService: jest.fn().mockImplementation(() => ({
+    listIdentities: jest.fn(),
+    createIdentity: jest.fn(),
+    removeIdentity: jest.fn(),
+    listContacts: jest.fn(),
+    addContact: jest.fn(),
+    removeContact: jest.fn(),
+    markContactConnected: jest.fn(),
+    listMessages: jest.fn(),
+    sendMessage: jest.fn(),
+    discardUnknown: jest.fn(),
+    getRelayConfig: jest.fn(),
+    setRelayConfig: jest.fn(),
+    retryFailedMessages: jest.fn(),
+  })),
+}));
+
 jest.mock('./update/dmg-installer', () => ({
   cleanupStaleMounts: jest.fn(() => Promise.resolve()),
   findDmgArtifact: jest.fn(),

@@ -176,4 +176,27 @@ describe('NostlingService', () => {
       { kinds: [4], authors: ['npub1'], '#p': ['npub2', 'npub3'] },
     ]);
   });
+
+  it('retries failed messages by resetting status to queued', async () => {
+    const identity = await service.createIdentity({ label: 'Retry', nsec: 'secret', npub: 'npub1' });
+    const contact = await service.addContact({ identityId: identity.id, npub: 'npub2' });
+
+    // Send a message while offline
+    const msg = await service.sendMessage({ identityId: identity.id, contactId: contact.id, plaintext: 'hello' });
+
+    // Manually mark it as error to simulate relay failure
+    await service.markMessageError(msg.id);
+
+    let messages = await service.listMessages(identity.id, contact.id);
+    expect(messages.find((m) => m.id === msg.id)?.status).toBe('error');
+
+    // Retry failed messages
+    const retried = await service.retryFailedMessages();
+    expect(retried.length).toBe(1);
+    expect(retried[0].status).toBe('queued');
+
+    // Verify in DB
+    messages = await service.listMessages(identity.id, contact.id);
+    expect(messages.find((m) => m.id === msg.id)?.status).toBe('queued');
+  });
 });

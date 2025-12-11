@@ -27,7 +27,7 @@ import {
   getAllStateValues,
 } from './database';
 import { getDatabase } from './database/connection';
-import { NostlingSecretStore } from './nostling/secret-store';
+import { createSecretStore } from './nostling/secret-store';
 import { NostlingService } from './nostling/service';
 
 let mainWindow: BrowserWindow | null = null;
@@ -443,7 +443,7 @@ app.on('ready', async () => {
   if (!database) {
     throw new Error('Database not initialized after migrations');
   }
-  const secretStore = new NostlingSecretStore();
+  const secretStore = createSecretStore();
   nostlingService = new NostlingService(database, secretStore);
 
   // macOS: Clean up any stale DMG mounts from previous update attempts
@@ -479,6 +479,7 @@ app.on('ready', async () => {
       discardUnknown: (eventId) => getNostlingService().discardUnknown(eventId),
       getRelayConfig: () => getNostlingService().getRelayConfig(),
       setRelayConfig: (config) => getNostlingService().setRelayConfig(config),
+      retryFailedMessages: (identityId) => getNostlingService().retryFailedMessages(identityId),
     },
   });
   log('info', `Starting SlimChat ${app.getVersion()}`);

@@ -312,6 +312,32 @@ export function useNostlingState() {
     [hasBridge, recordError]
   );
 
+  const retryFailedMessages = useCallback(
+    async (identityId?: string) => {
+      if (!hasBridge) return [];
+
+      try {
+        const retriedMessages = await window.api.nostling!.messages.retry(identityId);
+        // Update local state with retried messages (status now 'queued' or 'sent')
+        setMessages((current) => {
+          const next = { ...current };
+          for (const msg of retriedMessages) {
+            const mapKey = getMessageMapKey(msg.identityId, msg.contactId);
+            const existing = next[mapKey] || [];
+            next[mapKey] = existing.map((m) => (m.id === msg.id ? msg : m));
+          }
+          return next;
+        });
+        setLastError(null);
+        return retriedMessages;
+      } catch (error) {
+        recordError('Retry failed messages failed', error);
+        return [];
+      }
+    },
+    [hasBridge, recordError]
+  );
+
   const updateRelayConfig = useCallback(
     async (config: NostlingRelayConfig) => {
       if (!hasBridge) return null;
@@ -380,6 +406,7 @@ export function useNostlingState() {
     markContactConnected,
     sendMessage,
     discardUnknown,
+    retryFailedMessages,
     refreshRelayConfig,
     updateRelayConfig,
   };
