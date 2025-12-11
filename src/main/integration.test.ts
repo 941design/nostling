@@ -179,7 +179,7 @@ describe('constructManifestUrl', () => {
 });
 
 describe('fetchManifest', () => {
-  let mockFetches: Map<string, { status: number; body: any }> = new Map();
+  const mockFetches: Map<string, { status: number; body: any }> = new Map();
   const originalFetch = global.fetch;
 
   beforeEach(() => {
@@ -549,7 +549,7 @@ describe('fetchManifest', () => {
 });
 
 describe('verifyDownloadedUpdate', () => {
-  let mockFetches: Map<string, { status: number; body: any }> = new Map();
+  const mockFetches: Map<string, { status: number; body: any }> = new Map();
   let logSpy: any;
   const originalFetch = global.fetch;
 
@@ -1062,7 +1062,7 @@ describe('verifyDownloadedUpdate', () => {
 });
 
 describe('TR5: File Protocol Dev Mode Test (FR2)', () => {
-  let mockFetches: Map<string, { status: number; body: any }> = new Map();
+  const mockFetches: Map<string, { status: number; body: any }> = new Map();
   const originalFetch = global.fetch;
 
   beforeEach(() => {
@@ -1557,6 +1557,74 @@ describe('sanitizeError', () => {
       expect(result.message).toBe('macOS code signature verification failed (Squirrel.Mac)');
       expect(result.message).not.toContain('SQRLCodeSignatureErrorDomain');
       expect(result.message).not.toContain('private/var');
+    });
+  });
+
+  describe('Production Mode - Network/Offline Errors', () => {
+    it('P025: ENOTFOUND (DNS resolution) errors indicate offline', () => {
+      const error = new Error('getaddrinfo ENOTFOUND github.com');
+      const result = sanitizeError(error, false);
+      expect(result.message).toBe('Network is offline');
+    });
+
+    it('P026: ECONNREFUSED errors indicate offline/server unavailable', () => {
+      const error = new Error('connect ECONNREFUSED 127.0.0.1:443');
+      const result = sanitizeError(error, false);
+      expect(result.message).toBe('Network is offline');
+    });
+
+    it('P027: net::ERR_INTERNET_DISCONNECTED errors indicate offline', () => {
+      const error = new Error('net::ERR_INTERNET_DISCONNECTED');
+      const result = sanitizeError(error, false);
+      expect(result.message).toBe('Network is offline');
+    });
+
+    it('P028: net::ERR_NAME_NOT_RESOLVED errors indicate offline', () => {
+      const error = new Error('net::ERR_NAME_NOT_RESOLVED');
+      const result = sanitizeError(error, false);
+      expect(result.message).toBe('Network is offline');
+    });
+
+    it('P029: net::ERR_NETWORK_CHANGED errors indicate offline', () => {
+      const error = new Error('net::ERR_NETWORK_CHANGED');
+      const result = sanitizeError(error, false);
+      expect(result.message).toBe('Network is offline');
+    });
+
+    it('P030: net::ERR_CONNECTION_RESET errors indicate offline', () => {
+      const error = new Error('net::ERR_CONNECTION_RESET');
+      const result = sanitizeError(error, false);
+      expect(result.message).toBe('Network is offline');
+    });
+
+    it('P031: ETIMEDOUT (connection timeout) errors indicate offline', () => {
+      const error = new Error('connect ETIMEDOUT 140.82.121.3:443');
+      const result = sanitizeError(error, false);
+      expect(result.message).toBe('Network is offline');
+    });
+
+    it('P032: EAI_AGAIN (DNS temporary failure) errors indicate offline', () => {
+      const error = new Error('getaddrinfo EAI_AGAIN github.com');
+      const result = sanitizeError(error, false);
+      expect(result.message).toBe('Network is offline');
+    });
+
+    it('P033: "fetch failed" errors indicate offline', () => {
+      const error = new Error('fetch failed');
+      const result = sanitizeError(error, false);
+      expect(result.message).toBe('Network is offline');
+    });
+
+    it('P034: "network error" errors indicate offline', () => {
+      const error = new Error('Network error while fetching manifest');
+      const result = sanitizeError(error, false);
+      expect(result.message).toBe('Network is offline');
+    });
+
+    it('P035: Dev mode preserves full offline error message', () => {
+      const error = new Error('getaddrinfo ENOTFOUND github.com');
+      const result = sanitizeError(error, true);
+      expect(result.message).toBe('getaddrinfo ENOTFOUND github.com');
     });
   });
 

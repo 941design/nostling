@@ -1,4 +1,4 @@
-.PHONY: help clean install dev build test lint package release sign-manifest test-e2e test-e2e-ui test-e2e-headed test-e2e-debug test-e2e-docker test-e2e-docker-clean test-all dev-update-release dev-update-prerelease dev-update-local local-release local-release-clean test-version-upgrade version-patch version-minor version-major install-hooks
+.PHONY: help clean install dev build test lint lint-fix lint-all package release sign-manifest test-e2e test-e2e-ui test-e2e-headed test-e2e-debug test-e2e-docker test-e2e-docker-clean test-all dev-update-release dev-update-prerelease dev-update-local local-release local-release-clean test-version-upgrade version-patch version-minor version-major install-hooks
 
 .DEFAULT_GOAL := help
 
@@ -59,6 +59,12 @@ build-renderer: ## Build renderer process only
 
 lint: ## Run type checking
 	npm run lint
+
+lint-fix: ## Auto-fix ESLint errors
+	npm run lint:fix
+
+lint-all: ## Run type checking and ESLint
+	npm run lint && npm run lint:eslint
 
 test: ## Run unit tests
 	npm test

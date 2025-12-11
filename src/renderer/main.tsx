@@ -737,7 +737,7 @@ function IdentityList({
             <Text color="gray.200" fontWeight="semibold">
               {identity.label || identity.npub}
             </Text>
-            <Text color="gray.500" fontSize="xs" noOfLines={1}>
+            <Text color="gray.500" fontSize="xs" lineClamp={1}>
               {identity.npub}
             </Text>
             <IdentityStatusBadge secretRef={identity.secretRef} />
@@ -812,7 +812,7 @@ function ContactList({
                 <Text color="gray.200" fontWeight="semibold">
                   {contact.alias || contact.npub}
                 </Text>
-                <Text color="gray.500" fontSize="xs" noOfLines={1}>
+                <Text color="gray.500" fontSize="xs" lineClamp={1}>
                   {contact.npub}
                 </Text>
               </Stack>
@@ -1044,7 +1044,7 @@ function ConversationPane({
             <Text color="gray.500" fontSize="sm">
               {queueText}
             </Text>
-            <Button size="sm" colorPalette="blue" onClick={handleSend} disabled={!canSend} isLoading={isSending}>
+            <Button size="sm" colorPalette="blue" onClick={handleSend} disabled={!canSend} loading={isSending}>
               Send Message
             </Button>
           </HStack>

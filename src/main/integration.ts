@@ -57,14 +57,18 @@ import { validateUpdateUrl } from './update/url-validation';
  *        e. Timeout errors (contains "timed out", "timeout"):
  *           - Preserve: "Manifest fetch timed out" (no implementation details leaked)
  *
- *        f. Squirrel.Mac code signature errors (contains "code signature", "designated requirement", "did not pass validation"):
+ *        f. Network/Offline errors (ENOTFOUND, ECONNREFUSED, ETIMEDOUT, EAI_AGAIN, net::ERR_*, "fetch failed", "network error"):
+ *           - Replace with: "Network is offline"
+ *           - These indicate the user is offline or the server is unreachable
+ *
+ *        g. Squirrel.Mac code signature errors (contains "code signature", "designated requirement", "did not pass validation"):
  *           - Replace with: "macOS code signature verification failed (Squirrel.Mac)"
  *           - This distinguishes electron-updater's macOS code signing errors from our RSA verification
  *
- *        g. Custom RSA signature errors (contains "signature" but not caught above):
+ *        h. Custom RSA signature errors (contains "signature" but not caught above):
  *           - Replace with: "Manifest signature verification failed"
  *
- *        h. Otherwise:
+ *        i. Otherwise:
  *           - Generic fallback: "Update verification failed"
  *
  *     4. Return new Error with sanitized message
@@ -137,6 +141,21 @@ export function sanitizeError(error: unknown, isDev: boolean): Error {
   // Timeout errors: preserve with generic message (no implementation details leaked)
   if (lowerMessage.includes('timed out') || lowerMessage.includes('timeout')) {
     return new Error('Manifest fetch timed out');
+  }
+
+  // Network/Offline errors: DNS resolution, connection refused, Chromium network errors
+  // These indicate the user is offline or the server is unreachable
+  // Patterns: ENOTFOUND, ECONNREFUSED, ETIMEDOUT (connect), EAI_AGAIN, net::ERR_*, "fetch failed", "network error"
+  if (
+    lowerMessage.includes('enotfound') ||
+    lowerMessage.includes('econnrefused') ||
+    lowerMessage.includes('etimedout') ||
+    lowerMessage.includes('eai_again') ||
+    lowerMessage.includes('net::err_') ||
+    lowerMessage.includes('fetch failed') ||
+    lowerMessage.includes('network error')
+  ) {
+    return new Error('Network is offline');
   }
 
   // Squirrel.Mac / macOS code signature errors (from electron-updater on macOS)

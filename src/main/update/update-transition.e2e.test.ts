@@ -602,7 +602,7 @@ describe('Version Transition E2E', () => {
       };
 
       // Simulate config persistence (in real app, this would be loadConfig/saveConfig)
-      let persistedConfig = { ...originalConfig };
+      const persistedConfig = { ...originalConfig };
 
       const updateInfo: UpdateInfo = {
         version: '0.0.1',
