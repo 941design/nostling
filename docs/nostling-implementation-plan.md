@@ -62,7 +62,7 @@ This document lists the exact tasks required to start implementing the Nostr cli
 
 10. **Relay configuration UI**
     - Add a renderer surface (likely under existing Electron menu or a small settings section) to view/edit relay list per spec while reusing config patterns.
-    - **Status:** Not Started
+    - **Status:** Done
 
 11. **Error handling and logging pass**
     - Ensure nostling flows log via the existing main-process logger and surface non-blocking footer messages in the renderer.

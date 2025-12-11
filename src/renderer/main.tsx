@@ -32,8 +32,17 @@ import {
   Divider,
   Icon,
   Textarea,
+  Checkbox,
 } from '@chakra-ui/react';
-import { AppStatus, NostlingContact, NostlingIdentity, NostlingMessage, UpdateState } from '../shared/types';
+import {
+  AppStatus,
+  NostlingContact,
+  NostlingIdentity,
+  NostlingMessage,
+  NostlingRelayConfig,
+  NostlingRelayEndpoint,
+  UpdateState,
+} from '../shared/types';
 import './types.d.ts';
 import { getStatusText, isRefreshEnabled } from './utils';
 import { useNostlingState } from './nostling/state';
@@ -351,6 +360,300 @@ function NostlingStatusCard({ statusText, queueSummary, lastSync, lastError }: N
             {lastError}
           </Text>
         )}
+      </VStack>
+    </Box>
+  );
+}
+
+function RelayEndpointRow({
+  endpoint,
+  onChange,
+  onRemove,
+}: {
+  endpoint: NostlingRelayEndpoint;
+  onChange: (next: NostlingRelayEndpoint) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <Stack direction={{ base: 'column', md: 'row' }} gap="3" align="start" borderWidth="1px" p="3" borderRadius="md">
+      <FormControl flex="1" minW="0">
+        <FormLabel color="gray.400" fontSize="sm">
+          Relay URL
+        </FormLabel>
+        <Input
+          value={endpoint.url}
+          placeholder="wss://relay.example.com"
+          onChange={(event: React.ChangeEvent<HTMLInputElement>) => onChange({ ...endpoint, url: event.target.value })}
+        />
+      </FormControl>
+      <VStack align="start" gap="1" minW="160px">
+        <FormLabel color="gray.400" fontSize="sm" m="0">
+          Permissions
+        </FormLabel>
+        <HStack>
+          <Checkbox
+            isChecked={endpoint.read}
+            onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
+              onChange({ ...endpoint, read: event.target.checked })
+            }
+          >
+            Read
+          </Checkbox>
+          <Checkbox
+            isChecked={endpoint.write}
+            onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
+              onChange({ ...endpoint, write: event.target.checked })
+            }
+          >
+            Write
+          </Checkbox>
+        </HStack>
+        <Text color="gray.500" fontSize="xs">
+          Added {formatTimestamp(endpoint.createdAt)}
+        </Text>
+      </VStack>
+      <Spacer />
+      <IconButton size="sm" aria-label="Remove relay" variant="ghost" onClick={onRemove}>
+        Remove
+      </IconButton>
+    </Stack>
+  );
+}
+
+interface RelayConfigCardProps {
+  config: NostlingRelayConfig | null;
+  identities: NostlingIdentity[];
+  loading: boolean;
+  hasBridge: boolean;
+  onRefresh: () => void;
+  onSave: (config: NostlingRelayConfig) => Promise<NostlingRelayConfig | null>;
+}
+
+function RelayConfigCard({ config, identities, loading, hasBridge, onRefresh, onSave }: RelayConfigCardProps) {
+  const [draft, setDraft] = useState<NostlingRelayConfig>(config ?? { defaults: [] });
+  const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    setDraft(config ?? { defaults: [] });
+    setDirty(false);
+  }, [config]);
+
+  const updateDefaults = (next: NostlingRelayEndpoint[]) => {
+    setDraft((current) => ({ ...current, defaults: next }));
+    setDirty(true);
+  };
+
+  const updatePerIdentity = (identityId: string, next: NostlingRelayEndpoint[]) => {
+    setDraft((current) => {
+      const existing = current.perIdentity ?? {};
+      const updated = { ...existing, [identityId]: next };
+
+      return {
+        ...current,
+        perIdentity: updated,
+      };
+    });
+    setDirty(true);
+  };
+
+  const removeOverride = (identityId: string) => {
+    setDraft((current) => {
+      if (!current.perIdentity) return current;
+      const next = { ...current.perIdentity };
+      delete next[identityId];
+
+      return { ...current, perIdentity: Object.keys(next).length > 0 ? next : undefined };
+    });
+    setDirty(true);
+  };
+
+  const addDefaultRelay = () => {
+    const now = new Date().toISOString();
+    updateDefaults([...(draft.defaults || []), { url: '', read: true, write: true, createdAt: now }]);
+  };
+
+  const addIdentityRelay = (identityId: string) => {
+    const now = new Date().toISOString();
+    const existing = draft.perIdentity?.[identityId] ?? [];
+    updatePerIdentity(identityId, [...existing, { url: '', read: true, write: true, createdAt: now }]);
+  };
+
+  const ensureOverride = (identityId: string) => {
+    if (draft.perIdentity?.[identityId]) return;
+    updatePerIdentity(identityId, []);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const sanitized: NostlingRelayConfig = {
+        defaults: draft.defaults.map((entry) => ({
+          ...entry,
+          url: entry.url.trim(),
+        })),
+      };
+
+      if (draft.perIdentity) {
+        const overrides: Record<string, NostlingRelayEndpoint[]> = {};
+        Object.entries(draft.perIdentity).forEach(([identityId, relays]) => {
+          overrides[identityId] = relays.map((entry) => ({ ...entry, url: entry.url.trim() }));
+        });
+        if (Object.keys(overrides).length > 0) {
+          sanitized.perIdentity = overrides;
+        }
+      }
+
+      const result = await onSave(sanitized);
+      if (result) {
+        setDraft(result);
+        setDirty(false);
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const identityIds = Array.from(
+    new Set([...(draft.perIdentity ? Object.keys(draft.perIdentity) : []), ...identities.map((item) => item.id)])
+  );
+
+  return (
+    <Box borderWidth="1px" borderColor="whiteAlpha.100" borderRadius="md" bg="whiteAlpha.50" p="4">
+      <HStack justify="space-between" mb="3">
+        <Heading size="sm" color="gray.300">
+          Relay Configuration
+        </Heading>
+        <HStack gap="2">
+          <Button size="sm" variant="ghost" onClick={onRefresh} disabled={loading || !hasBridge}>
+            Refresh
+          </Button>
+          <Button
+            size="sm"
+            colorPalette="blue"
+            onClick={handleSave}
+            loading={saving}
+            disabled={!dirty || !hasBridge}
+          >
+            Save Changes
+          </Button>
+        </HStack>
+      </HStack>
+
+      {!hasBridge && (
+        <Text color="gray.500" fontSize="sm" mb="3">
+          Nostling bridge unavailable. Relay settings cannot be edited in this environment.
+        </Text>
+      )}
+
+      <VStack align="stretch" gap="3">
+        <Box>
+          <HStack justify="space-between" mb="2">
+            <Heading size="xs" color="gray.300">
+              Default relays
+            </Heading>
+            <Button size="xs" variant="subtle" onClick={addDefaultRelay} disabled={!hasBridge}>
+              Add relay
+            </Button>
+          </HStack>
+          {draft.defaults.length === 0 && (
+            <Text color="gray.500" fontSize="sm">
+              No default relays configured. Add at least one relay to publish and subscribe.
+            </Text>
+          )}
+          <VStack align="stretch" gap="2">
+            {draft.defaults.map((relay, index) => (
+              <RelayEndpointRow
+                key={`${relay.url}-${relay.createdAt}-${index}`}
+                endpoint={relay}
+                onChange={(next) => updateDefaults(draft.defaults.map((item, i) => (i === index ? next : item)))}
+                onRemove={() => updateDefaults(draft.defaults.filter((_, i) => i !== index))}
+              />
+            ))}
+          </VStack>
+        </Box>
+
+        <Divider borderColor="whiteAlpha.200" />
+
+        <Box>
+          <Heading size="xs" color="gray.300" mb="2">
+            Per-identity overrides
+          </Heading>
+          {identityIds.length === 0 && (
+            <Text color="gray.500" fontSize="sm">
+              Create an identity to configure per-identity relay overrides.
+            </Text>
+          )}
+          <VStack align="stretch" gap="3">
+            {identityIds.map((identityId) => {
+              const identity = identities.find((item) => item.id === identityId);
+              const label = identity?.label ?? identity?.npub ?? identityId;
+              const relays = draft.perIdentity?.[identityId];
+              const usingDefaults = !relays;
+
+              return (
+                <Box key={identityId} borderWidth="1px" borderColor="whiteAlpha.100" borderRadius="md" p="3">
+                  <HStack justify="space-between" mb="2" align={{ base: 'start', md: 'center' }}>
+                    <VStack align="start" gap="0">
+                      <Text color="gray.300" fontWeight="semibold">
+                        {label}
+                      </Text>
+                      <Text color="gray.500" fontSize="sm">
+                        {usingDefaults ? 'Using default relays' : 'Override relays configured'}
+                      </Text>
+                    </VStack>
+                    <HStack gap="2">
+                      {usingDefaults ? (
+                        <Button size="xs" variant="outline" onClick={() => ensureOverride(identityId)} disabled={!hasBridge}>
+                          Override defaults
+                        </Button>
+                      ) : (
+                        <Button size="xs" variant="ghost" onClick={() => removeOverride(identityId)} disabled={!hasBridge}>
+                          Use defaults
+                        </Button>
+                      )}
+                      {!usingDefaults && (
+                        <Button size="xs" variant="subtle" onClick={() => addIdentityRelay(identityId)} disabled={!hasBridge}>
+                          Add relay
+                        </Button>
+                      )}
+                    </HStack>
+                  </HStack>
+
+                  {!usingDefaults && (
+                    <VStack align="stretch" gap="2">
+                      {relays!.length === 0 && (
+                        <Text color="gray.500" fontSize="sm">
+                          No relays configured for this identity yet.
+                        </Text>
+                      )}
+                      {relays!.map((relay, index) => (
+                        <RelayEndpointRow
+                          key={`${identityId}-${relay.url}-${relay.createdAt}-${index}`}
+                          endpoint={relay}
+                          onChange={(next) => {
+                            const current = draft.perIdentity?.[identityId] ?? [];
+                            updatePerIdentity(
+                              identityId,
+                              current.map((item, i) => (i === index ? next : item))
+                            );
+                          }}
+                          onRemove={() => {
+                            const current = draft.perIdentity?.[identityId] ?? [];
+                            updatePerIdentity(
+                              identityId,
+                              current.filter((_, i) => i !== index)
+                            );
+                          }}
+                        />
+                      ))}
+                    </VStack>
+                  )}
+                </Box>
+              );
+            })}
+          </VStack>
+        </Box>
       </VStack>
     </Box>
   );
@@ -1079,6 +1382,14 @@ function App() {
               queueSummary={nostling.queueSummary}
               lastSync={nostling.lastSync}
               lastError={nostling.lastError}
+            />
+            <RelayConfigCard
+              config={nostling.relayConfig}
+              identities={nostling.identities}
+              loading={nostling.loading.relays}
+              hasBridge={nostling.hasBridge}
+              onRefresh={nostling.refreshRelayConfig}
+              onSave={nostling.updateRelayConfig}
             />
             <ConversationPane
               identity={selectedIdentity}
