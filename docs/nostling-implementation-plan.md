@@ -58,7 +58,7 @@ This document lists the exact tasks required to start implementing the Nostr cli
 9. **Renderer UI: messaging pane**
    - Build threaded conversation view with incoming/outgoing grouping, timestamps, and status badges (queued/sending/sent/error).
    - Add message composer with offline queue awareness and controls wired to the nostling message API.
-   - **Status:** Not Started
+   - **Status:** Done
 
 10. **Relay configuration UI**
     - Add a renderer surface (likely under existing Electron menu or a small settings section) to view/edit relay list per spec while reusing config patterns.

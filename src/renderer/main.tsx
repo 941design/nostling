@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import {
   ChakraProvider,
@@ -31,8 +31,9 @@ import {
   Select,
   Divider,
   Icon,
+  Textarea,
 } from '@chakra-ui/react';
-import { AppStatus, NostlingContact, NostlingIdentity, UpdateState } from '../shared/types';
+import { AppStatus, NostlingContact, NostlingIdentity, NostlingMessage, UpdateState } from '../shared/types';
 import './types.d.ts';
 import { getStatusText, isRefreshEnabled } from './utils';
 import { useNostlingState } from './nostling/state';
@@ -515,6 +516,235 @@ function ContactList({
   );
 }
 
+function MessageStatusBadge({
+  status,
+}: {
+  status: 'queued' | 'sending' | 'sent' | 'error';
+}) {
+  const palette = {
+    queued: 'orange',
+    sending: 'blue',
+    sent: 'green',
+    error: 'red',
+  }[status];
+
+  const label =
+    status === 'queued'
+      ? 'Queued'
+      : status === 'sending'
+        ? 'Sending'
+        : status === 'sent'
+          ? 'Sent'
+          : 'Error';
+
+  return (
+    <Badge colorPalette={palette} variant="subtle" size="xs">
+      {label}
+    </Badge>
+  );
+}
+
+function MessageBubble({
+  message,
+  isOwn,
+}: {
+  message: {
+    id: string;
+    ciphertext: string;
+    timestamp: string;
+    status: 'queued' | 'sending' | 'sent' | 'error';
+  };
+  isOwn: boolean;
+}) {
+  return (
+    <HStack justify={isOwn ? 'flex-end' : 'flex-start'} align="flex-end" mb="2" gap="2">
+      {!isOwn && (
+        <Text fontSize="xs" color="gray.500">
+          {formatTimestamp(message.timestamp)}
+        </Text>
+      )}
+      <Box
+        maxW="70%"
+        bg={isOwn ? 'brand.900' : 'whiteAlpha.100'}
+        borderWidth="1px"
+        borderColor={isOwn ? 'brand.700' : 'whiteAlpha.100'}
+        borderRadius="md"
+        p="3"
+        className="message-bubble"
+      >
+        <Text color="gray.100" whiteSpace="pre-wrap">
+          {message.ciphertext}
+        </Text>
+        <HStack justify="space-between" mt="2" gap="2">
+          <Text fontSize="xs" color="gray.500">
+            {formatTimestamp(message.timestamp)}
+          </Text>
+          <MessageStatusBadge status={message.status} />
+        </HStack>
+      </Box>
+      {isOwn && (
+        <Text fontSize="xs" color="gray.500">
+          {formatTimestamp(message.timestamp)}
+        </Text>
+      )}
+    </HStack>
+  );
+}
+
+interface ConversationPaneProps {
+  identity: NostlingIdentity | null;
+  contact: NostlingContact | null;
+  messages: NostlingMessage[];
+  onSend: (plaintext: string) => Promise<boolean>;
+  onRefresh: () => Promise<void>;
+  isRefreshing: boolean;
+  queueSummary: { queued: number; sending: number; errors: number };
+}
+
+function ConversationPane({
+  identity,
+  contact,
+  messages,
+  onSend,
+  onRefresh,
+  isRefreshing,
+  queueSummary,
+}: ConversationPaneProps) {
+  const [draft, setDraft] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
+
+  const canSend = Boolean(identity && contact && draft.trim().length > 0 && !isSending);
+
+  useEffect(() => {
+    if (!listRef.current) return;
+    listRef.current.scrollTop = listRef.current.scrollHeight;
+  }, [messages.length]);
+
+  const queueText = useMemo(() => {
+    if (queueSummary.errors > 0) return `${queueSummary.errors} message error(s)`;
+    if (queueSummary.sending > 0) return `${queueSummary.sending} sending`;
+    if (queueSummary.queued > 0) return `${queueSummary.queued} queued (offline)`;
+    return 'Queue idle';
+  }, [queueSummary]);
+
+  const handleSend = async () => {
+    if (!canSend) return;
+    setIsSending(true);
+    setSendError(null);
+    const success = await onSend(draft.trim());
+    if (success) {
+      setDraft('');
+    } else {
+      setSendError('Message failed to send. Check your connection and try again.');
+    }
+    setIsSending(false);
+  };
+
+  if (!identity) {
+    return (
+      <Box p="6" borderWidth="1px" borderColor="whiteAlpha.100" borderRadius="md" bg="whiteAlpha.50">
+        <Heading size="sm" color="gray.300" mb="2">
+          Start by creating an identity
+        </Heading>
+        <Text color="gray.500">Create or import an identity to begin messaging.</Text>
+      </Box>
+    );
+  }
+
+  if (!contact) {
+    return (
+      <Box p="6" borderWidth="1px" borderColor="whiteAlpha.100" borderRadius="md" bg="whiteAlpha.50">
+        <Heading size="sm" color="gray.300" mb="2">
+          Select a contact
+        </Heading>
+        <Text color="gray.500">Choose a contact to view and send messages.</Text>
+      </Box>
+    );
+  }
+
+  return (
+    <Box borderWidth="1px" borderColor="whiteAlpha.100" borderRadius="md" bg="whiteAlpha.50" className="conversation-pane">
+      <Flex align="center" justify="space-between" p="4" borderBottomWidth="1px" borderColor="whiteAlpha.100">
+        <Stack gap="1">
+          <Heading size="sm" color="gray.200">
+            {contact.alias || contact.npub}
+          </Heading>
+          <HStack gap="2">
+            <Text color="gray.500" fontSize="sm">
+              {identity.label || identity.npub} → {contact.npub}
+            </Text>
+            <ContactStateBadge state={contact.state} />
+          </HStack>
+          <Text color="gray.500" fontSize="sm">
+            {queueText}
+          </Text>
+        </Stack>
+        <IconButton
+          size="sm"
+          aria-label="Refresh messages"
+          title="Refresh conversation"
+          onClick={onRefresh}
+          variant="ghost"
+          disabled={isRefreshing}
+        >
+          <RefreshIcon />
+        </IconButton>
+      </Flex>
+
+      <Box ref={listRef} px="4" pt="4" pb="2" h="50vh" overflowY="auto" className="conversation-messages">
+        {messages.length === 0 && (
+          <Text color="gray.500" fontSize="sm">
+            No messages yet. Send a welcome message to start the handshake.
+          </Text>
+        )}
+        {messages.map((message) => (
+          <MessageBubble
+            key={message.id}
+            message={{
+              id: message.id,
+              ciphertext: message.ciphertext,
+              timestamp: message.timestamp,
+              status: message.status,
+            }}
+            isOwn={message.direction === 'outgoing'}
+          />
+        ))}
+      </Box>
+
+      <Divider borderColor="whiteAlpha.100" />
+      <Box p="4" bg="blackAlpha.300" borderBottomRadius="md">
+        <Stack gap="2">
+          <Textarea
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            placeholder="Type a message..."
+            resize="vertical"
+            minH="100px"
+            color="gray.100"
+            borderColor="whiteAlpha.200"
+            _placeholder={{ color: 'gray.500' }}
+          />
+          {sendError && (
+            <Text color="red.300" fontSize="sm">
+              {sendError}
+            </Text>
+          )}
+          <HStack justify="space-between" align="center">
+            <Text color="gray.500" fontSize="sm">
+              {queueText}
+            </Text>
+            <Button size="sm" colorPalette="blue" onClick={handleSend} disabled={!canSend} isLoading={isSending}>
+              Send Message
+            </Button>
+          </HStack>
+        </Stack>
+      </Box>
+    </Box>
+  );
+}
+
 function IdentityModal({
   isOpen,
   onClose,
@@ -738,6 +968,27 @@ function App() {
   const [identityModalOpen, setIdentityModalOpen] = useState(false);
   const [contactModalOpen, setContactModalOpen] = useState(false);
 
+  const selectedIdentity = useMemo(
+    () => nostling.identities.find((identity) => identity.id === selectedIdentityId) ?? null,
+    [nostling.identities, selectedIdentityId]
+  );
+
+  const selectedContact = useMemo(() => {
+    if (!selectedIdentityId) return null;
+    const currentContacts = nostling.contacts[selectedIdentityId] || [];
+    return currentContacts.find((contact) => contact.id === selectedContactId) ?? null;
+  }, [nostling.contacts, selectedContactId, selectedIdentityId]);
+
+  const messageKey = selectedIdentityId && selectedContactId ? `${selectedIdentityId}:${selectedContactId}` : null;
+
+  const conversationMessages = useMemo(() => {
+    if (!messageKey) return [] as NostlingMessage[];
+    const entries = nostling.messages[messageKey] || [];
+    return [...entries].sort((left, right) => left.timestamp.localeCompare(right.timestamp));
+  }, [messageKey, nostling.messages]);
+
+  const messagesLoading = messageKey ? Boolean(nostling.loading.messages[messageKey]) : false;
+
   useEffect(() => {
     if (nostling.identities.length === 0) {
       setSelectedIdentityId(null);
@@ -785,6 +1036,28 @@ function App() {
     }
   };
 
+  const handleSendMessage = async (plaintext: string) => {
+    if (!selectedIdentityId || !selectedContactId) return false;
+
+    const message = await nostling.sendMessage({
+      identityId: selectedIdentityId,
+      contactId: selectedContactId,
+      plaintext,
+    });
+
+    return Boolean(message);
+  };
+
+  const handleRefreshMessages = async () => {
+    if (!selectedIdentityId || !selectedContactId) return;
+    await nostling.refreshMessages(selectedIdentityId, selectedContactId);
+  };
+
+  useEffect(() => {
+    if (!selectedIdentityId || !selectedContactId) return;
+    nostling.refreshMessages(selectedIdentityId, selectedContactId);
+  }, [nostling.refreshMessages, selectedContactId, selectedIdentityId]);
+
   return (
     <Flex className="app-shell" direction="column" h="100vh" bg="#0f172a">
       <Header />
@@ -800,13 +1073,24 @@ function App() {
           onOpenContactModal={() => setContactModalOpen(true)}
         />
         <Box as="main" flex="1" p="4" overflowY="auto">
-          <NostlingStatusCard
-            statusText={nostling.nostlingStatusText}
-            queueSummary={nostling.queueSummary}
-            lastSync={nostling.lastSync}
-            lastError={nostling.lastError}
-          />
-          <StateTable />
+          <Stack gap="4">
+            <NostlingStatusCard
+              statusText={nostling.nostlingStatusText}
+              queueSummary={nostling.queueSummary}
+              lastSync={nostling.lastSync}
+              lastError={nostling.lastError}
+            />
+            <ConversationPane
+              identity={selectedIdentity}
+              contact={selectedContact}
+              messages={conversationMessages}
+              onSend={handleSendMessage}
+              onRefresh={handleRefreshMessages}
+              isRefreshing={messagesLoading}
+              queueSummary={nostling.queueSummary}
+            />
+            <StateTable />
+          </Stack>
         </Box>
       </Flex>
       <IdentityModal
