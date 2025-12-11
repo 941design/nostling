@@ -2,6 +2,23 @@
 
 A desktop application bootstrap with secure auto-updates, built with Electron, React, and TypeScript.
 
+## TODO
+
++ identity
+  + create
+  + remove
++ contacts
+  + add
+	+ scan
+    + paste
+  + remove
++ messages
+  + show
+  + send
++ group chat
+  + add member (adding a member creates new id (deterministically?), and starts new chat)
+  + 
+
 ## Features
 
 - **Secure auto-updates** with RSA-4096 cryptographic verification
