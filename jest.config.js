@@ -6,6 +6,6 @@ module.exports = {
   testPathIgnorePatterns: ['/node_modules/', 'crypto.test.ts'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
   transform: {
-    '^.+\\.tsx?$': ['ts-jest', { tsconfig: { esModuleInterop: true, allowSyntheticDefaultImports: true } }],
+    '^.+\\.tsx?$': ['ts-jest', { tsconfig: { esModuleInterop: true, allowSyntheticDefaultImports: true, resolveJsonModule: true } }],
   },
 };

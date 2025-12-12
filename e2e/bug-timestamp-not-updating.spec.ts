@@ -56,9 +56,10 @@ test.describe('Bug: Status Refresh After Update Check', () => {
     // Wait for the async getStatus() call to complete
     await page.waitForTimeout(500);
 
-    // Verify idle state is displayed correctly
+    // Verify idle state is displayed correctly (accepts themed alternatives)
     const statusText = await getStatusText(page);
-    expect(statusText).toBe('Up to date');
+    const idleMessages = ['Standing tall', 'Preening idly', 'Ostrich lounging', 'Up to date'];
+    expect(idleMessages.some(msg => statusText.includes(msg))).toBe(true);
 
     // Test passes if no errors occur during the status refresh
   });
@@ -89,10 +90,12 @@ test.describe('Bug: Status Refresh After Update Check', () => {
     // Our fix should trigger getStatus() refresh
     await page.waitForTimeout(500);
 
-    // Verify failed state is displayed with detail
+    // Verify failed state is displayed (accepts themed alternatives)
     const statusText = await getStatusText(page);
-    expect(statusText).toContain('Update failed');
-    expect(statusText).toContain('Network error');
+    const failedMessages = ['Head in sand', 'Fumbled feathers', 'Broken beak', 'failed'];
+    expect(failedMessages.some(msg => statusText.includes(msg))).toBe(true);
+    // Should contain error detail
+    expect(statusText.toLowerCase()).toContain('network');
 
     // Test passes if no errors occur
   });
@@ -132,9 +135,10 @@ test.describe('Bug: Status Refresh After Update Check', () => {
     // Brief wait - if refresh were triggered, it would happen here
     await page.waitForTimeout(300);
 
-    // Verify ready state is displayed (updateState was updated)
+    // Verify ready state is displayed (updateState was updated, accepts themed alternatives)
     const statusText = await getStatusText(page);
-    expect(statusText).toContain('Update ready');
+    const readyMessages = ['Ready to strut', 'Hatched and ready', 'Feathers unfurled', 'ready'];
+    expect(readyMessages.some(msg => statusText.includes(msg))).toBe(true);
     expect(statusText).toContain('v1.0.1');
 
     // Test passes if no errors occur

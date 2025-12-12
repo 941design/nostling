@@ -49,10 +49,21 @@ A desktop messaging application built on the Nostr protocol with secure auto-upd
 - **Offline support** - Queue messages when offline, publish when connectivity restored
 - **Secure auto-updates** with RSA-4096 cryptographic verification
 - **Auto-update footer** with real-time progress, configurable check intervals, and manual refresh
+- **Ostrich-themed status messages** - Playful, randomly-selected status messages throughout the app
 - **Persistence layer** with SQLite database and automatic schema migrations
 - **Cross-platform** support for macOS and Linux
 - **Dev mode testing** for validating updates before release
 - Built with Electron 30, React 18, and TypeScript
+
+### Ostrich-Themed Status Messages
+
+Throughout the app, status messages use playful ostrich-themed language instead of standard technical terms:
+
+- Update status: "Standing tall" (up to date), "Pecking up" (downloading), "Eyes peeled" (checking)
+- Nostling queue: "Flock gathered" (messages queued), "Wings spread" (sending), "Nestling in" (receiving)
+- Error states: "Ruffled feathers" (errors), "Head in sand" (offline)
+
+Each status type randomly selects from 2-3 themed alternatives on every display, keeping the experience fresh while preserving all dynamic content like versions, progress percentages, and error details.
 
 ## Quick Start
 

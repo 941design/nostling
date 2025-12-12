@@ -1,0 +1,93 @@
+{
+  "updatePhases": {
+    "idle": [
+      "Standing tall",
+      "Preening idly",
+      "Ostrich lounging"
+    ],
+    "checking": [
+      "Scouting the savanna",
+      "Ostrich eyeing",
+      "Beak probing"
+    ],
+    "available": [
+      "Hatching updates",
+      "Fresh eggs spotted",
+      "New feathers available"
+    ],
+    "downloading": [
+      "Pecking up",
+      "Flocking in",
+      "Nestling down"
+    ],
+    "downloaded": [
+      "Pecked and cached",
+      "Nestled safely",
+      "Flock gathered"
+    ],
+    "verifying": [
+      "Inspecting eggs",
+      "Preening feathers",
+      "Checking the clutch"
+    ],
+    "ready": [
+      "Ready to strut",
+      "Hatched and ready",
+      "Feathers unfurled"
+    ],
+    "mounting": [
+      "Unfurling feathers",
+      "Stretching legs",
+      "Waking the flock"
+    ],
+    "mounted": [
+      "Drag Nostling to Applications folder",
+      "Ready to nest in Applications",
+      "Time to settle into Applications"
+    ],
+    "failed": [
+      "Head in sand",
+      "Fumbled feathers",
+      "Broken beak"
+    ]
+  },
+  "nostlingStatuses": {
+    "queued": [
+      "nestled in queue",
+      "waiting in the clutch",
+      "eggs in the nest"
+    ],
+    "sending": [
+      "launching eggs",
+      "flinging feathers",
+      "taking flight"
+    ],
+    "sent": [
+      "delivered to flock",
+      "feathers sent",
+      "eggs hatched"
+    ],
+    "error": [
+      "fumbled egg(s)",
+      "dropped feather(s)",
+      "broken nest"
+    ]
+  },
+  "nostlingQueueStates": {
+    "synced": [
+      "Nostling synced",
+      "Flock in harmony",
+      "All eggs hatched"
+    ],
+    "idle": [
+      "Nostling idle",
+      "Resting on the savanna",
+      "Preening peacefully"
+    ],
+    "offline": [
+      "offline",
+      "savanna unreachable",
+      "flock distant"
+    ]
+  }
+}

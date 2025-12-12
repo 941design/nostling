@@ -11,31 +11,56 @@ export async function getAppVersion(page: Page): Promise<string> {
 }
 
 /**
+ * Themed message alternatives from themed-messages.json
+ */
+const THEMED_MESSAGES = {
+  idle: ['Standing tall', 'Preening idly', 'Ostrich lounging', 'Up to date'],
+  checking: ['Scouting the savanna', 'Ostrich eyeing', 'Beak probing', 'Checking'],
+  available: ['Hatching updates', 'Fresh eggs spotted', 'New feathers available', 'available'],
+  downloading: ['Pecking up', 'Flocking in', 'Nestling down', 'Downloading'],
+  downloaded: ['Pecked and cached', 'Nestled safely', 'Flock gathered', 'downloaded'],
+  verifying: ['Inspecting eggs', 'Preening feathers', 'Checking the clutch', 'Verifying'],
+  ready: ['Ready to strut', 'Hatched and ready', 'Feathers unfurled', 'ready'],
+  failed: ['Head in sand', 'Fumbled feathers', 'Broken beak', 'failed'],
+  offline: ['offline', 'savanna unreachable', 'flock distant', 'Network is offline'],
+};
+
+/**
  * Gets the current update phase from the footer status text.
- * Maps status text to phase name:
- * - "Up to date" -> "idle"
- * - "Checking for updates..." -> "checking"
- * - "Update available" -> "available"
- * - "Downloading update" -> "downloading"
- * - "Update downloaded" -> "downloaded"
- * - "Verifying update..." -> "verifying"
- * - "Update ready" -> "ready"
- * - "Update failed" -> "failed"
+ * Maps status text to phase name, supporting both standard and themed messages:
+ * - "Up to date" or "Standing tall" -> "idle"
+ * - "Checking for updates..." or "Scouting the savanna" -> "checking"
+ * - "Update available" or "Hatching updates" -> "available"
+ * - "Downloading update" or "Pecking up" -> "downloading"
+ * - "Update downloaded" or "Pecked and cached" -> "downloaded"
+ * - "Verifying update..." or "Inspecting eggs" -> "verifying"
+ * - "Update ready" or "Ready to strut" -> "ready"
+ * - "Update failed" or "Head in sand" -> "failed"
  */
 export async function getUpdatePhase(page: Page): Promise<string> {
   const statusText = await page.locator('.footer-status').textContent();
   if (!statusText) return '';
 
-  if (statusText === 'Up to date') return 'idle';
-  if (statusText.startsWith('Checking')) return 'checking';
-  if (statusText.startsWith('Update available')) return 'available';
-  if (statusText.startsWith('Downloading')) return 'downloading';
-  if (statusText === 'Update downloaded') return 'downloaded';
-  if (statusText.startsWith('Verifying')) return 'verifying';
-  if (statusText.startsWith('Update ready')) return 'ready';
-  if (statusText.startsWith('Update failed')) return 'failed';
+  // Check each phase's themed alternatives
+  for (const [phase, alternatives] of Object.entries(THEMED_MESSAGES)) {
+    for (const alt of alternatives) {
+      if (statusText.includes(alt)) {
+        return phase;
+      }
+    }
+  }
 
   return '';
+}
+
+/**
+ * Checks if status text matches any themed alternative for a given phase.
+ */
+export function matchesThemedPhase(statusText: string, phase: string): boolean {
+  const alternatives = THEMED_MESSAGES[phase as keyof typeof THEMED_MESSAGES];
+  if (!alternatives) return false;
+
+  return alternatives.some(alt => statusText.includes(alt));
 }
 
 /**
@@ -51,30 +76,21 @@ export async function clickButton(page: Page, label: string): Promise<void> {
 
 /**
  * Waits for the footer status to show a specific phase.
- * Maps phase to status text patterns:
- * - "idle" -> "Up to date"
- * - "checking" -> "Checking"
- * - "available" -> "available"
- * - "downloading" -> "Downloading"
- * - "downloaded" -> "downloaded"
- * - "verifying" -> "Verifying"
- * - "ready" -> "ready"
- * - "failed" -> "failed"
+ * Supports both standard and themed messages.
+ * Polls until any themed alternative for the phase appears.
  */
 export async function waitForUpdatePhase(page: Page, phase: string, timeout = 5000): Promise<void> {
-  const statusPatterns: Record<string, string> = {
-    idle: 'Up to date',
-    checking: 'Checking',
-    available: 'available',
-    downloading: 'Downloading',
-    downloaded: 'downloaded',
-    verifying: 'Verifying',
-    ready: 'ready',
-    failed: 'failed',
-  };
+  const startTime = Date.now();
 
-  const pattern = statusPatterns[phase] || phase;
-  await page.waitForSelector(`.footer-status:has-text("${pattern}")`, { timeout });
+  while (Date.now() - startTime < timeout) {
+    const currentPhase = await getUpdatePhase(page);
+    if (currentPhase === phase) {
+      return;
+    }
+    await page.waitForTimeout(100);
+  }
+
+  throw new Error(`Timeout waiting for phase "${phase}" after ${timeout}ms`);
 }
 
 /**

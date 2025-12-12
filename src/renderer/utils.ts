@@ -1,4 +1,5 @@
 import type { UpdateState, UpdatePhase } from '../shared/types';
+import { getStatusTextThemed } from './utils.themed';
 
 export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${Math.round(bytes)} B`;
@@ -7,44 +8,17 @@ export function formatBytes(bytes: number): string {
   return `${(bytes / 1073741824).toFixed(1)} GB`;
 }
 
+/**
+ * Generates user-facing status text for app update states.
+ *
+ * This function now delegates to getStatusTextThemed() which provides
+ * ostrich-themed message alternatives while preserving all dynamic content.
+ *
+ * @param updateState - The current update state
+ * @returns Human-readable status message with themed text
+ */
 export function getStatusText(updateState: UpdateState): string {
-  const { phase, version: newVersion, detail, progress } = updateState;
-
-  switch (phase) {
-    case 'idle':
-      return 'Up to date';
-    case 'checking':
-      return 'Checking for updates...';
-    case 'available':
-      return newVersion && newVersion.trim() ? `Update available: v${newVersion}` : 'Update available';
-    case 'downloading':
-      if (progress) {
-        const percent = Math.round(progress.percent);
-        const transferred = formatBytes(progress.transferred);
-        const total = formatBytes(progress.total);
-        const speed = formatBytes(progress.bytesPerSecond) + '/s';
-        return `Downloading update: ${percent}% (${transferred} / ${total}) @ ${speed}`;
-      }
-      return 'Downloading update...';
-    case 'downloaded':
-      return 'Update downloaded';
-    case 'verifying':
-      return 'Verifying update...';
-    case 'ready':
-      return newVersion && newVersion.trim() ? `Update ready: v${newVersion}` : 'Update ready';
-    case 'mounting':
-      if (progress) {
-        const percent = Math.round(progress.percent);
-        return `Preparing update... ${percent}%`;
-      }
-      return 'Preparing update...';
-    case 'mounted':
-      return 'Drag Nostling to Applications folder';
-    case 'failed':
-      return detail && detail.trim() ? `Update failed: ${detail}` : 'Update failed';
-    default:
-      return 'Unknown state';
-  }
+  return getStatusTextThemed(updateState);
 }
 
 export function isRefreshEnabled(phase: UpdatePhase): boolean {

@@ -318,7 +318,12 @@ interface FooterProps {
 }
 
 function Footer({ version, updateState, onRefresh, onDownload, onRestart, nostlingStatus, nostlingError }: FooterProps) {
-  const statusText = useMemo(() => getStatusText(updateState), [updateState]);
+  // Memoize based on phase and display-relevant fields only to prevent
+  // random message re-selection during progress updates (downloading, mounting)
+  const statusText = useMemo(
+    () => getStatusText(updateState),
+    [updateState.phase, updateState.version, updateState.detail]
+  );
   const refreshEnabled = useMemo(() => isRefreshEnabled(updateState.phase), [updateState.phase]);
 
   const showDownloadButton = updateState.phase === 'available';

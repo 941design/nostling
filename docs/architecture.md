@@ -63,6 +63,10 @@ The React application that users interact with. Runs in a sandboxed Chromium env
 - TypeScript with strict mode
 - Vite for bundling
 
+**Key features:**
+- Themed status messages using JSON-based configuration with runtime validation
+- Memoized message selection for performance optimization
+
 ## Directory Structure
 
 ```
@@ -78,7 +82,11 @@ src/
 │   └── index.ts    # API bridge
 ├── renderer/       # React frontend
 │   ├── main.tsx    # React root
-│   └── index.html  # HTML entry
+│   ├── index.html  # HTML entry
+│   └── utils/      # Utilities
+│       ├── themed-messages.ts    # Theme configuration
+│       ├── utils.themed.ts       # Update status theming
+│       └── state.themed.ts       # Nostling queue theming
 └── shared/         # Shared types
     └── types.ts    # TypeScript definitions
 ```
@@ -207,3 +215,49 @@ release/            # After packaging
 - AppImage format for portability
 - No root required for installation or updates
 - Standard electron-updater flow
+
+## Themed Messages System
+
+The application uses ostrich-themed status messages throughout the UI to provide a playful, branded experience while maintaining technical clarity.
+
+### Architecture
+
+**Three-layer system:**
+
+1. **Configuration Layer** (`themed-messages.ts`):
+   - JSON-based theme definition with 2-3 alternatives per status type
+   - Runtime validation with schema checking
+   - Graceful fallback to default messages on validation failure
+   - Single source of truth for all themed messages
+
+2. **Update Status Theming** (`utils.themed.ts`):
+   - Themes update-related status messages (checking, downloading, up to date, etc.)
+   - Preserves dynamic content (version numbers, progress percentages, download speeds)
+   - Random selection from configured alternatives on each display
+   - Memoized with React.useMemo for performance
+
+3. **Nostling Queue Theming** (`state.themed.ts`):
+   - Themes Nostling message queue status (queued, sending, receiving, etc.)
+   - Preserves dynamic content (message counts, error details)
+   - Consistent random selection behavior
+   - Integrated with queue state display components
+
+### Message Categories
+
+**Update Status Messages:**
+- Idle states: "Standing tall", "Tall and proud", "Head held high"
+- Active states: "Eyes peeled", "Pecking up", "Looking sharp"
+- Error states: "Ruffled feathers", "Tangled nest"
+
+**Nostling Queue Status:**
+- Queue states: "Flock gathered", "Nestling in"
+- Active states: "Wings spread", "Feathers flying"
+- Completion states: "Nest secured", "Roost reached"
+
+### Design Principles
+
+- **Preserve technical information**: All version numbers, counts, and error details remain intact
+- **Random variety**: Each display randomly selects from available alternatives to keep experience fresh
+- **Graceful degradation**: Invalid configuration falls back to default messages without breaking UI
+- **Performance**: Message selection memoized to avoid unnecessary recalculation
+- **Testability**: Property-based tests verify message structure, dynamic content preservation, and randomness

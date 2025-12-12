@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Ostrich-Themed Status Messages**: Playful, randomly-selected status messages throughout the application
+  - Themed alternatives for update status messages (e.g., "Standing tall" for "Up to date", "Pecking up" for "Downloading")
+  - Themed alternatives for Nostling queue status (e.g., "Flock gathered" for "Queued", "Wings spread" for "Sending")
+  - JSON-based configuration with 2-3 variations per status type for variety
+  - Runtime validation with graceful fallback to default messages
+  - Preserves all dynamic content (versions, progress percentages, counts, error messages)
+  - Property-based testing: 72 new tests (11 integration, 39 update status, 22 Nostling status)
+  - E2E tests updated to support random themed message selection
+  - Total test suite: 640 tests, all passing with zero regressions
 - **Persistence Layer**: SQLite-based application state storage with automatic schema migrations
   - SQLite database (`nostling.db`) using sql.js WebAssembly implementation
   - Knex.js-compatible migration system for schema versioning

@@ -31,9 +31,13 @@ test.describe('Offline Detection', () => {
 
     await waitForUpdatePhase(page, 'failed');
 
-    // Verify the footer shows the offline message
+    // Verify the footer shows failure (accepts themed alternatives)
     const statusText = await getStatusText(page);
-    expect(statusText).toBe('Update failed: Network is offline');
+    const failedMessages = ['Head in sand', 'Fumbled feathers', 'Broken beak', 'failed'];
+    expect(failedMessages.some(msg => statusText.includes(msg))).toBe(true);
+    // Should also contain offline detail
+    const offlineTerms = ['offline', 'savanna unreachable', 'flock distant', 'Network is offline'];
+    expect(offlineTerms.some(term => statusText.toLowerCase().includes(term.toLowerCase()))).toBe(true);
   });
 
   test('should not show generic "Update verification failed" for offline state', async ({ page, electronApp }) => {
@@ -55,8 +59,9 @@ test.describe('Offline Detection', () => {
     const statusText = await getStatusText(page);
     // Should NOT contain the generic error message
     expect(statusText).not.toContain('verification failed');
-    // Should contain the offline-specific message
-    expect(statusText).toContain('offline');
+    // Should contain offline-specific message (themed or standard)
+    const offlineTerms = ['offline', 'savanna unreachable', 'flock distant'];
+    expect(offlineTerms.some(term => statusText.toLowerCase().includes(term.toLowerCase()))).toBe(true);
   });
 
   test('footer should allow retry when offline', async ({ page, electronApp }) => {

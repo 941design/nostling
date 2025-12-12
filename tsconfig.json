@@ -8,6 +8,7 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
+    "resolveJsonModule": true,
     "types": ["node", "vite/client", "jest"]
   },
   "include": ["src/**/*", "scripts/**/*", "vite.renderer.config.ts"]

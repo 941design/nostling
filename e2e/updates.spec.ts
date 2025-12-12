@@ -23,8 +23,9 @@ test.describe('Update System', () => {
 
     await expect(page.locator('.footer-status')).toBeVisible();
     const statusText = await getStatusText(page);
-    // Idle state shows "Up to date"
-    expect(statusText).toBe('Up to date');
+    // Idle state shows themed alternatives
+    const idleMessages = ['Standing tall', 'Preening idly', 'Ostrich lounging', 'Up to date'];
+    expect(idleMessages.some(msg => statusText.includes(msg))).toBe(true);
   });
 
   test('button should be disabled during downloading state', async ({ page, electronApp }) => {
@@ -46,6 +47,10 @@ test.describe('Update System', () => {
   test('button should be disabled during verifying state', async ({ page, electronApp }) => {
     await waitForAppReady(page);
 
+    // Wait for any initial auto-check to complete before injecting test state
+    // The app schedules an auto-check 5 seconds after startup
+    await page.waitForTimeout(6000);
+
     await electronApp.evaluate(async ({ BrowserWindow }) => {
       const windows = BrowserWindow.getAllWindows();
       if (windows[0]) {
@@ -53,7 +58,7 @@ test.describe('Update System', () => {
       }
     });
 
-    await waitForUpdatePhase(page, 'verifying');
+    await waitForUpdatePhase(page, 'verifying', 3000);
     // Refresh button should be disabled during verifying
     const button = page.locator('.footer-icon-button');
     await expect(button).toBeDisabled();
@@ -75,9 +80,10 @@ test.describe('Update System', () => {
     const restartButton = page.locator('.footer-button:has-text("Restart to Update")');
     await expect(restartButton).toBeVisible();
 
-    // Status should show ready state with version
+    // Status should show ready state with version (accepts themed alternatives)
     const statusText = await getStatusText(page);
-    expect(statusText).toContain('Update ready');
+    const readyMessages = ['Ready to strut', 'Hatched and ready', 'Feathers unfurled', 'ready'];
+    expect(readyMessages.some(msg => statusText.includes(msg))).toBe(true);
     expect(statusText).toContain('v1.0.1');
   });
 
@@ -96,9 +102,10 @@ test.describe('Update System', () => {
 
     await waitForUpdatePhase(page, 'available');
 
-    // New layout shows version in footer status text
+    // New layout shows version in footer status text (accepts themed alternatives)
     const statusText = await getStatusText(page);
-    expect(statusText).toContain('Update available');
+    const availableMessages = ['Hatching updates', 'Fresh eggs spotted', 'New feathers available', 'available'];
+    expect(availableMessages.some(msg => statusText.includes(msg))).toBe(true);
     expect(statusText).toContain('v2.0.0');
   });
 });

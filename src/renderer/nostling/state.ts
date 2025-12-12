@@ -8,6 +8,7 @@ import {
   NostlingRelayConfig,
   SendNostrMessageRequest,
 } from '../../shared/types';
+import { getNostlingStatusTextThemed } from './state.themed';
 
 type ContactMap = Record<string, NostlingContact[]>;
 type MessageMap = Record<string, NostlingMessage[]>;
@@ -376,14 +377,18 @@ export function useNostlingState() {
 
   const queueSummary = useMemo(() => deriveQueueSummary(messages), [messages]);
 
+  /**
+   * Nostling status text with ostrich-themed messages.
+   *
+   * Now delegates to getNostlingStatusTextThemed() which provides themed
+   * message alternatives while preserving message counts and state priority.
+   *
+   * Note: Uses value-based comparison of queueSummary fields to prevent
+   * unnecessary re-selection of random themed messages.
+   */
   const nostlingStatusText = useMemo(() => {
-    if (!hasBridge) return 'Nostling bridge unavailable';
-    if (queueSummary.errors > 0) return `${queueSummary.errors} message error(s)`;
-    if (queueSummary.sending > 0) return `${queueSummary.sending} sending`;
-    if (queueSummary.queued > 0) return `${queueSummary.queued} queued (offline)`;
-    if (queueSummary.lastActivity) return 'Nostling synced';
-    return 'Nostling idle';
-  }, [hasBridge, queueSummary]);
+    return getNostlingStatusTextThemed(hasBridge, queueSummary);
+  }, [hasBridge, queueSummary.queued, queueSummary.sending, queueSummary.errors, queueSummary.lastActivity]);
 
   return {
     hasBridge,

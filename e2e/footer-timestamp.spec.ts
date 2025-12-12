@@ -36,9 +36,10 @@ test.describe('Footer Display', () => {
     const statusSpan = footer.locator('.footer-status');
     await expect(statusSpan).toBeVisible();
 
-    // Initial state should be "Up to date"
+    // Initial state should be idle phase (accepts themed alternatives)
     const statusText = await getStatusText(page);
-    expect(statusText).toBe('Up to date');
+    const idleMessages = ['Standing tall', 'Preening idly', 'Ostrich lounging', 'Up to date'];
+    expect(idleMessages.some(msg => statusText.includes(msg))).toBe(true);
   });
 
   test('should have refresh button enabled on idle state', async ({ page }) => {
