@@ -440,17 +440,24 @@ export class NostlingService {
       return [];
     }
 
-    const contactNpubs = contacts.map((contact) => contact.npub);
+    // Convert npubs to hex pubkeys for relay filters (Nostr protocol requirement)
+    // Falls back to npub for test mode with placeholder values
+    const toHexOrPassthrough = (npub: string): string =>
+      isValidNpub(npub) ? npubToHex(npub) : npub;
+
+    const identityPubkey = toHexOrPassthrough(identityNpub);
+    const contactPubkeys = contacts.map((contact) => toHexOrPassthrough(contact.npub));
+
     return [
       {
         kinds: [4],
-        authors: contactNpubs,
-        '#p': [identityNpub],
+        authors: contactPubkeys,
+        '#p': [identityPubkey],
       },
       {
         kinds: [4],
-        authors: [identityNpub],
-        '#p': contactNpubs,
+        authors: [identityPubkey],
+        '#p': contactPubkeys,
       },
     ];
   }
@@ -600,11 +607,12 @@ export class NostlingService {
   }
 
   private handleIncomingEvent(identityId: string, event: NostrEvent): void {
-    // Deduplicate events
-    if (this.seenEventIds.has(event.id)) {
+    // Deduplicate events per-identity (same event may be received by multiple identity subscriptions)
+    const dedupeKey = `${identityId}:${event.id}`;
+    if (this.seenEventIds.has(dedupeKey)) {
       return;
     }
-    this.seenEventIds.add(event.id);
+    this.seenEventIds.add(dedupeKey);
 
     // Process event asynchronously (don't block relay subscription)
     this.processIncomingEvent(identityId, event).catch((error) => {

@@ -4,12 +4,10 @@ A desktop messaging application built on the Nostr protocol with secure auto-upd
 
 ## TODO
 
-+ status is stuck at checking for updates
-+ themes
-+ larger initial screen size.
-+ save screen size in config
+# TODO
+
++ create proper readme
 + add config dir command line param
-+ disallow pushing tags on branches other than master
 + identity
   + create
   + remove
@@ -38,6 +36,16 @@ A desktop messaging application built on the Nostr protocol with secure auto-upd
   1. Clean the database before e2e tests
   2. The migration should drop and recreate the table if the schema doesn't match
   3. Update tests to handle this scenario
+
+## Build
+
++ disallow pushing tags on branches other than master
+
+## Styling
+
++ themes
++ larger initial screen size.
++ save screen size in config
 
 ## Features
 

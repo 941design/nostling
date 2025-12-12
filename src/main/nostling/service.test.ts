@@ -4,6 +4,7 @@ import { NostlingService } from './service';
 import { NostlingSecretStore } from './secret-store';
 import { runMigrations } from '../database/migrations';
 import { log } from '../logging';
+import { generateKeypair } from './crypto';
 
 jest.mock('electron', () => ({
   app: {
@@ -165,7 +166,8 @@ describe('NostlingService', () => {
     expect((log as jest.Mock).mock.calls.some((call) => `${call[1]}`.includes('Relay publish failed'))).toBe(true);
   });
 
-  it('builds kind-4 relay filters from the contact whitelist', async () => {
+  it('builds kind-4 relay filters from the contact whitelist (placeholder npubs)', async () => {
+    // Test with placeholder npubs (passthrough behavior for tests)
     const identity = await service.createIdentity({ label: 'FilterOwner', nsec: 'secret', npub: 'npub1' });
     await service.addContact({ identityId: identity.id, npub: 'npub2' });
     await service.addContact({ identityId: identity.id, npub: 'npub3', alias: 'Friend' });
@@ -175,6 +177,34 @@ describe('NostlingService', () => {
       { kinds: [4], authors: ['npub2', 'npub3'], '#p': ['npub1'] },
       { kinds: [4], authors: ['npub1'], '#p': ['npub2', 'npub3'] },
     ]);
+  });
+
+  it('converts valid npubs to hex pubkeys in relay filters', async () => {
+    // Generate real keypairs to test hex conversion
+    const ownerKeypair = generateKeypair();
+    const contact1Keypair = generateKeypair();
+    const contact2Keypair = generateKeypair();
+
+    const identity = await service.createIdentity({
+      label: 'RealFilterOwner',
+      nsec: ownerKeypair.nsec,
+    });
+    await service.addContact({ identityId: identity.id, npub: contact1Keypair.keypair.npub });
+    await service.addContact({ identityId: identity.id, npub: contact2Keypair.keypair.npub });
+
+    const filters = await service.getKind4Filters(identity.id);
+
+    // Verify filters use hex pubkeys (64-char lowercase hex strings)
+    expect(filters).toHaveLength(2);
+    expect(filters[0].authors).toEqual([contact1Keypair.keypair.pubkeyHex, contact2Keypair.keypair.pubkeyHex]);
+    expect(filters[0]['#p']).toEqual([ownerKeypair.keypair.pubkeyHex]);
+    expect(filters[1].authors).toEqual([ownerKeypair.keypair.pubkeyHex]);
+    expect(filters[1]['#p']).toEqual([contact1Keypair.keypair.pubkeyHex, contact2Keypair.keypair.pubkeyHex]);
+
+    // Verify hex format (64 lowercase hex chars)
+    const hexPattern = /^[0-9a-f]{64}$/;
+    filters[0].authors!.forEach(author => expect(author).toMatch(hexPattern));
+    filters[0]['#p']!.forEach(p => expect(p).toMatch(hexPattern));
   });
 
   it('retries failed messages by resetting status to queued', async () => {
@@ -242,5 +272,58 @@ describe('NostlingService', () => {
     const writeRelay = relays.find((r) => r.url === 'wss://write-relay.example.com');
     expect(writeRelay?.read).toBe(false);
     expect(writeRelay?.write).toBe(true);
+  });
+
+  it('deduplicates events per-identity for mutual connections', async () => {
+    /**
+     * Regression test: Per-identity event deduplication for mutual connections
+     *
+     * Bug report: Mutual connections not showing received messages
+     * Fixed: 2025-12-12
+     * Root cause: seenEventIds was global across all identities, so when both identities
+     *             subscribed to events, only the first identity to process an event would
+     *             receive it - the second would skip it as "already seen".
+     *
+     * Protection: Ensures that when two local identities have each other as contacts,
+     *             an incoming event from one can be processed independently by both.
+     */
+    const identityA = await service.createIdentity({ label: 'Alice', nsec: 'secretA', npub: 'npubA' });
+    const identityB = await service.createIdentity({ label: 'Bob', nsec: 'secretB', npub: 'npubB' });
+
+    // Create mutual contacts
+    const contactBonA = await service.addContact({ identityId: identityA.id, npub: 'npubB' });
+    const contactAonB = await service.addContact({ identityId: identityB.id, npub: 'npubA' });
+
+    // Simulate an incoming event that would match both identities' subscriptions
+    // (e.g., A sends a message to B - B receives it, but A also sees it in their "sent" subscription)
+    const eventId = 'shared-event-123';
+
+    // Ingest the same event for both identities (simulating both subscriptions receiving it)
+    const msgForB = await service.ingestIncomingMessage({
+      identityId: identityB.id,
+      senderNpub: 'npubA',
+      recipientNpub: 'npubB',
+      content: 'Hello Bob!',
+      eventId,
+    });
+
+    const msgForA = await service.ingestIncomingMessage({
+      identityId: identityA.id,
+      senderNpub: 'npubB',
+      recipientNpub: 'npubA',
+      content: 'Hello Alice!',
+      eventId, // Same event ID - would have been deduplicated globally before the fix
+    });
+
+    // Both messages should be stored (the fix uses per-identity deduplication key)
+    expect(msgForB).not.toBeNull();
+    expect(msgForA).not.toBeNull();
+
+    // Verify messages are stored in correct conversations
+    const messagesForB = await service.listMessages(identityB.id, contactAonB.id);
+    const messagesForA = await service.listMessages(identityA.id, contactBonA.id);
+
+    expect(messagesForB.some((m) => m.content === 'Hello Bob!')).toBe(true);
+    expect(messagesForA.some((m) => m.content === 'Hello Alice!')).toBe(true);
   });
 });

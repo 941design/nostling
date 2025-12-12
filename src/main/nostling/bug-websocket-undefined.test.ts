@@ -16,6 +16,10 @@
 import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import { RelayPool } from './relay-pool';
 
+function normalizeUrl(url: string): string {
+  return url.endsWith('/') ? url : url + '/';
+}
+
 jest.mock('../logging', () => ({
   log: jest.fn(),
 }));
@@ -50,8 +54,8 @@ describe('Regression: WebSocket implementation in Node.js environment', () => {
     // Wait for connection attempt
     await new Promise(resolve => setTimeout(resolve, 1000));
 
-    // Get final status
-    const finalStatus = relayPool.getStatus().get(testRelay.url);
+    // Get final status (URLs are normalized with trailing slash)
+    const finalStatus = relayPool.getStatus().get(normalizeUrl(testRelay.url));
 
     // After fix: Connection should succeed or fail with network error, NOT WebSocket error
     // Accept both 'connected' (success) and 'error' (network issue)
