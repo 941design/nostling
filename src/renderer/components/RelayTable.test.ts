@@ -75,10 +75,14 @@ function toggleEnabled(
   relay: NostlingRelayEndpoint,
   enabled: boolean
 ): NostlingRelayEndpoint {
+  // BUG FIX: Relay re-activation not working
+  // Bug report: bug-reports/relay-reactivation-not-working-report.md
+  // Fixed: 2025-12-12
+  const bothDisabled = !relay.read && !relay.write;
   return {
     ...relay,
-    read: enabled ? relay.read : false,
-    write: enabled ? relay.write : false,
+    read: enabled ? (bothDisabled ? true : relay.read) : false,
+    write: enabled ? (bothDisabled ? true : relay.write) : false,
   };
 }
 
@@ -277,7 +281,7 @@ describe('RelayTable - Property-Based Tests', () => {
       );
     });
 
-    it('P006: Toggling enabled flag to true preserves read/write', () => {
+    it('P006: Toggling enabled flag to true preserves read/write (except when both false)', () => {
       fc.assert(
         fc.property(
           relayEndpointArbitrary,
@@ -287,8 +291,16 @@ describe('RelayTable - Property-Based Tests', () => {
             const updated = { ...relay, read, write };
             const enabled = toggleEnabled(updated, true);
 
-            expect(enabled.read).toBe(read);
-            expect(enabled.write).toBe(write);
+            // After bug fix: if both are false (disabled), set both to true
+            // Otherwise, preserve existing values
+            const bothDisabled = !read && !write;
+            if (bothDisabled) {
+              expect(enabled.read).toBe(true);
+              expect(enabled.write).toBe(true);
+            } else {
+              expect(enabled.read).toBe(read);
+              expect(enabled.write).toBe(write);
+            }
             return true;
           }
         ),
@@ -650,7 +662,13 @@ describe('RelayTable - Property-Based Tests', () => {
       expect(reordered).toEqual(relays);
     });
 
-    it('E004: Toggle enabled false then true', () => {
+    it('E004: Toggle enabled false then true (regression test for relay re-activation)', () => {
+      // Regression test: Relay re-activation not working
+      // Bug report: bug-reports/relay-reactivation-not-working-report.md
+      // Fixed: 2025-12-12
+      //
+      // Protection: Prevents relays from becoming permanently disabled after
+      // unchecking the "Enabled" checkbox. Re-enabling should restore relay to active state.
       const relay: NostlingRelayEndpoint = {
         url: 'wss://relay.example.com',
         read: true,
@@ -663,8 +681,9 @@ describe('RelayTable - Property-Based Tests', () => {
       expect(disabled.write).toBe(false);
 
       const enabled = toggleEnabled(disabled, true);
-      expect(enabled.read).toBe(false);
-      expect(enabled.write).toBe(false);
+      // After fix: re-enabling restores both read and write to true
+      expect(enabled.read).toBe(true);
+      expect(enabled.write).toBe(true);
     });
 
     it('E005: Add then remove same relay', () => {
@@ -770,8 +789,9 @@ describe('RelayTable - Property-Based Tests', () => {
 
       // Test enabled handler
       const enabledResult = toggleEnabled(relay, checkboxDetails.checked);
-      expect(enabledResult.read).toBe(false); // Preserves current state when enabled
-      expect(enabledResult.write).toBe(false);
+      // After bug fix: enabling a fully disabled relay restores both to true
+      expect(enabledResult.read).toBe(true);
+      expect(enabledResult.write).toBe(true);
 
       // Test read handler
       const readResult = updateRead(relay, checkboxDetails.checked);
@@ -804,6 +824,43 @@ describe('RelayTable - Property-Based Tests', () => {
       };
 
       expect(tooltipConfig.positioning.strategy).toBe('fixed');
+    });
+
+    /**
+     * Bug reproduction: Relay re-activation not working
+     *
+     * Bug report: bug-reports/relay-reactivation-not-working-report.md
+     * Root cause: handleEnabledChange uses current relay.read/write values when re-enabling,
+     *             but those values are false after disabling, so re-enabling does nothing
+     *
+     * Expected: Re-enabling should restore relay to active state with previous read/write permissions
+     * Actual: Re-enabling does nothing - relay stays disabled with read=false, write=false
+     */
+    it('BUG FIX VERIFICATION: Re-enabling relay after disabling restores permissions', () => {
+      // Regression test: Relay re-activation not working
+      // Bug report: bug-reports/relay-reactivation-not-working-report.md
+      // Fixed: 2025-12-12
+      //
+      // Start with an active relay with both read and write enabled
+      const activeRelay: NostlingRelayEndpoint = {
+        url: 'wss://relay.example.com',
+        read: true,
+        write: true,
+        order: 0,
+      };
+
+      // Disable the relay
+      const disabled = toggleEnabled(activeRelay, false);
+      expect(disabled.read).toBe(false);
+      expect(disabled.write).toBe(false);
+
+      // Re-enable the relay
+      const reEnabled = toggleEnabled(disabled, true);
+
+      // After fix: Relay is re-enabled with permissions restored
+      // When both read and write are false (disabled), re-enabling sets both to true
+      expect(reEnabled.read).toBe(true); // FIXED: now restores to true
+      expect(reEnabled.write).toBe(true); // FIXED: now restores to true
     });
   });
 });

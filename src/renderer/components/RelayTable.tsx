@@ -109,10 +109,18 @@ const SortableRelayRow = React.memo(function SortableRelayRow({
   const handleEnabledChange = useCallback(
     (details: CheckboxCheckedChangeDetails) => {
       const isEnabled = details.checked === true;
+      // BUG FIX: Relay re-activation not working
+      // Root cause: When re-enabling after disabling, both read and write are false,
+      // so they stayed false (relay.read ? relay.read : false evaluates to false).
+      // Fix: When enabling, if both are currently false (disabled state),
+      // default to both true. Otherwise preserve existing values.
+      // Bug report: bug-reports/relay-reactivation-not-working-report.md
+      // Fixed: 2025-12-12
+      const bothDisabled = !relay.read && !relay.write;
       onUpdate({
         ...relay,
-        read: isEnabled ? relay.read : false,
-        write: isEnabled ? relay.write : false,
+        read: isEnabled ? (bothDisabled ? true : relay.read) : false,
+        write: isEnabled ? (bothDisabled ? true : relay.write) : false,
       });
     },
     [relay, onUpdate]

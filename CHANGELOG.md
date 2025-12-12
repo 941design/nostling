@@ -56,6 +56,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sidebar simplified: removed update-related controls and status displays (structure preserved for future features)
 
 ### Fixed
+- Fixed relay re-activation not working after disabling (Relay Configuration)
+  - Users can now successfully re-enable relays after unchecking the "Enabled" checkbox
+  - Root cause: When re-enabling, the handler preserved the disabled state (read=false, write=false) instead of restoring active state
+  - Fix: When enabling a fully disabled relay (both read and write false), both are now set to true
+  - Relays with partial permissions (only read or only write) preserve their specific state when re-enabled
+  - Added regression test to prevent relays from becoming permanently disabled
+  - Bug report: bug-reports/relay-reactivation-not-working-report.md
+  - Fixed: 2025-12-12
 - Fixed WebSocket implementation for Nostr relay connections in Node.js/Electron environment
   - Added ws package as WebSocket implementation for nostr-tools library
   - Root cause: nostr-tools SimplePool required explicit WebSocket for non-browser contexts
