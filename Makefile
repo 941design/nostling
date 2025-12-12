@@ -1,4 +1,4 @@
-.PHONY: help clean install dev build test lint lint-fix lint-all package release sign-manifest test-e2e test-e2e-ui test-e2e-headed test-e2e-debug test-e2e-docker test-e2e-docker-clean test-all dev-update-release dev-update-prerelease dev-update-local local-release local-release-clean test-version-upgrade version-patch version-minor version-major install-hooks
+.PHONY: help clean install dev build test lint lint-fix lint-all package release sign-manifest test-e2e test-e2e-native test-e2e-ui test-e2e-headed test-e2e-debug test-e2e-clean test-all dev-update-release dev-update-prerelease dev-update-local local-release local-release-clean test-version-upgrade version-patch version-minor version-major install-hooks
 
 .DEFAULT_GOAL := help
 
@@ -72,7 +72,10 @@ test: ## Run unit tests
 test-watch: ## Run unit tests in watch mode
 	npm run test:watch
 
-test-e2e: ## Run end-to-end tests with Playwright
+test-e2e: ## Run E2E tests in Docker (sandboxed, default)
+	npm run test:e2e:docker
+
+test-e2e-native: ## Run E2E tests directly (no container)
 	npm run test:e2e
 
 test-e2e-ui: ## Run E2E tests in interactive UI mode
@@ -84,10 +87,7 @@ test-e2e-headed: ## Run E2E tests in headed mode (visible browser)
 test-e2e-debug: ## Debug E2E tests with Playwright Inspector
 	npm run test:e2e:debug
 
-test-e2e-docker: ## Run E2E tests in Docker (simulates Ubuntu CI environment)
-	npm run test:e2e:docker
-
-test-e2e-docker-clean: ## Clean up Docker resources and test artifacts
+test-e2e-clean: ## Clean up Docker resources and test artifacts
 	npm run test:e2e:docker:clean
 
 test-all: test test-e2e ## Run all tests (unit + E2E)
