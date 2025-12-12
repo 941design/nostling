@@ -69,6 +69,13 @@ const HelpIcon = () => (
   </svg>
 );
 
+// Copy icon for clipboard
+const CopyIcon = () => (
+  <svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor">
+    <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" />
+  </svg>
+);
+
 // Custom dark theme for Chakra UI v3
 const config = defineConfig({
   theme: {
@@ -533,9 +540,25 @@ function IdentityList({
             <Text color="gray.200" fontWeight="semibold">
               {identity.label || identity.npub}
             </Text>
-            <Text color="gray.500" fontSize="xs" lineClamp={1}>
-              {identity.npub}
-            </Text>
+            <HStack gap="1">
+              <Text color="gray.500" fontSize="xs" lineClamp={1} flex="1">
+                {identity.npub}
+              </Text>
+              <IconButton
+                size="xs"
+                variant="ghost"
+                aria-label="Copy npub"
+                title="Copy npub to clipboard"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigator.clipboard.writeText(identity.npub);
+                }}
+                color="gray.500"
+                _hover={{ color: 'gray.300' }}
+              >
+                <CopyIcon />
+              </IconButton>
+            </HStack>
             <IdentityStatusBadge secretRef={identity.secretRef} />
           </Box>
         ))}
@@ -604,13 +627,29 @@ function ContactList({
             onClick={() => onSelect(contact.id)}
           >
             <HStack justify="space-between" align="start">
-              <Stack gap="0">
+              <Stack gap="0" flex="1" minW="0">
                 <Text color="gray.200" fontWeight="semibold">
                   {contact.alias || contact.npub}
                 </Text>
-                <Text color="gray.500" fontSize="xs" lineClamp={1}>
-                  {contact.npub}
-                </Text>
+                <HStack gap="1">
+                  <Text color="gray.500" fontSize="xs" lineClamp={1} flex="1">
+                    {contact.npub}
+                  </Text>
+                  <IconButton
+                    size="xs"
+                    variant="ghost"
+                    aria-label="Copy npub"
+                    title="Copy npub to clipboard"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigator.clipboard.writeText(contact.npub);
+                    }}
+                    color="gray.500"
+                    _hover={{ color: 'gray.300' }}
+                  >
+                    <CopyIcon />
+                  </IconButton>
+                </HStack>
               </Stack>
               <ContactStateBadge state={contact.state} />
             </HStack>
