@@ -480,6 +480,7 @@ app.on('ready', async () => {
       listIdentities: () => getNostlingService().listIdentities(),
       createIdentity: (request) => getNostlingService().createIdentity(request),
       removeIdentity: (identityId) => getNostlingService().removeIdentity(identityId),
+      updateIdentityTheme: (identityId, themeId) => getNostlingService().updateIdentityTheme(identityId, themeId),
       listContacts: (identityId) => getNostlingService().listContacts(identityId),
       addContact: (request) => getNostlingService().addContact(request),
       removeContact: (contactId) => getNostlingService().removeContact(contactId),

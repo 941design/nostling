@@ -8,6 +8,7 @@
 
 import * as migration0 from './migrations/20251210120000_create_app_state_table';
 import * as migration1 from './migrations/20251212100000_create_nostling_tables';
+import * as migration2 from './migrations/20251213000000_add_theme_to_identities';
 
 export interface Migration {
   up: (knex: any) => Promise<void>;
@@ -17,9 +18,11 @@ export interface Migration {
 export const MIGRATIONS_MAP: Record<string, Migration> = {
   '20251210120000_create_app_state_table': migration0,
   '20251212100000_create_nostling_tables': migration1,
+  '20251213000000_add_theme_to_identities': migration2,
 };
 
 export const MIGRATION_NAMES: string[] = [
   '20251210120000_create_app_state_table',
   '20251212100000_create_nostling_tables',
+  '20251213000000_add_theme_to_identities',
 ];

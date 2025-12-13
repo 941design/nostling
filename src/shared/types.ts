@@ -133,6 +133,7 @@ export interface NostlingIdentity {
   secretRef: string;
   label: string;
   relays?: string[];
+  theme?: string; // Theme ID for per-identity theming
   createdAt: string;
 }
 
@@ -189,6 +190,7 @@ export interface CreateIdentityRequest {
   npub?: string; // when creating from external store reference
   secretRef?: string; // optional hint for existing secret storage
   relays?: string[];
+  theme?: string; // Theme ID for initial theme selection
 }
 
 export interface AddContactRequest {
@@ -208,6 +210,7 @@ export interface NostlingApi {
     list(): Promise<NostlingIdentity[]>;
     create(request: CreateIdentityRequest): Promise<NostlingIdentity>;
     remove(id: string): Promise<void>;
+    updateTheme(identityId: string, themeId: string): Promise<void>;
   };
   contacts: {
     list(identityId: string): Promise<NostlingContact[]>;

@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Theme System**: Per-identity theme customization with 10 distinctive color schemes
+  - 10 predefined themes: Light, Dark, Sunset, Ocean, Forest, Purple Haze, Ember, Twilight, Mint, Amber
+  - Theme selector integrated into hamburger menu with visual color swatches
+  - Per-identity theme persistence via SQLite database
+  - Automatic theme application on identity selection
+  - Invalid theme fallback to dark theme
+  - Real-time theme switching with immediate UI update
+  - Property-based integration tests: 54 tests covering theme persistence, application, fallback, and identity switching
+  - Total test suite: 854 tests, all passing with zero regressions
 - **Relay Manager Redesign**: Enhanced relay configuration with filesystem-based persistence
   - Compact table layout with high-density rows (≤36px) using @tanstack/react-table
   - Drag-and-drop reordering via dnd-kit with visual feedback

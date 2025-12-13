@@ -21,6 +21,7 @@ interface NostlingIpcDependencies {
   listIdentities: () => Promise<any>;
   createIdentity: (request: CreateIdentityRequest) => Promise<any>;
   removeIdentity: (identityId: string) => Promise<void>;
+  updateIdentityTheme: (identityId: string, themeId: string) => Promise<void>;
   listContacts: (identityId: string) => Promise<any>;
   addContact: (request: AddContactRequest) => Promise<any>;
   removeContact: (contactId: string) => Promise<void>;
@@ -152,6 +153,9 @@ export function registerHandlers(dependencies: {
     );
     ipcMain.handle('nostling:identities:remove', async (_, identityId: string) =>
       dependencies.nostling!.removeIdentity(identityId)
+    );
+    ipcMain.handle('nostling:identities:update-theme', async (_, identityId: string, themeId: string) =>
+      dependencies.nostling!.updateIdentityTheme(identityId, themeId)
     );
 
     // Contacts

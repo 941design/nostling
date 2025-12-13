@@ -37,6 +37,7 @@ interface IdentityRow {
   secret_ref: string;
   label: string;
   relays: string | null;
+  theme: string | null;
   created_at: string;
 }
 
@@ -97,7 +98,7 @@ export class NostlingService {
 
   async listIdentities(): Promise<NostlingIdentity[]> {
     const stmt = this.database.prepare(
-      'SELECT id, npub, secret_ref, label, relays, created_at FROM nostr_identities ORDER BY created_at ASC'
+      'SELECT id, npub, secret_ref, label, relays, theme, created_at FROM nostr_identities ORDER BY created_at ASC'
     );
 
     const identities: NostlingIdentity[] = [];
@@ -177,6 +178,12 @@ export class NostlingService {
     this.database.run('DELETE FROM nostr_relays WHERE identity_id = ?', [id]);
     this.database.run('DELETE FROM nostr_identities WHERE id = ?', [id]);
     log('info', `Removed nostling identity ${id}`);
+  }
+
+  async updateIdentityTheme(identityId: string, themeId: string): Promise<void> {
+    const { updateIdentityTheme } = await import('./update-identity-theme');
+    await updateIdentityTheme(this.database, identityId, themeId);
+    log('info', `Updated theme for identity ${identityId} to ${themeId}`);
   }
 
   async listContacts(identityId: string): Promise<NostlingContact[]> {
@@ -803,6 +810,7 @@ export class NostlingService {
       secretRef: row.secret_ref,
       label: row.label,
       relays: row.relays ? JSON.parse(row.relays) : undefined,
+      theme: row.theme ?? undefined,
       createdAt: this.toIso(row.created_at),
     };
   }

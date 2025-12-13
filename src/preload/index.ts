@@ -91,6 +91,9 @@ const api: RendererApi = {
       async remove(identityId: string) {
         return ipcRenderer.invoke('nostling:identities:remove', identityId) as Promise<void>;
       },
+      async updateTheme(identityId: string, themeId: string) {
+        return ipcRenderer.invoke('nostling:identities:update-theme', identityId, themeId) as Promise<void>;
+      },
     },
     contacts: {
       async list(identityId: string) {

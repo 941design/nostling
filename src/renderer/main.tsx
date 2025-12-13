@@ -2,9 +2,6 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import {
   ChakraProvider,
-  createSystem,
-  defaultConfig,
-  defineConfig,
   Box,
   Flex,
   Text,
@@ -40,6 +37,10 @@ import { getStatusText, isRefreshEnabled } from './utils';
 import { useNostlingState } from './nostling/state';
 import { RelayTable } from './components/RelayTable';
 import { RelayConflictModal } from './components/RelayConflictModal';
+import { ThemeSelector } from './components/ThemeSelector';
+import { createThemeSystem, getThemeIdForIdentity } from './themes/useTheme';
+import { ThemeProvider, useThemeColors } from './themes/ThemeContext';
+import type { ThemeId } from './themes/definitions';
 
 // Simple refresh icon component
 const RefreshIcon = () => (
@@ -75,30 +76,6 @@ const CopyIcon = () => (
     <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" />
   </svg>
 );
-
-// Custom dark theme for Chakra UI v3
-const config = defineConfig({
-  theme: {
-    tokens: {
-      colors: {
-        brand: {
-          50: { value: '#e0f7ff' },
-          100: { value: '#b8ecfe' },
-          200: { value: '#8ee0fb' },
-          300: { value: '#63d4f8' },
-          400: { value: '#38bdf8' },
-          500: { value: '#0ea5e9' },
-          600: { value: '#0284c7' },
-          700: { value: '#0369a1' },
-          800: { value: '#075985' },
-          900: { value: '#0c4a6e' },
-        },
-      },
-    },
-  },
-});
-
-const system = createSystem(defaultConfig, config);
 
 const initialUpdateState: UpdateState = { phase: 'idle' };
 
@@ -186,40 +163,41 @@ function useStateEntries() {
 }
 
 function StateTable() {
+  const colors = useThemeColors();
   const { entries, loading } = useStateEntries();
   const rows = Object.entries(entries);
 
   if (loading) {
-    return <Text color="gray.500">Loading...</Text>;
+    return <Text color={colors.textSubtle}>Loading...</Text>;
   }
 
   if (rows.length === 0) {
     return (
-      <Text className="state-table-empty" color="gray.500">
+      <Text className="state-table-empty" color={colors.textSubtle}>
         No state entries found
       </Text>
     );
   }
 
   return (
-    <Box className="state-table-container">
-      <Heading size="sm" color="gray.300" mb="3">
+    <Box className="state-table-container" data-testid="state-table">
+      <Heading size="sm" color={colors.textMuted} mb="3">
         Database State Entries
       </Heading>
       <Table.Root size="sm" variant="outline">
         <Table.Header>
           <Table.Row>
-            <Table.ColumnHeader color="gray.400">Key</Table.ColumnHeader>
-            <Table.ColumnHeader color="gray.400">Value</Table.ColumnHeader>
+            <Table.ColumnHeader color={colors.textMuted}>Key</Table.ColumnHeader>
+            <Table.ColumnHeader color={colors.textMuted}>Value</Table.ColumnHeader>
           </Table.Row>
         </Table.Header>
         <Table.Body>
           {rows.map(([key, value]) => (
             <Table.Row key={key} className="state-table-row">
-              <Table.Cell color="gray.300" fontFamily="mono" fontSize="xs">
+              <Table.Cell color={colors.textMuted} fontFamily="mono" fontSize="xs">
                 {key}
               </Table.Cell>
-              <Table.Cell color="gray.400" fontFamily="mono" fontSize="xs">
+              <Table.Cell color={colors.textMuted} fontFamily="mono" fontSize="xs">
                 {value}
               </Table.Cell>
             </Table.Row>
@@ -233,9 +211,13 @@ function StateTable() {
 interface HeaderProps {
   onShowHelp: () => void;
   onShowRelayConfig: () => void;
+  currentTheme: ThemeId;
+  onThemeChange: (themeId: ThemeId) => Promise<void>;
+  identityId: string | null;
 }
 
-function Header({ onShowHelp, onShowRelayConfig }: HeaderProps) {
+function Header({ onShowHelp, onShowRelayConfig, currentTheme, onThemeChange, identityId }: HeaderProps) {
+  const colors = useThemeColors();
   return (
     <Box
       as="header"
@@ -243,8 +225,9 @@ function Header({ onShowHelp, onShowRelayConfig }: HeaderProps) {
       px="4"
       py="3"
       borderBottomWidth="1px"
-      borderColor="whiteAlpha.100"
-      bg="blackAlpha.300"
+      borderColor={colors.border}
+      bg={colors.surfaceBg}
+      data-testid="app-header"
     >
       <Flex align="center" justify="space-between">
         <Text className="brand" fontSize="lg" fontWeight="semibold" color="brand.400">
@@ -256,8 +239,8 @@ function Header({ onShowHelp, onShowRelayConfig }: HeaderProps) {
               aria-label="Open menu"
               variant="ghost"
               size="sm"
-              color="gray.400"
-              _hover={{ color: 'gray.200', bg: 'whiteAlpha.100' }}
+              color={colors.textMuted}
+              _hover={{ color: colors.text, bg: colors.surfaceBgSubtle }}
             >
               <HamburgerIcon />
             </IconButton>
@@ -265,12 +248,13 @@ function Header({ onShowHelp, onShowRelayConfig }: HeaderProps) {
           <Portal>
             <Menu.Positioner>
               <Menu.Content
-                bg="gray.800"
-                borderColor="whiteAlpha.200"
+                bg={colors.menuBg}
+                borderColor={colors.borderSubtle}
                 borderWidth="1px"
                 borderRadius="md"
                 py="1"
                 minW="180px"
+                data-testid="app-menu"
               >
                 <Menu.Item
                   value="relay-config"
@@ -278,25 +262,33 @@ function Header({ onShowHelp, onShowRelayConfig }: HeaderProps) {
                   px="3"
                   py="2"
                   cursor="pointer"
-                  _hover={{ bg: 'whiteAlpha.100' }}
+                  _hover={{ bg: colors.surfaceBgSubtle }}
                 >
                   <HStack gap="2">
                     <SettingsIcon />
-                    <Text color="gray.200">Relay Configuration</Text>
+                    <Text color={colors.text}>Relay Configuration</Text>
                   </HStack>
                 </Menu.Item>
-                <Menu.Separator borderColor="whiteAlpha.200" />
+                <Menu.Separator borderColor={colors.borderSubtle} />
+                <Box px="3" py="2">
+                  <ThemeSelector
+                    currentTheme={currentTheme}
+                    onThemeChange={onThemeChange}
+                    identityId={identityId}
+                  />
+                </Box>
+                <Menu.Separator borderColor={colors.borderSubtle} />
                 <Menu.Item
                   value="help"
                   onClick={onShowHelp}
                   px="3"
                   py="2"
                   cursor="pointer"
-                  _hover={{ bg: 'whiteAlpha.100' }}
+                  _hover={{ bg: colors.surfaceBgSubtle }}
                 >
                   <HStack gap="2">
                     <HelpIcon />
-                    <Text color="gray.200">Help</Text>
+                    <Text color={colors.text}>Help</Text>
                   </HStack>
                 </Menu.Item>
               </Menu.Content>
@@ -327,6 +319,7 @@ interface FooterProps {
 }
 
 function Footer({ version, updateState, onRefresh, onDownload, onRestart, nostlingStatus, nostlingError, relayHoverInfo }: FooterProps) {
+  const colors = useThemeColors();
   // Memoize based on phase and display-relevant fields only to prevent
   // random message re-selection during progress updates (downloading, mounting)
   const statusText = useMemo(
@@ -345,20 +338,21 @@ function Footer({ version, updateState, onRefresh, onDownload, onRestart, nostli
       px="4"
       py="2"
       borderTopWidth="1px"
-      borderColor="whiteAlpha.100"
-      bg="blackAlpha.300"
+      borderColor={colors.border}
+      bg={colors.surfaceBg}
       alignItems="center"
       fontSize="sm"
+      data-testid="app-footer"
     >
       <HStack gap="2">
-        <Text className="footer-version" color="gray.500" fontFamily="mono" fontSize="xs">
+        <Text className="footer-version" color={colors.textSubtle} fontFamily="mono" fontSize="xs">
           {version ? `v${version}` : 'Loading...'}
         </Text>
-        <Text color="gray.600">•</Text>
-        <Text className="footer-status" color="gray.400">{statusText}</Text>
+        <Text color={colors.textSubtle}>•</Text>
+        <Text className="footer-status" color={colors.textMuted}>{statusText}</Text>
         {nostlingStatus && (
           <>
-            <Text color="gray.600">•</Text>
+            <Text color={colors.textSubtle}>•</Text>
             <Text className="nostling-status" color="purple.200">
               {nostlingStatus}
             </Text>
@@ -366,7 +360,7 @@ function Footer({ version, updateState, onRefresh, onDownload, onRestart, nostli
         )}
         {nostlingError && (
           <>
-            <Text color="gray.600">•</Text>
+            <Text color={colors.textSubtle}>•</Text>
             <Text className="nostling-error" color="red.300" title={nostlingError} maxW="400px" truncate>
               {nostlingError}
             </Text>
@@ -374,7 +368,7 @@ function Footer({ version, updateState, onRefresh, onDownload, onRestart, nostli
         )}
         {relayHoverInfo && (
           <>
-            <Text color="gray.600">•</Text>
+            <Text color={colors.textSubtle}>•</Text>
             <Text className="relay-hover-info" color={relayHoverInfo.status === 'connected' ? 'green.300' : relayHoverInfo.status === 'connecting' ? 'yellow.300' : 'red.300'} title={`${relayHoverInfo.url}: ${relayHoverInfo.status}`} maxW="400px" truncate>
               {relayHoverInfo.url}: {relayHoverInfo.status}
             </Text>
@@ -424,29 +418,31 @@ interface NostlingStatusCardProps {
 }
 
 function NostlingStatusCard({ statusText, queueSummary, lastSync, lastError, onRetryFailed }: NostlingStatusCardProps) {
+  const colors = useThemeColors();
   const hasQueue = queueSummary.queued > 0 || queueSummary.sending > 0 || queueSummary.errors > 0;
 
   return (
     <Box
       borderWidth="1px"
-      borderColor="whiteAlpha.100"
+      borderColor={colors.border}
       borderRadius="md"
-      bg="whiteAlpha.50"
+      bg={colors.surfaceBgSubtle}
       p="4"
       mb="4"
       className="nostling-status-card"
+      data-testid="nostling-status-card"
     >
-      <Heading size="sm" color="gray.300" mb="3">
+      <Heading size="sm" color={colors.textMuted} mb="3">
         Nostling State
       </Heading>
       <VStack align="start" gap="2">
         <HStack>
-          <Text color="gray.400">Status:</Text>
+          <Text color={colors.textMuted}>Status:</Text>
           <Badge colorPalette={queueSummary.errors > 0 ? 'red' : hasQueue ? 'orange' : 'green'}>{statusText}</Badge>
         </HStack>
         <HStack>
-          <Text color="gray.400">Queue:</Text>
-          <Text color="gray.300">
+          <Text color={colors.textMuted}>Queue:</Text>
+          <Text color={colors.text}>
             {queueSummary.queued} queued • {queueSummary.sending} sending • {queueSummary.errors} errors
           </Text>
           {queueSummary.errors > 0 && onRetryFailed && (
@@ -455,8 +451,8 @@ function NostlingStatusCard({ statusText, queueSummary, lastSync, lastError, onR
             </Button>
           )}
         </HStack>
-        <Text color="gray.400">Last activity: {formatTimestamp(queueSummary.lastActivity)}</Text>
-        <Text color="gray.400">Last sync: {formatTimestamp(lastSync || undefined)}</Text>
+        <Text color={colors.textMuted}>Last activity: {formatTimestamp(queueSummary.lastActivity)}</Text>
+        <Text color={colors.textMuted}>Last sync: {formatTimestamp(lastSync || undefined)}</Text>
         {lastError && (
           <Text color="red.300" fontSize="sm">
             {lastError}
@@ -503,10 +499,11 @@ function IdentityList({
   onSelect: (id: string) => void;
   onOpenCreate: () => void;
 }) {
+  const colors = useThemeColors();
   return (
-    <Box>
+    <Box data-testid="identity-list">
       <HStack justify="space-between" mb="2">
-        <Heading size="sm" color="gray.300">
+        <Heading size="sm" color={colors.textMuted}>
           Identities
         </Heading>
         <IconButton
@@ -522,7 +519,7 @@ function IdentityList({
       </HStack>
       <VStack align="stretch" gap="2">
         {identities.length === 0 && (
-          <Text fontSize="sm" color="gray.500">
+          <Text fontSize="sm" color={colors.textSubtle}>
             No identities yet. Create or import one to get started.
           </Text>
         )}
@@ -530,18 +527,19 @@ function IdentityList({
           <Box
             key={identity.id}
             borderWidth="1px"
-            borderColor={selectedId === identity.id ? 'brand.400' : 'whiteAlpha.100'}
+            borderColor={selectedId === identity.id ? 'brand.400' : colors.border}
             borderRadius="md"
             p="2"
-            bg={selectedId === identity.id ? 'whiteAlpha.100' : 'transparent'}
+            bg={selectedId === identity.id ? colors.surfaceBgSelected : 'transparent'}
             _hover={{ borderColor: 'brand.400', cursor: 'pointer' }}
             onClick={() => onSelect(identity.id)}
+            data-testid={`identity-item-${identity.id}`}
           >
-            <Text color="gray.200" fontWeight="semibold">
+            <Text color={colors.text} fontWeight="semibold">
               {identity.label || identity.npub}
             </Text>
             <HStack gap="1">
-              <Text color="gray.500" fontSize="xs" lineClamp={1} flex="1">
+              <Text color={colors.textSubtle} fontSize="xs" lineClamp={1} flex="1">
                 {identity.npub}
               </Text>
               <IconButton
@@ -553,8 +551,8 @@ function IdentityList({
                   e.stopPropagation();
                   navigator.clipboard.writeText(identity.npub);
                 }}
-                color="gray.500"
-                _hover={{ color: 'gray.300' }}
+                color={colors.textSubtle}
+                _hover={{ color: colors.textMuted }}
               >
                 <CopyIcon />
               </IconButton>
@@ -591,10 +589,11 @@ function ContactList({
   onOpenAdd: () => void;
   disabled: boolean;
 }) {
+  const colors = useThemeColors();
   return (
-    <Box mt="6">
+    <Box mt="6" data-testid="contact-list">
       <HStack justify="space-between" mb="2">
-        <Heading size="sm" color="gray.300">
+        <Heading size="sm" color={colors.textMuted}>
           Contacts
         </Heading>
         <IconButton
@@ -611,7 +610,7 @@ function ContactList({
       </HStack>
       <VStack align="stretch" gap="2">
         {(contacts?.length || 0) === 0 && (
-          <Text fontSize="sm" color="gray.500">
+          <Text fontSize="sm" color={colors.textSubtle}>
             {disabled ? 'Add an identity to manage contacts.' : 'No contacts yet.'}
           </Text>
         )}
@@ -619,20 +618,21 @@ function ContactList({
           <Box
             key={contact.id}
             borderWidth="1px"
-            borderColor={selectedId === contact.id ? 'brand.400' : 'whiteAlpha.100'}
+            borderColor={selectedId === contact.id ? 'brand.400' : colors.border}
             borderRadius="md"
             p="2"
-            bg={selectedId === contact.id ? 'whiteAlpha.100' : 'transparent'}
+            bg={selectedId === contact.id ? colors.surfaceBgSelected : 'transparent'}
             _hover={{ borderColor: 'brand.400', cursor: 'pointer' }}
             onClick={() => onSelect(contact.id)}
+            data-testid={`contact-item-${contact.id}`}
           >
             <HStack justify="space-between" align="start">
               <Stack gap="0" flex="1" minW="0">
-                <Text color="gray.200" fontWeight="semibold">
+                <Text color={colors.text} fontWeight="semibold">
                   {contact.alias || contact.npub}
                 </Text>
                 <HStack gap="1">
-                  <Text color="gray.500" fontSize="xs" lineClamp={1} flex="1">
+                  <Text color={colors.textSubtle} fontSize="xs" lineClamp={1} flex="1">
                     {contact.npub}
                   </Text>
                   <IconButton
@@ -644,8 +644,8 @@ function ContactList({
                       e.stopPropagation();
                       navigator.clipboard.writeText(contact.npub);
                     }}
-                    color="gray.500"
-                    _hover={{ color: 'gray.300' }}
+                    color={colors.textSubtle}
+                    _hover={{ color: colors.textMuted }}
                   >
                     <CopyIcon />
                   </IconButton>
@@ -700,34 +700,35 @@ function MessageBubble({
   };
   isOwn: boolean;
 }) {
+  const colors = useThemeColors();
   return (
-    <HStack justify={isOwn ? 'flex-end' : 'flex-start'} align="flex-end" mb="2" gap="2">
+    <HStack justify={isOwn ? 'flex-end' : 'flex-start'} align="flex-end" mb="2" gap="2" data-testid="message-bubble">
       {!isOwn && (
-        <Text fontSize="xs" color="gray.500">
+        <Text fontSize="xs" color={colors.textSubtle}>
           {formatTimestamp(message.timestamp)}
         </Text>
       )}
       <Box
         maxW="70%"
-        bg={isOwn ? 'brand.900' : 'whiteAlpha.100'}
+        bg={isOwn ? 'brand.900' : colors.surfaceBgSubtle}
         borderWidth="1px"
-        borderColor={isOwn ? 'brand.700' : 'whiteAlpha.100'}
+        borderColor={isOwn ? 'brand.700' : colors.border}
         borderRadius="md"
         p="3"
         className="message-bubble"
       >
-        <Text color="gray.100" whiteSpace="pre-wrap">
+        <Text color={colors.text} whiteSpace="pre-wrap">
           {message.content}
         </Text>
         <HStack justify="space-between" mt="2" gap="2">
-          <Text fontSize="xs" color="gray.500">
+          <Text fontSize="xs" color={colors.textSubtle}>
             {formatTimestamp(message.timestamp)}
           </Text>
           <MessageStatusBadge status={message.status} />
         </HStack>
       </Box>
       {isOwn && (
-        <Text fontSize="xs" color="gray.500">
+        <Text fontSize="xs" color={colors.textSubtle}>
           {formatTimestamp(message.timestamp)}
         </Text>
       )}
@@ -754,6 +755,7 @@ function ConversationPane({
   isRefreshing,
   queueSummary,
 }: ConversationPaneProps) {
+  const colors = useThemeColors();
   const [draft, setDraft] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -788,40 +790,40 @@ function ConversationPane({
 
   if (!identity) {
     return (
-      <Box p="6" borderWidth="1px" borderColor="whiteAlpha.100" borderRadius="md" bg="whiteAlpha.50" className="conversation-pane">
-        <Heading size="sm" color="gray.300" mb="2">
+      <Box p="6" borderWidth="1px" borderColor={colors.border} borderRadius="md" bg={colors.surfaceBgSubtle} className="conversation-pane" data-testid="conversation-pane">
+        <Heading size="sm" color={colors.textMuted} mb="2">
           Start by creating an identity
         </Heading>
-        <Text color="gray.500">Create or import an identity to begin messaging.</Text>
+        <Text color={colors.textSubtle}>Create or import an identity to begin messaging.</Text>
       </Box>
     );
   }
 
   if (!contact) {
     return (
-      <Box p="6" borderWidth="1px" borderColor="whiteAlpha.100" borderRadius="md" bg="whiteAlpha.50" className="conversation-pane">
-        <Heading size="sm" color="gray.300" mb="2">
+      <Box p="6" borderWidth="1px" borderColor={colors.border} borderRadius="md" bg={colors.surfaceBgSubtle} className="conversation-pane" data-testid="conversation-pane">
+        <Heading size="sm" color={colors.textMuted} mb="2">
           Select a contact
         </Heading>
-        <Text color="gray.500">Choose a contact to view and send messages.</Text>
+        <Text color={colors.textSubtle}>Choose a contact to view and send messages.</Text>
       </Box>
     );
   }
 
   return (
-    <Box borderWidth="1px" borderColor="whiteAlpha.100" borderRadius="md" bg="whiteAlpha.50" className="conversation-pane">
-      <Flex align="center" justify="space-between" p="4" borderBottomWidth="1px" borderColor="whiteAlpha.100">
+    <Box borderWidth="1px" borderColor={colors.border} borderRadius="md" bg={colors.surfaceBgSubtle} className="conversation-pane" data-testid="conversation-pane">
+      <Flex align="center" justify="space-between" p="4" borderBottomWidth="1px" borderColor={colors.border}>
         <Stack gap="1">
-          <Heading size="sm" color="gray.200">
+          <Heading size="sm" color={colors.text}>
             {contact.alias || contact.npub}
           </Heading>
           <HStack gap="2">
-            <Text color="gray.500" fontSize="sm">
+            <Text color={colors.textSubtle} fontSize="sm">
               {identity.label || identity.npub} → {contact.npub}
             </Text>
             <ContactStateBadge state={contact.state} />
           </HStack>
-          <Text color="gray.500" fontSize="sm">
+          <Text color={colors.textSubtle} fontSize="sm">
             {queueText}
           </Text>
         </Stack>
@@ -839,7 +841,7 @@ function ConversationPane({
 
       <Box ref={listRef} px="4" pt="4" pb="2" h="50vh" overflowY="auto" className="conversation-messages">
         {messages.length === 0 && (
-          <Text color="gray.500" fontSize="sm">
+          <Text color={colors.textSubtle} fontSize="sm">
             No messages yet. Send a welcome message to start the handshake.
           </Text>
         )}
@@ -857,8 +859,8 @@ function ConversationPane({
         ))}
       </Box>
 
-      <Separator borderColor="whiteAlpha.100" />
-      <Box p="4" bg="blackAlpha.300" borderBottomRadius="md">
+      <Separator borderColor={colors.border} />
+      <Box p="4" bg={colors.surfaceBg} borderBottomRadius="md">
         <Stack gap="2">
           <Textarea
             value={draft}
@@ -866,9 +868,9 @@ function ConversationPane({
             placeholder="Type a message..."
             resize="vertical"
             minH="100px"
-            color="gray.100"
-            borderColor="whiteAlpha.200"
-            _placeholder={{ color: 'gray.500' }}
+            color={colors.text}
+            borderColor={colors.borderSubtle}
+            _placeholder={{ color: colors.textSubtle }}
           />
           {sendError && (
             <Text color="red.300" fontSize="sm">
@@ -876,7 +878,7 @@ function ConversationPane({
             </Text>
           )}
           <HStack justify="space-between" align="center">
-            <Text color="gray.500" fontSize="sm">
+            <Text color={colors.textSubtle} fontSize="sm">
               {queueText}
             </Text>
             <Button size="sm" colorPalette="blue" onClick={handleSend} disabled={!canSend} loading={isSending}>
@@ -1071,11 +1073,12 @@ function HelpModal({
   isOpen: boolean;
   onClose: () => void;
 }) {
+  const colors = useThemeColors();
   return (
     <Dialog.Root open={isOpen} onOpenChange={(e) => !e.open && onClose()}>
       <Dialog.Backdrop />
       <Dialog.Positioner>
-        <Dialog.Content maxW="500px">
+        <Dialog.Content maxW="500px" data-testid="help-modal">
           <Dialog.Header>
             <Dialog.Title>Help</Dialog.Title>
           </Dialog.Header>
@@ -1083,52 +1086,52 @@ function HelpModal({
           <Dialog.Body>
             <VStack align="start" gap="4">
               <Box>
-                <Heading size="sm" color="gray.200" mb="2">
+                <Heading size="sm" color={colors.text} mb="2">
                   About Nostling
                 </Heading>
-                <Text color="gray.400" fontSize="sm">
+                <Text color={colors.textMuted} fontSize="sm">
                   Nostling is a desktop messaging application built on the Nostr protocol.
                   It provides secure, decentralized communication through end-to-end encrypted messages.
                 </Text>
               </Box>
 
               <Box>
-                <Heading size="sm" color="gray.200" mb="2">
+                <Heading size="sm" color={colors.text} mb="2">
                   Getting Started
                 </Heading>
                 <VStack align="start" gap="1">
-                  <Text color="gray.400" fontSize="sm">
+                  <Text color={colors.textMuted} fontSize="sm">
                     1. Create or import an identity using the + button in the Identities section
                   </Text>
-                  <Text color="gray.400" fontSize="sm">
+                  <Text color={colors.textMuted} fontSize="sm">
                     2. Configure your relay servers in the menu → Relay Configuration
                   </Text>
-                  <Text color="gray.400" fontSize="sm">
+                  <Text color={colors.textMuted} fontSize="sm">
                     3. Add contacts using their npub (public key)
                   </Text>
-                  <Text color="gray.400" fontSize="sm">
+                  <Text color={colors.textMuted} fontSize="sm">
                     4. Start messaging!
                   </Text>
                 </VStack>
               </Box>
 
               <Box>
-                <Heading size="sm" color="gray.200" mb="2">
+                <Heading size="sm" color={colors.text} mb="2">
                   Keyboard Shortcuts
                 </Heading>
                 <VStack align="start" gap="1">
                   <HStack>
                     <Badge colorPalette="gray" fontFamily="mono" fontSize="xs">Enter</Badge>
-                    <Text color="gray.400" fontSize="sm">Send message</Text>
+                    <Text color={colors.textMuted} fontSize="sm">Send message</Text>
                   </HStack>
                 </VStack>
               </Box>
 
               <Box>
-                <Heading size="sm" color="gray.200" mb="2">
+                <Heading size="sm" color={colors.text} mb="2">
                   Need More Help?
                 </Heading>
-                <Text color="gray.400" fontSize="sm">
+                <Text color={colors.textMuted} fontSize="sm">
                   Visit the project repository for documentation, bug reports, and feature requests.
                 </Text>
               </Box>
@@ -1164,6 +1167,7 @@ function Sidebar({
   onOpenIdentityModal: () => void;
   onOpenContactModal: () => void;
 }) {
+  const colors = useThemeColors();
   const currentContacts = selectedIdentityId ? contacts[selectedIdentityId] || [] : [];
 
   return (
@@ -1172,9 +1176,10 @@ function Sidebar({
       className="sidebar"
       w="280px"
       borderRightWidth="1px"
-      borderColor="whiteAlpha.100"
-      bg="blackAlpha.200"
+      borderColor={colors.border}
+      bg={colors.surfaceBg}
       p="4"
+      data-testid="app-sidebar"
     >
       <VStack align="stretch" gap="4">
         <IdentityList
@@ -1183,7 +1188,7 @@ function Sidebar({
           onSelect={onSelectIdentity}
           onOpenCreate={onOpenIdentityModal}
         />
-        <Separator borderColor="whiteAlpha.200" />
+        <Separator borderColor={colors.borderSubtle} />
         <ContactList
           contacts={currentContacts}
           selectedId={selectedContactId}
@@ -1198,7 +1203,12 @@ function Sidebar({
 
 type AppView = 'chat' | 'relay-config';
 
-function App() {
+interface AppProps {
+  onThemeChange: (themeId: ThemeId) => void;
+}
+
+function App({ onThemeChange }: AppProps) {
+  const colors = useThemeColors();
   const { status, updateState, refresh, restart, download } = useStatus();
   const nostling = useNostlingState();
   const [selectedIdentityId, setSelectedIdentityId] = useState<string | null>(null);
@@ -1207,6 +1217,7 @@ function App() {
   const [contactModalOpen, setContactModalOpen] = useState(false);
   const [helpModalOpen, setHelpModalOpen] = useState(false);
   const [currentView, setCurrentView] = useState<AppView>('chat');
+  const [currentThemeId, setCurrentThemeId] = useState<ThemeId>('dark');
 
   // Relay state management (per-identity)
   const [currentRelays, setCurrentRelays] = useState<NostlingRelayEndpoint[]>([]);
@@ -1219,6 +1230,33 @@ function App() {
     () => nostling.identities.find((identity) => identity.id === selectedIdentityId) ?? null,
     [nostling.identities, selectedIdentityId]
   );
+
+  // Update theme when selected identity changes
+  useEffect(() => {
+    const themeId = getThemeIdForIdentity(selectedIdentity);
+    setCurrentThemeId(themeId);
+    onThemeChange(themeId); // Propagate to Root for ChakraProvider
+  }, [selectedIdentity, onThemeChange]);
+
+  // Theme change handler - persists to database
+  const handleThemeChange = async (themeId: ThemeId) => {
+    if (!selectedIdentityId) {
+      console.warn('Cannot change theme: no identity selected');
+      return;
+    }
+
+    try {
+      await window.api.nostling?.identities.updateTheme(selectedIdentityId, themeId);
+      // Update local state immediately for responsive UI
+      setCurrentThemeId(themeId);
+      onThemeChange(themeId); // Propagate to Root for ChakraProvider
+      // Force refresh of identity list to get updated theme from DB
+      await nostling.refreshIdentities();
+    } catch (error) {
+      console.error('Failed to update theme:', error);
+      throw error; // Let ThemeSelector handle the error display
+    }
+  };
 
   const selectedContact = useMemo(() => {
     if (!selectedIdentityId) return null;
@@ -1383,10 +1421,13 @@ function App() {
   }, []);
 
   return (
-    <Flex className="app-shell" direction="column" h="100vh" bg="#0f172a">
+    <Flex className="app-shell" direction="column" h="100vh" bg={colors.appBg} data-testid="app-shell">
       <Header
         onShowHelp={() => setHelpModalOpen(true)}
         onShowRelayConfig={handleShowRelayConfig}
+        currentTheme={currentThemeId}
+        onThemeChange={handleThemeChange}
+        identityId={selectedIdentityId}
       />
       <Flex flex="1" overflow="hidden">
         <Sidebar
@@ -1421,9 +1462,9 @@ function App() {
               <StateTable />
             </Stack>
           ) : (
-            <Box borderWidth="1px" borderColor="whiteAlpha.100" borderRadius="md" bg="whiteAlpha.50" p="4">
+            <Box borderWidth="1px" borderColor={colors.border} borderRadius="md" bg={colors.surfaceBgSubtle} p="4" data-testid="relay-config-view">
               <HStack justify="space-between" mb="4">
-                <Heading size="sm" color="gray.300">
+                <Heading size="sm" color={colors.textMuted}>
                   Relay Configuration
                 </Heading>
                 <Button size="sm" variant="outline" onClick={handleReturnToChat} className="relay-config-done-button">
@@ -1450,7 +1491,7 @@ function App() {
                   }}
                 />
               ) : (
-                <Text color="gray.500">Select an identity to configure relays.</Text>
+                <Text color={colors.textSubtle}>Select an identity to configure relays.</Text>
               )}
             </Box>
           )}
@@ -1496,8 +1537,19 @@ function App() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <ChakraProvider value={system}>
-    <App />
-  </ChakraProvider>
-);
+function Root() {
+  // Create theme system based on current state
+  // Start with dark theme as default, App will update based on identity
+  const [themeId, setThemeId] = useState<ThemeId>('dark');
+  const system = useMemo(() => createThemeSystem(themeId), [themeId]);
+
+  return (
+    <ChakraProvider value={system}>
+      <ThemeProvider themeId={themeId}>
+        <App onThemeChange={setThemeId} />
+      </ThemeProvider>
+    </ChakraProvider>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')!).render(<Root />);

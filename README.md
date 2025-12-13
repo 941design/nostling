@@ -6,6 +6,10 @@ A desktop messaging application built on the Nostr protocol with secure auto-upd
 
 # TODO
 
++ message polling
++ message deduplication
++ duplicate messages after restart (maybe from different relays)
++ color themes 5 choices
 + create proper readme
 
 ## Features
@@ -23,6 +27,9 @@ A desktop messaging application built on the Nostr protocol with secure auto-upd
   + fake groups with custom message
   + add member (adding a member creates new id (deterministically?), and starts new chat)
 + rename identities to something more intuitive
++ contact online status?
++ languages
++ send on enter/shift enter
 
 ## Build
 
@@ -32,6 +39,9 @@ A desktop messaging application built on the Nostr protocol with secure auto-upd
 ## Styling
 
 + themes
+  + one dark one light each
+  + banner image
+  + fonts
 + larger initial screen size.
 + save screen size in config
 + keep chat window fixed
@@ -59,6 +69,7 @@ A desktop messaging application built on the Nostr protocol with secure auto-upd
 - **Secure auto-updates** with RSA-4096 cryptographic verification
 - **Auto-update footer** with real-time progress, configurable check intervals, and manual refresh
 - **Ostrich-themed status messages** - Playful, randomly-selected status messages throughout the app
+- **Theme customization** - Per-identity theme selection with 10 distinctive color schemes
 - **Persistence layer** with SQLite database and automatic schema migrations
 - **Cross-platform** support for macOS and Linux
 - **Dev mode testing** for validating updates before release
@@ -73,6 +84,30 @@ Throughout the app, status messages use playful ostrich-themed language instead 
 - Error states: "Ruffled feathers" (errors), "Head in sand" (offline)
 
 Each status type randomly selects from 2-3 themed alternatives on every display, keeping the experience fresh while preserving all dynamic content like versions, progress percentages, and error details.
+
+### Theme Customization
+
+Each identity can have its own visual theme, allowing you to distinguish identities at a glance or match your personal preferences.
+
+**Available themes:**
+- **Light** - Clean, bright interface
+- **Dark** - Default dark theme
+- **Sunset** - Warm oranges and pinks
+- **Ocean** - Cool blues and teals
+- **Forest** - Natural greens
+- **Purple Haze** - Deep purples
+- **Ember** - Fiery reds and oranges
+- **Twilight** - Muted blues and purples
+- **Mint** - Fresh mint greens
+- **Amber** - Golden yellows
+
+**To select a theme:**
+1. Click the hamburger menu (three horizontal lines) in the top-right
+2. Click "Theme" to open the theme selector
+3. Click on any theme to apply it immediately
+4. Your theme choice is saved per-identity in the database
+
+Themes are applied instantly when selected and persist across application restarts. If you switch to a different identity, the app will display that identity's saved theme.
 
 ## Quick Start
 

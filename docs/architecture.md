@@ -85,7 +85,11 @@ src/
 │   ├── main.tsx    # React root
 │   ├── index.html  # HTML entry
 │   ├── components/ # UI components
-│   │   └── RelayManager.tsx  # Relay configuration UI
+│   │   ├── RelayManager.tsx   # Relay configuration UI
+│   │   └── ThemeSelector.tsx  # Theme selection UI
+│   ├── themes/     # Theme system
+│   │   ├── definitions.ts     # Theme registry and configs
+│   │   └── useTheme.ts        # Theme application logic
 │   └── utils/      # Utilities
 │       ├── themed-messages.ts    # Theme configuration
 │       ├── utils.themed.ts       # Update status theming
@@ -108,6 +112,7 @@ IPC channels use domain-prefixed naming:
 | `config:set` | Update configuration |
 | `relay:load` | Load relay configuration for identity |
 | `relay:save` | Save relay configuration with hash verification |
+| `nostling:identities:update-theme` | Update theme for identity |
 | `update-state` | Broadcast state changes |
 
 ## Update System
@@ -339,3 +344,76 @@ The application uses ostrich-themed status messages throughout the UI to provide
 - **Graceful degradation**: Invalid configuration falls back to default messages without breaking UI
 - **Performance**: Message selection memoized to avoid unnecessary recalculation
 - **Testability**: Property-based tests verify message structure, dynamic content preservation, and randomness
+
+## Theme System
+
+The application provides per-identity theme customization with 10 distinctive color schemes, allowing users to personalize their visual experience and distinguish identities at a glance.
+
+### Architecture
+
+**Theme Registry:**
+- Centralized theme definitions in `src/renderer/themes/definitions.ts`
+- 10 predefined themes with complete Chakra UI v3 color token sets
+- Each theme includes metadata for UI display (name, description, preview colors)
+- Type-safe theme IDs via TypeScript union type
+
+**Theme Application:**
+- Theme stored per-identity in SQLite database (identities table, theme column)
+- Automatic theme loading on identity selection
+- Real-time theme switching via React state propagation
+- Invalid/missing themes fall back to dark theme
+
+**Integration Points:**
+1. **Database Layer** (`src/main/ipc/nostling.ts`):
+   - `identities.updateTheme(identityId, themeId)` - Persists theme to database
+   - Identity records include optional `theme` field
+
+2. **UI Layer** (`src/renderer/main.tsx`):
+   - `ChakraProvider` wraps app with dynamic theme system
+   - `useTheme` hook manages theme state and identity-based resolution
+   - Theme changes trigger immediate UI re-render
+
+3. **Theme Selector** (`src/renderer/components/ThemeSelector.tsx`):
+   - Integrated into hamburger menu
+   - Visual color swatches for each theme
+   - Disabled when no identity selected
+   - Immediate persistence on theme selection
+
+### Theme Definitions
+
+**Available Themes:**
+- **Light** - Clean bright interface with dark text on light background
+- **Dark** - Default dark theme with light text on dark background
+- **Sunset** - Warm oranges and pinks
+- **Ocean** - Cool blues and teals
+- **Forest** - Natural greens
+- **Purple Haze** - Deep purples
+- **Ember** - Fiery reds and oranges
+- **Twilight** - Muted blues and purples
+- **Mint** - Fresh mint greens
+- **Amber** - Golden yellows
+
+**Color Token Requirements:**
+- WCAG AA contrast ratios (4.5:1 for normal text, 3:1 for large text)
+- Complete Chakra UI v3 color token set
+- Compatible with all existing UI components
+- Distinctive visual identity per theme
+
+### User Workflow
+
+1. User selects identity from identity list
+2. App loads theme from database for that identity (or defaults to dark)
+3. Theme system creates Chakra configuration from theme ID
+4. UI re-renders with new theme applied
+5. User can change theme via hamburger menu → Theme selector
+6. Theme change persists to database and updates UI immediately
+7. When switching identities, app applies the new identity's saved theme
+
+### Design Principles
+
+- **Per-identity isolation**: Each identity maintains its own theme preference
+- **Immediate feedback**: Theme changes apply instantly without save button
+- **Graceful fallback**: Invalid themes default to dark without breaking UI
+- **Type safety**: Theme IDs validated at compile-time via TypeScript
+- **Performance**: Theme system creation memoized to avoid unnecessary recalculation
+- **Testability**: Property-based tests verify persistence, application, fallback, and identity switching

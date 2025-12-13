@@ -861,8 +861,8 @@ describe('registerHandlers', () => {
       const nostlingDeps = createNostlingDependencies();
       registerHandlers({ ...deps, nostling: nostlingDeps });
 
-      // Base handlers plus 15 nostling channels (including retryFailedMessages and 4 new relay handlers)
-      expect(handlers.size).toBe(28);
+      // Base handlers plus 16 nostling channels (including retryFailedMessages, 4 relay handlers, and updateTheme)
+      expect(handlers.size).toBe(29);
       expect(handlers.has('nostling:identities:list')).toBe(true);
       expect(handlers.has('nostling:contacts:add')).toBe(true);
       expect(handlers.has('nostling:messages:send')).toBe(true);
