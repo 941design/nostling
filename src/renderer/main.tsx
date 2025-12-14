@@ -552,6 +552,8 @@ function IdentityList({
   onOpenCreate,
   onShowQr,
   onRename,
+  unreadCounts,
+  newlyArrived,
 }: {
   identities: NostlingIdentity[];
   selectedId: string | null;
@@ -559,6 +561,8 @@ function IdentityList({
   onOpenCreate: () => void;
   onShowQr: (identity: NostlingIdentity) => void;
   onRename: (id: string, label: string) => Promise<void>;
+  unreadCounts?: Record<string, number>;
+  newlyArrived?: Set<string>;
 }) {
   const colors = useThemeColors();
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -627,18 +631,36 @@ function IdentityList({
             alias: identity.alias ?? identity.label,
             npub: identity.npub,
           });
+          const unreadCount = unreadCounts?.[identity.id] || 0;
+          const isNewlyArrived = newlyArrived?.has(identity.id) || false;
+          const hasUnread = unreadCount > 0;
+
+          // Determine CSS classes for animation
+          const animationClass = isNewlyArrived
+            ? 'identity-unread-flash'
+            : hasUnread
+              ? 'identity-unread-pulse'
+              : '';
+
           return (
             <Box
               key={identity.id}
               borderWidth="1px"
-              borderColor={selectedId === identity.id ? 'brand.400' : colors.border}
+              borderColor={
+                hasUnread
+                  ? 'brand.400'
+                  : selectedId === identity.id
+                    ? 'brand.400'
+                    : colors.border
+              }
               borderRadius="md"
               p="2"
               bg={selectedId === identity.id ? colors.surfaceBgSelected : 'transparent'}
               _hover={{ borderColor: 'brand.400', cursor: 'pointer' }}
               onClick={() => onSelect(identity.id)}
               data-testid={`identity-item-${identity.id}`}
-              className="group"
+              className={`group ${animationClass}`}
+              position="relative"
             >
               <HStack justify="space-between" align="center" gap="2">
                 {editingId === identity.id ? (
@@ -681,12 +703,33 @@ function IdentityList({
                     </IconButton>
                   </HStack>
                 ) : (
-                  <Text color={colors.text} fontWeight="semibold" lineClamp={1} flex="1">
-                    {displayName}
-                  </Text>
+                  <HStack flex="1" gap="2">
+                    <Text color={colors.text} fontWeight="semibold" lineClamp={1} flex="1">
+                      {displayName}
+                    </Text>
+                    {hasUnread && (
+                      <Badge
+                        colorPalette="blue"
+                        variant="solid"
+                        borderRadius="full"
+                        fontSize="xs"
+                        px="2"
+                        minW="6"
+                        textAlign="center"
+                      >
+                        {unreadCount}
+                      </Badge>
+                    )}
+                  </HStack>
                 )}
                 {editingId !== identity.id && (
-                  <HStack gap="0" opacity={0} _groupHover={{ opacity: 1 }} transition="opacity 0.15s">
+                  <HStack
+                    gap="0"
+                    opacity={0}
+                    _groupHover={{ opacity: selectedId === identity.id ? 1 : 0 }}
+                    pointerEvents={selectedId === identity.id ? 'auto' : 'none'}
+                    transition="opacity 0.15s"
+                  >
                     <IconButton
                       size="xs"
                       variant="ghost"
@@ -930,7 +973,13 @@ function ContactList({
                     )}
                   </HStack>
                 )}
-                <HStack gap="0" opacity={0} _groupHover={{ opacity: 1 }} transition="opacity 0.15s">
+                <HStack
+                  gap="0"
+                  opacity={0}
+                  _groupHover={{ opacity: selectedId === contact.id ? 1 : 0 }}
+                  pointerEvents={selectedId === contact.id ? 'auto' : 'none'}
+                  transition="opacity 0.15s"
+                >
                   {editingId !== contact.id && (
                     <>
                       <IconButton
@@ -999,34 +1048,6 @@ function ContactList({
   );
 }
 
-function MessageStatusBadge({
-  status,
-}: {
-  status: 'queued' | 'sending' | 'sent' | 'error';
-}) {
-  // Only show badge for non-sent states
-  if (status === 'sent') return null;
-
-  const palette = {
-    queued: 'orange',
-    sending: 'blue',
-    error: 'red',
-  }[status];
-
-  const label =
-    status === 'queued'
-      ? 'Queued'
-      : status === 'sending'
-        ? 'Sending'
-        : 'Error';
-
-  return (
-    <Badge colorPalette={palette} variant="subtle" size="xs">
-      {label}
-    </Badge>
-  );
-}
-
 function DateSeparator({ date }: { date: string }) {
   const colors = useThemeColors();
   return (
@@ -1057,7 +1078,7 @@ function MessageBubble({
   onMouseLeave?: () => void;
 }) {
   const colors = useThemeColors();
-  const statusBadge = <MessageStatusBadge status={message.status} />;
+  const isInflight = message.status === 'queued' || message.status === 'sending';
 
   return (
     <HStack justify={isOwn ? 'flex-end' : 'flex-start'} align="flex-end" mb="2" gap="2" data-testid="message-bubble">
@@ -1068,18 +1089,13 @@ function MessageBubble({
         borderColor={isOwn ? 'brand.700' : colors.border}
         borderRadius="md"
         p="3"
-        className="message-bubble"
+        className={isInflight ? 'message-bubble message-inflight' : 'message-bubble'}
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
       >
         <Text color={colors.text} whiteSpace="pre-wrap">
           {message.content}
         </Text>
-        {statusBadge && (
-          <HStack justify="flex-end" mt="2" gap="2">
-            {statusBadge}
-          </HStack>
-        )}
       </Box>
     </HStack>
   );
@@ -1144,7 +1160,7 @@ function ConversationPane({
 
   if (!identity) {
     return (
-      <Box p="6" borderWidth="1px" borderColor={colors.border} borderRadius="md" bg={colors.surfaceBgSubtle} className="conversation-pane" data-testid="conversation-pane">
+      <Box p="6" className="conversation-pane" data-testid="conversation-pane">
         <Heading size="sm" color={colors.textMuted} mb="2">
           Start by creating an identity
         </Heading>
@@ -1155,7 +1171,7 @@ function ConversationPane({
 
   if (!contact) {
     return (
-      <Box p="6" borderWidth="1px" borderColor={colors.border} borderRadius="md" bg={colors.surfaceBgSubtle} className="conversation-pane" data-testid="conversation-pane">
+      <Box p="6" className="conversation-pane" data-testid="conversation-pane">
         <Heading size="sm" color={colors.textMuted} mb="2">
           Select a contact
         </Heading>
@@ -1165,7 +1181,7 @@ function ConversationPane({
   }
 
   return (
-    <Flex direction="column" h="100%" borderWidth="1px" borderColor={colors.border} borderRadius="md" bg={colors.surfaceBgSubtle} className="conversation-pane" data-testid="conversation-pane">
+    <Flex direction="column" h="100%" className="conversation-pane" data-testid="conversation-pane">
       <Box ref={listRef} px="4" pt="4" pb="2" flex="1" overflowY="auto" className="conversation-messages">
         {messages.length === 0 && (
           <Text color={colors.textSubtle} fontSize="sm">
@@ -1199,7 +1215,7 @@ function ConversationPane({
       </Box>
 
       <Separator borderColor={colors.border} />
-      <Box p="4" bg={colors.surfaceBg} borderBottomRadius="md">
+      <Box p="4" bg={colors.surfaceBg}>
         <Textarea
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
@@ -1483,11 +1499,8 @@ function AboutView({
 
   return (
     <Box
-      borderWidth="1px"
-      borderColor={colors.border}
-      borderRadius="md"
-      bg={colors.surfaceBgSubtle}
       p="4"
+      overflowY="auto"
       data-testid="about-view"
     >
       <HStack justify="space-between" align="center" mb="4">
@@ -1595,6 +1608,8 @@ function Sidebar({
   onRenameContact,
   unreadCounts,
   newlyArrived,
+  identityUnreadCounts,
+  newlyArrivedIdentities,
 }: {
   identities: NostlingIdentity[];
   contacts: Record<string, NostlingContact[]>;
@@ -1609,6 +1624,8 @@ function Sidebar({
   onRenameContact: (contactId: string, alias: string) => Promise<void>;
   unreadCounts?: Record<string, number>;
   newlyArrived?: Set<string>;
+  identityUnreadCounts?: Record<string, number>;
+  newlyArrivedIdentities?: Set<string>;
 }) {
   const colors = useThemeColors();
   const currentContacts = selectedIdentityId ? contacts[selectedIdentityId] || [] : [];
@@ -1634,6 +1651,8 @@ function Sidebar({
           onOpenCreate={onOpenIdentityModal}
           onShowQr={setQrDisplayIdentity}
           onRename={onRenameIdentity}
+          unreadCounts={identityUnreadCounts}
+          newlyArrived={newlyArrivedIdentities}
         />
         <Separator borderColor={colors.borderSubtle} />
         <ContactList
@@ -1874,18 +1893,51 @@ function App({ onThemeChange }: AppProps) {
     return () => stopPolling();
   }, [nostling.refreshMessages, selectedContactId, selectedIdentityId]);
 
-  // Refresh unread counts periodically for the selected identity
+  // Refresh unread counts periodically for ALL identities (to show badge on non-selected identities)
   useEffect(() => {
-    if (!selectedIdentityId) return;
+    if (nostling.identities.length === 0) return;
 
-    // Refresh unread counts immediately and every 3 seconds
-    nostling.refreshUnreadCounts(selectedIdentityId);
-    const interval = setInterval(() => {
-      nostling.refreshUnreadCounts(selectedIdentityId);
-    }, 3000);
+    // Refresh unread counts for all identities immediately and every 3 seconds
+    const refreshAll = () => {
+      for (const identity of nostling.identities) {
+        nostling.refreshUnreadCounts(identity.id);
+      }
+    };
+
+    refreshAll();
+    const interval = setInterval(refreshAll, 3000);
 
     return () => clearInterval(interval);
-  }, [selectedIdentityId, nostling.refreshUnreadCounts]);
+  }, [nostling.identities, nostling.refreshUnreadCounts]);
+
+  // Compute unread conversation counts per identity (number of distinct contacts with unread > 0)
+  // Only show counts for non-selected identities
+  const unreadConversationCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const [identityId, contactCounts] of Object.entries(nostling.unreadCounts)) {
+      // Skip the selected identity - we don't highlight it
+      if (identityId === selectedIdentityId) continue;
+      const distinctConversations = Object.values(contactCounts).filter((count) => count > 0).length;
+      if (distinctConversations > 0) {
+        counts[identityId] = distinctConversations;
+      }
+    }
+    return counts;
+  }, [nostling.unreadCounts, selectedIdentityId]);
+
+  // Compute which identities have newly arrived messages (for flash animation)
+  // Only for non-selected identities
+  const newlyArrivedIdentities = useMemo(() => {
+    const identities = new Set<string>();
+    for (const [identityId, contactIds] of Object.entries(nostling.newlyArrived)) {
+      // Skip the selected identity
+      if (identityId === selectedIdentityId) continue;
+      if (contactIds.size > 0) {
+        identities.add(identityId);
+      }
+    }
+    return identities;
+  }, [nostling.newlyArrived, selectedIdentityId]);
 
   const handleShowRelayConfig = () => {
     setCurrentView('relay-config');
@@ -2011,8 +2063,10 @@ function App({ onThemeChange }: AppProps) {
           onRenameContact={handleRenameContact}
           unreadCounts={selectedIdentityId ? nostling.unreadCounts[selectedIdentityId] : undefined}
           newlyArrived={selectedIdentityId ? nostling.newlyArrived[selectedIdentityId] : undefined}
+          identityUnreadCounts={unreadConversationCounts}
+          newlyArrivedIdentities={newlyArrivedIdentities}
         />
-        <Flex as="main" direction="column" flex="1" p="4" overflow="hidden">
+        <Flex as="main" direction="column" flex="1" overflow="hidden" borderWidth="1px" borderColor={colors.border} borderRadius="md" bg={colors.surfaceBgSubtle}>
           {currentView === 'chat' ? (
             <ConversationPane
               identity={selectedIdentity}
@@ -2022,7 +2076,7 @@ function App({ onThemeChange }: AppProps) {
               onMessageHover={setMessageHoverInfo}
             />
           ) : currentView === 'relay-config' ? (
-            <Box borderWidth="1px" borderColor={colors.border} borderRadius="md" bg={colors.surfaceBgSubtle} p="4" data-testid="relay-config-view">
+            <Box p="4" data-testid="relay-config-view">
               <HStack justify="space-between" mb="4">
                 <Heading size="sm" color={colors.textMuted}>
                   Relay Configuration

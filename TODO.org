@@ -1,20 +1,37 @@
 * TODO
 
-+ use a local nostr relay for testing to reduce load on servers
-+ when navigating to about/relay/config/any menu item, deactivate contact. clicking on contact returns to chat
-+ settings:
-  + send with enter
-  + line break with shift-enter
-+ list available versions
+** TODO [#A] BUG :: uncaught regression when trying to scan a new contact
+
+** [#A]
+
++ amethyst: `[//]: # (nip18)`
+  + developer mode
+    + message meta data
++ wrap profile messages in kind:4 messages
+  + fan out to all contacts
 + fetch profile name and picture if available
   + if no profile is available, show alias together with abbreviated npub
+
+** [#B]    
+
++ use a local nostr relay for testing to reduce load on servers
++ unhighlight unseen messages if a contact is active.
+
+** [#C]
+
++ when navigating to about/relay/config/any menu item, deactivate contact. clicking on contact returns to chat
++ highlight/error log if messages are not kind 4
++ settings:
+  + send with enter, line break with shift-enter
++ About
+  + list available versions
+  + release notes
 + forbid to add self as contact
 + add nostling icon
 + informative messages in footer should time out and disappear
   + consider swapping footer for info region that appears only on demand
   + consider a small, cute svg animation in footer (only an ostrich neck)
 + application icon
-+ refactor contact state (pending, connected, etc.) may not be necessary at all...
 + generate custom welcome messages in a given language (using llm?)
   + the savanna is ours to conquer
   + looking forward to
@@ -22,11 +39,9 @@
   + ...
 + sent images?
 
-** TODO BUG :: uncaught regression when trying to scan a new contact
-
 ** TODO THEMES ::
 
-*** Features
+** Features
 
 + hide/delete messages -> "x hidden messages" expand to modal
 + theme generators
@@ -36,7 +51,6 @@
   + reuse color theme
 + keyboard navigation with arrows and TAB
 + mark new messages as they arrive in main panel (when first displayed, and in visible screen)
-+ add symbol to contact to indicate unread messages
 + add bell icon or desktop feedback when messages arrive
 + allow removing identites
 + menu
@@ -75,10 +89,9 @@
 + group chat
   + fake groups with custom message
   + add member (adding a member creates new id (deterministically?), and starts new chat)
-+ rename identities to something more intuitive (profile?)
 + contact online status?
   + only practical if listening to all messages sent by a contact. (last seen ... ago)
-+ languages
++ languages (dynamic or pre-generated?)
 + send on enter/shift enter
 
 *** Build
