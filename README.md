@@ -33,7 +33,7 @@ A desktop messaging application built on the Nostr protocol with secure auto-upd
 ### Features
 
 + change aliases
-+ remove contacts
++ better trashcan icon
 + menu
   + identities ?
 	+ add/remove
@@ -96,6 +96,7 @@ A desktop messaging application built on the Nostr protocol with secure auto-upd
 
 ### Release
 
++ do NOT allow release if tests fail!!
 + compress git history
 + compress migrations into one initial migration
 + remove old versions
