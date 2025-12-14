@@ -68,6 +68,12 @@ function toErrorMessage(error: unknown): string {
   }
 }
 
+// Type for tracking unread counts per identity (identityId -> contactId -> count)
+type UnreadCountsMap = Record<string, Record<string, number>>;
+
+// Type for tracking contacts with newly arrived messages (for flash animation)
+type NewlyArrivedMap = Record<string, Set<string>>; // identityId -> Set<contactId>
+
 export function useNostlingState() {
   const hasBridge = Boolean(window.api?.nostling);
   const [identities, setIdentities] = useState<NostlingIdentity[]>([]);
@@ -76,6 +82,8 @@ export function useNostlingState() {
   const [loading, setLoading] = useState<LoadingState>(initialLoadingState);
   const [lastError, setLastError] = useState<string | null>(null);
   const [lastSync, setLastSync] = useState<string | null>(null);
+  const [unreadCounts, setUnreadCounts] = useState<UnreadCountsMap>({});
+  const [newlyArrived, setNewlyArrived] = useState<NewlyArrivedMap>({});
 
   const setScopedLoading = useCallback((scope: keyof LoadingState, key: string | null, value: boolean) => {
     setLoading((current) => {
@@ -366,6 +374,109 @@ export function useNostlingState() {
   // REMOVED: updateRelayConfig - relay management is now per-identity via relays.set(identityId, relays)
   // The global relay config concept has been replaced with per-identity relay management
 
+  /**
+   * Refresh unread counts for an identity.
+   * Compares with previous counts to detect newly arrived messages.
+   */
+  const refreshUnreadCounts = useCallback(
+    async (identityId: string) => {
+      if (!hasBridge) return;
+
+      try {
+        const counts = await window.api.nostling!.messages.getUnreadCounts(identityId);
+
+        setUnreadCounts((current) => {
+          const previousCounts = current[identityId] || {};
+
+          // Detect contacts with newly arrived messages (count increased)
+          const newlyArrivedContacts = new Set<string>();
+          for (const [contactId, count] of Object.entries(counts)) {
+            const previousCount = previousCounts[contactId] || 0;
+            if (count > previousCount) {
+              newlyArrivedContacts.add(contactId);
+            }
+          }
+
+          // Update newly arrived tracking
+          if (newlyArrivedContacts.size > 0) {
+            setNewlyArrived((prev) => ({
+              ...prev,
+              [identityId]: new Set([...(prev[identityId] || []), ...newlyArrivedContacts]),
+            }));
+
+            // Clear newly arrived status after animation duration (2 seconds)
+            setTimeout(() => {
+              setNewlyArrived((prev) => {
+                const updated = { ...prev };
+                if (updated[identityId]) {
+                  const remaining = new Set(updated[identityId]);
+                  newlyArrivedContacts.forEach((id) => remaining.delete(id));
+                  if (remaining.size === 0) {
+                    delete updated[identityId];
+                  } else {
+                    updated[identityId] = remaining;
+                  }
+                }
+                return updated;
+              });
+            }, 2000);
+          }
+
+          return { ...current, [identityId]: counts };
+        });
+      } catch (error) {
+        recordError('Load unread counts failed', error);
+      }
+    },
+    [hasBridge, recordError]
+  );
+
+  /**
+   * Mark all messages for a contact as read.
+   * Updates local state and clears newly arrived status.
+   */
+  const markMessagesRead = useCallback(
+    async (identityId: string, contactId: string) => {
+      if (!hasBridge) return 0;
+
+      try {
+        const count = await window.api.nostling!.messages.markRead(identityId, contactId);
+
+        // Update local unread counts
+        setUnreadCounts((current) => {
+          const identityCounts = { ...(current[identityId] || {}) };
+          delete identityCounts[contactId];
+          return { ...current, [identityId]: identityCounts };
+        });
+
+        // Clear newly arrived status for this contact
+        setNewlyArrived((current) => {
+          const identitySet = current[identityId];
+          if (identitySet) {
+            const updated = new Set(identitySet);
+            updated.delete(contactId);
+            if (updated.size === 0) {
+              const next = { ...current };
+              delete next[identityId];
+              return next;
+            }
+            return { ...current, [identityId]: updated };
+          }
+          return current;
+        });
+
+        // Refresh messages to update isRead status in local state
+        await refreshMessages(identityId, contactId);
+
+        return count;
+      } catch (error) {
+        recordError('Mark messages read failed', error);
+        return 0;
+      }
+    },
+    [hasBridge, recordError, refreshMessages]
+  );
+
   const hydrateAll = useCallback(async () => {
     if (!hasBridge) return;
 
@@ -374,12 +485,13 @@ export function useNostlingState() {
     const identitiesSnapshot = await window.api.nostling!.identities.list();
     for (const identity of identitiesSnapshot) {
       await refreshContacts(identity.id);
+      await refreshUnreadCounts(identity.id);
       const contactList = await window.api.nostling!.contacts.list(identity.id);
       for (const contact of contactList) {
         await refreshMessages(identity.id, contact.id);
       }
     }
-  }, [hasBridge, refreshContacts, refreshIdentities, refreshMessages]);
+  }, [hasBridge, refreshContacts, refreshIdentities, refreshMessages, refreshUnreadCounts]);
 
   useEffect(() => {
     hydrateAll();
@@ -410,9 +522,12 @@ export function useNostlingState() {
     lastSync,
     queueSummary,
     nostlingStatusText,
+    unreadCounts,
+    newlyArrived,
     refreshIdentities,
     refreshContacts,
     refreshMessages,
+    refreshUnreadCounts,
     createIdentity,
     removeIdentity,
     addContact,
@@ -423,6 +538,7 @@ export function useNostlingState() {
     sendMessage,
     discardUnknown,
     retryFailedMessages,
+    markMessagesRead,
     // Note: relay management is now per-identity via window.api.nostling.relays.get(identityId) / set(identityId, relays)
   };
 }

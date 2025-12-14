@@ -511,6 +511,7 @@ describe('registerHandlers', () => {
       timestamp: new Date().toISOString(),
       status: 'queued',
       direction: 'outgoing',
+      isRead: true,
     };
 
     const relayConfig: NostlingRelayConfig = {
@@ -559,6 +560,10 @@ describe('registerHandlers', () => {
         .mockResolvedValue({ 'wss://relay.damus.io': 'connected', 'wss://relay.primal.net': 'connecting' }),
       onRelayStatusChange: jest.fn<(callback: (url: string, status: string) => void) => void>()
         .mockReturnValue(undefined),
+      markMessagesRead: jest.fn<(identityId: string, contactId: string) => Promise<number>>()
+        .mockResolvedValue(2),
+      getUnreadCounts: jest.fn<(identityId: string) => Promise<Record<string, number>>>()
+        .mockResolvedValue({ 'contact-1': 3 }),
     };
   }
 
@@ -870,8 +875,8 @@ describe('registerHandlers', () => {
       const nostlingDeps = createNostlingDependencies();
       registerHandlers({ ...deps, nostling: nostlingDeps });
 
-      // Base handlers plus 18 nostling channels (including retryFailedMessages, rename flows, 4 relay handlers, and updateTheme)
-      expect(handlers.size).toBe(31);
+      // Base handlers plus 20 nostling channels (including retryFailedMessages, rename flows, 4 relay handlers, updateTheme, and 2 unread handlers)
+      expect(handlers.size).toBe(33);
       expect(handlers.has('nostling:identities:list')).toBe(true);
       expect(handlers.has('nostling:contacts:add')).toBe(true);
       expect(handlers.has('nostling:messages:send')).toBe(true);

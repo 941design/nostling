@@ -32,6 +32,8 @@ interface NostlingIpcDependencies {
   sendMessage: (request: SendNostrMessageRequest) => Promise<any>;
   discardUnknown: (eventId: string) => Promise<void>;
   retryFailedMessages: (identityId?: string) => Promise<any>;
+  markMessagesRead: (identityId: string, contactId: string) => Promise<number>;
+  getUnreadCounts: (identityId: string) => Promise<Record<string, number>>;
   getRelaysForIdentity: (identityId: string) => Promise<any>;
   setRelaysForIdentity: (identityId: string, relays: any) => Promise<any>;
   reloadRelaysForIdentity: (identityId: string) => Promise<any>;
@@ -192,6 +194,12 @@ export function registerHandlers(dependencies: {
     );
     ipcMain.handle('nostling:messages:retry', async (_, identityId?: string) =>
       dependencies.nostling!.retryFailedMessages(identityId)
+    );
+    ipcMain.handle('nostling:messages:mark-read', async (_, identityId: string, contactId: string) =>
+      dependencies.nostling!.markMessagesRead(identityId, contactId)
+    );
+    ipcMain.handle('nostling:messages:get-unread-counts', async (_, identityId: string) =>
+      dependencies.nostling!.getUnreadCounts(identityId)
     );
 
     // Relay configuration (legacy global config)

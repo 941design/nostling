@@ -140,6 +140,12 @@ const api: RendererApi = {
       async retry(identityId?: string) {
         return ipcRenderer.invoke('nostling:messages:retry', identityId) as ReturnType<NostlingApi['messages']['retry']>;
       },
+      async markRead(identityId: string, contactId: string) {
+        return ipcRenderer.invoke('nostling:messages:mark-read', identityId, contactId) as Promise<number>;
+      },
+      async getUnreadCounts(identityId: string) {
+        return ipcRenderer.invoke('nostling:messages:get-unread-counts', identityId) as Promise<Record<string, number>>;
+      },
     },
     relays: {
       async get(identityId: string) {

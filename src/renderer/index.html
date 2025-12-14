@@ -4,6 +4,41 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Nostling</title>
+    <style>
+      /* Unread message contact highlight animations */
+      @keyframes unread-flash {
+        0% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.7); }
+        25% { box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.5); }
+        50% { box-shadow: 0 0 0 8px rgba(56, 189, 248, 0.3); }
+        75% { box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.5); }
+        100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.7); }
+      }
+
+      @keyframes unread-pulse {
+        0% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.4); }
+        50% { box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2); }
+        100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.4); }
+      }
+
+      .contact-unread-flash {
+        animation: unread-flash 0.5s ease-in-out 3;
+      }
+
+      .contact-unread-pulse {
+        animation: unread-pulse 2s ease-in-out infinite;
+      }
+
+      .contact-unread-indicator {
+        position: absolute;
+        top: -2px;
+        right: -2px;
+        width: 10px;
+        height: 10px;
+        background: #38bdf8;
+        border-radius: 50%;
+        border: 2px solid var(--chakra-colors-bg, #0f172a);
+      }
+    </style>
   </head>
   <body style="background: #0f172a; margin: 0;">
     <div id="root"></div>

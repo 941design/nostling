@@ -63,6 +63,7 @@ interface MessageRow {
   timestamp: string;
   status: NostlingMessageStatus;
   direction: NostlingMessageDirection;
+  is_read: boolean;
 }
 
 interface NostrKind4Filter extends Filter {
@@ -314,7 +315,7 @@ export class NostlingService {
 
   async listMessages(identityId: string, contactId: string): Promise<NostlingMessage[]> {
     const stmt = this.database.prepare(
-      'SELECT id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction FROM nostr_messages WHERE identity_id = ? AND contact_id = ? ORDER BY timestamp ASC'
+      'SELECT id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read FROM nostr_messages WHERE identity_id = ? AND contact_id = ? ORDER BY timestamp ASC'
     );
     stmt.bind([identityId, contactId]);
 
@@ -324,6 +325,42 @@ export class NostlingService {
     }
     stmt.free();
     return messages;
+  }
+
+
+  /**
+   * Mark all unread incoming messages for a contact as read.
+   * Returns the count of messages that were marked as read.
+   */
+  async markMessagesRead(identityId: string, contactId: string): Promise<number> {
+    const result = this.database.run(
+      'UPDATE nostr_messages SET is_read = 1 WHERE identity_id = ? AND contact_id = ? AND direction = ? AND is_read = 0',
+      [identityId, contactId, 'incoming']
+    );
+    const changes = this.database.getRowsModified();
+    if (changes > 0) {
+      log('info', `Marked ${changes} messages as read for contact ${contactId}`);
+    }
+    return changes;
+  }
+
+  /**
+   * Get unread message counts for all contacts of an identity.
+   * Returns a map of contactId -> unread count.
+   */
+  async getUnreadCounts(identityId: string): Promise<Record<string, number>> {
+    const stmt = this.database.prepare(
+      'SELECT contact_id, COUNT(*) as count FROM nostr_messages WHERE identity_id = ? AND direction = ? AND is_read = 0 GROUP BY contact_id'
+    );
+    stmt.bind([identityId, 'incoming']);
+
+    const counts: Record<string, number> = {};
+    while (stmt.step()) {
+      const row = stmt.getAsObject() as { contact_id: string; count: number };
+      counts[row.contact_id] = row.count;
+    }
+    stmt.free();
+    return counts;
   }
 
   async sendMessage(request: { identityId: string; contactId: string; plaintext: string }): Promise<NostlingMessage> {
@@ -390,7 +427,7 @@ export class NostlingService {
       const id = randomUUID();
 
       this.database.run(
-        'INSERT INTO nostr_messages (id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO nostr_messages (id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [
           id,
           options.identityId,
@@ -402,6 +439,7 @@ export class NostlingService {
           now,
           'sent',
           'incoming',
+          0, // Incoming messages start as unread
         ]
       );
 
@@ -423,6 +461,7 @@ export class NostlingService {
         timestamp: now,
         status: 'sent',
         direction: 'incoming',
+        isRead: false,
       };
     });
   }
@@ -878,7 +917,7 @@ export class NostlingService {
     // Store plaintext for display; encryption happens at publish time
     // (The 'ciphertext' column actually stores displayable content)
     this.database.run(
-      'INSERT INTO nostr_messages (id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO nostr_messages (id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
         id,
         options.identityId,
@@ -890,6 +929,7 @@ export class NostlingService {
         now,
         status,
         'outgoing',
+        1, // Outgoing messages are always "read"
       ]
     );
 
@@ -909,6 +949,7 @@ export class NostlingService {
       timestamp: now,
       status,
       direction: 'outgoing',
+      isRead: true,
     };
   }
 
@@ -1010,6 +1051,7 @@ export class NostlingService {
       timestamp: this.toIso(row.timestamp),
       status: row.status,
       direction: row.direction,
+      isRead: Boolean(row.is_read),
     };
   }
 

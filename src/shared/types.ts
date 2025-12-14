@@ -165,6 +165,7 @@ export interface NostlingMessage {
   timestamp: string;
   status: NostlingMessageStatus;
   direction: NostlingMessageDirection;
+  isRead: boolean; // Whether the message has been read (always true for outgoing)
 }
 
 export interface NostlingRelayEndpoint {
@@ -232,6 +233,8 @@ export interface NostlingApi {
     send(request: SendNostrMessageRequest): Promise<NostlingMessage>;
     discardUnknown(eventId: string): Promise<void>;
     retry(identityId?: string): Promise<NostlingMessage[]>;
+    markRead(identityId: string, contactId: string): Promise<number>; // Returns count of messages marked as read
+    getUnreadCounts(identityId: string): Promise<Record<string, number>>; // contactId -> unread count
   };
   relays: {
     get(identityId: string): Promise<NostlingRelayEndpoint[]>;

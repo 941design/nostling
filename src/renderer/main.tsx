@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import {
   ChakraProvider,
@@ -34,6 +34,7 @@ import {
 import './types.d.ts';
 import { getStatusText, isRefreshEnabled } from './utils';
 import { startConversationPoller } from './utils/conversation-poller';
+import { shouldSubmitOnKeyDown } from './utils/keyboard-submit';
 import { useNostlingState } from './nostling/state';
 import { RelayTable } from './components/RelayTable';
 import { RelayConflictModal } from './components/RelayConflictModal';
@@ -83,7 +84,7 @@ const CopyIcon = () => (
 
 const TrashIcon = () => (
   <svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor">
-    <path d="M9 3v1H4v2h16V4h-5V3H9zm-1 6v9c0 1.1.9 2 2 2h4c1.1 0 2-.9 2-2V9H8zm3 2h2v7h-2v-7z" />
+    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
   </svg>
 );
 
@@ -102,6 +103,12 @@ const CheckIcon = () => (
 const CloseIcon = () => (
   <svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor">
     <path d="M18.3 5.71L12 12l6.3 6.29-1.41 1.42L12 13.41l-6.29 6.3-1.42-1.42L10.59 12 4.29 5.71 5.71 4.29 12 10.59l6.29-6.3z" />
+  </svg>
+);
+
+const PlusIcon = () => (
+  <svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor">
+    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
   </svg>
 );
 
@@ -344,9 +351,10 @@ interface FooterProps {
   nostlingStatus?: string;
   nostlingError?: string | null;
   relayHoverInfo?: { url: string; status: string } | null;
+  messageHoverInfo?: string | null;
 }
 
-function Footer({ version, updateState, onRefresh, onDownload, onRestart, nostlingStatus, nostlingError, relayHoverInfo }: FooterProps) {
+function Footer({ version, updateState, onRefresh, onDownload, onRestart, nostlingStatus, nostlingError, relayHoverInfo, messageHoverInfo }: FooterProps) {
   const colors = useThemeColors();
   // Memoize based on phase and display-relevant fields only to prevent
   // random message re-selection during progress updates (downloading, mounting)
@@ -402,6 +410,14 @@ function Footer({ version, updateState, onRefresh, onDownload, onRestart, nostli
             </Text>
           </>
         )}
+        {messageHoverInfo && (
+          <>
+            <Text color={colors.textSubtle}>•</Text>
+            <Text className="message-hover-info" color={colors.textMuted} maxW="400px" truncate>
+              {messageHoverInfo}
+            </Text>
+          </>
+        )}
       </HStack>
       <Spacer />
       <HStack gap="2">
@@ -435,6 +451,32 @@ function formatTimestamp(timestamp?: string): string {
   if (!timestamp) return '—';
   const date = new Date(timestamp);
   return Number.isNaN(date.getTime()) ? timestamp : date.toLocaleString();
+}
+
+function formatTimeOnly(timestamp?: string): string {
+  if (!timestamp) return '—';
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return timestamp;
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatRelativeDate(timestamp: string): string {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return timestamp;
+
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  const dateStr = date.toDateString();
+  if (dateStr === today.toDateString()) return 'Today';
+  if (dateStr === yesterday.toDateString()) return 'Yesterday';
+
+  return date.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
 }
 
 interface NostlingStatusCardProps {
@@ -503,17 +545,6 @@ type ContactFormState = {
   alias: string;
 };
 
-function ContactStateBadge({ state }: { state: 'pending' | 'connected' }) {
-  const color = state === 'connected' ? 'green' : 'orange';
-  const label = state === 'connected' ? 'Connected' : 'Pending';
-
-  return (
-    <Badge colorPalette={color} variant="subtle" size="sm">
-      {label}
-    </Badge>
-  );
-}
-
 function IdentityList({
   identities,
   selectedId,
@@ -566,7 +597,7 @@ function IdentityList({
 
   return (
     <Box data-testid="identity-list">
-      <HStack justify="space-between" mb="2">
+      <HStack justify="space-between" mb="2" className="group">
         <Heading size="sm" color={colors.textMuted}>
           Identities
         </Heading>
@@ -576,9 +607,12 @@ function IdentityList({
           title="Create or import identity"
           onClick={onOpenCreate}
           colorPalette="blue"
-          variant="subtle"
+          variant="ghost"
+          opacity={0}
+          _groupHover={{ opacity: 1 }}
+          transition="opacity 0.15s"
         >
-          +
+          <PlusIcon />
         </IconButton>
       </HStack>
       <VStack align="stretch" gap="2">
@@ -604,10 +638,11 @@ function IdentityList({
               _hover={{ borderColor: 'brand.400', cursor: 'pointer' }}
               onClick={() => onSelect(identity.id)}
               data-testid={`identity-item-${identity.id}`}
+              className="group"
             >
               <HStack justify="space-between" align="center" gap="2">
                 {editingId === identity.id ? (
-                  <HStack align="center" gap="1" flex="1">
+                  <HStack align="center" gap="0" flex="1">
                     <Input
                       ref={inputRef}
                       size="sm"
@@ -650,8 +685,8 @@ function IdentityList({
                     {displayName}
                   </Text>
                 )}
-                <HStack gap="1">
-                  {editingId !== identity.id && (
+                {editingId !== identity.id && (
+                  <HStack gap="0" opacity={0} _groupHover={{ opacity: 1 }} transition="opacity 0.15s">
                     <IconButton
                       size="xs"
                       variant="ghost"
@@ -663,36 +698,46 @@ function IdentityList({
                     >
                       <PencilIcon />
                     </IconButton>
-                  )}
-                  <IconButton
-                    size="xs"
-                    variant="ghost"
-                    aria-label="Show QR code"
-                    title="Show QR code for this identity"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onShowQr(identity);
-                    }}
-                    color={colors.textSubtle}
-                    _hover={{ color: colors.textMuted }}
-                  >
-                    <QrCodeIcon />
-                  </IconButton>
-                  <IconButton
-                    size="xs"
-                    variant="ghost"
-                    aria-label="Copy npub"
-                    title="Copy npub to clipboard"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigator.clipboard.writeText(identity.npub);
-                    }}
-                    color={colors.textSubtle}
-                    _hover={{ color: colors.textMuted }}
-                  >
-                    <CopyIcon />
-                  </IconButton>
-                </HStack>
+                    <IconButton
+                      size="xs"
+                      variant="ghost"
+                      aria-label="Show QR code"
+                      title="Show QR code for this identity"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onShowQr(identity);
+                      }}
+                      color={colors.textSubtle}
+                      _hover={{ color: colors.textMuted }}
+                    >
+                      <QrCodeIcon />
+                    </IconButton>
+                    <IconButton
+                      size="xs"
+                      variant="ghost"
+                      aria-label="Copy npub"
+                      title="Copy npub to clipboard"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigator.clipboard.writeText(identity.npub);
+                      }}
+                      color={colors.textSubtle}
+                      _hover={{ color: colors.textMuted }}
+                    >
+                      <CopyIcon />
+                    </IconButton>
+                    <IconButton
+                      size="xs"
+                      variant="ghost"
+                      aria-label="Delete identity"
+                      title="Identities cannot be deleted"
+                      disabled
+                      color={colors.textSubtle}
+                    >
+                      <TrashIcon />
+                    </IconButton>
+                  </HStack>
+                )}
               </HStack>
             </Box>
           );
@@ -710,6 +755,9 @@ function ContactList({
   disabled,
   onRequestDelete,
   onRename,
+  onShowQr,
+  unreadCounts,
+  newlyArrived,
 }: {
   contacts: NostlingContact[];
   selectedId: string | null;
@@ -718,6 +766,9 @@ function ContactList({
   disabled: boolean;
   onRequestDelete: (contact: NostlingContact) => void;
   onRename: (contactId: string, alias: string) => Promise<void>;
+  onShowQr: (contact: NostlingContact) => void;
+  unreadCounts?: Record<string, number>;
+  newlyArrived?: Set<string>;
 }) {
   const colors = useThemeColors();
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -756,7 +807,7 @@ function ContactList({
 
   return (
     <Box mt="6" data-testid="contact-list">
-      <HStack justify="space-between" mb="2">
+      <HStack justify="space-between" mb="2" className="group">
         <Heading size="sm" color={colors.textMuted}>
           Contacts
         </Heading>
@@ -766,10 +817,13 @@ function ContactList({
           title={disabled ? 'Create an identity first' : 'Add contact'}
           onClick={onOpenAdd}
           colorPalette="blue"
-          variant="subtle"
+          variant="ghost"
           disabled={disabled}
+          opacity={0}
+          _groupHover={{ opacity: 1 }}
+          transition="opacity 0.15s"
         >
-          +
+          <PlusIcon />
         </IconButton>
       </HStack>
       <VStack align="stretch" gap="2">
@@ -784,21 +838,40 @@ function ContactList({
             alias: contact.alias,
             npub: contact.npub,
           });
+          const unreadCount = unreadCounts?.[contact.id] || 0;
+          const isNewlyArrived = newlyArrived?.has(contact.id) || false;
+          const hasUnread = unreadCount > 0;
+
+          // Determine CSS classes for animation
+          const animationClass = isNewlyArrived
+            ? 'contact-unread-flash'
+            : hasUnread
+              ? 'contact-unread-pulse'
+              : '';
+
           return (
             <Box
               key={contact.id}
               borderWidth="1px"
-              borderColor={selectedId === contact.id ? 'brand.400' : colors.border}
+              borderColor={
+                hasUnread
+                  ? 'brand.400'
+                  : selectedId === contact.id
+                    ? 'brand.400'
+                    : colors.border
+              }
               borderRadius="md"
               p="2"
               bg={selectedId === contact.id ? colors.surfaceBgSelected : 'transparent'}
               _hover={{ borderColor: 'brand.400', cursor: 'pointer' }}
               onClick={() => onSelect(contact.id)}
               data-testid={`contact-item-${contact.id}`}
+              className={`group ${animationClass}`}
+              position="relative"
             >
               <HStack justify="space-between" align="center" gap="2">
                 {editingId === contact.id ? (
-                  <HStack align="center" gap="1" flex="1">
+                  <HStack align="center" gap="0" flex="1">
                     <Input
                       ref={inputRef}
                       size="sm"
@@ -838,54 +911,84 @@ function ContactList({
                     </IconButton>
                   </HStack>
                 ) : (
-                  <Text color={colors.text} fontWeight="semibold" lineClamp={1} flex="1">
-                    {displayName}
-                  </Text>
+                  <HStack flex="1" gap="2">
+                    <Text color={colors.text} fontWeight="semibold" lineClamp={1} flex="1">
+                      {displayName}
+                    </Text>
+                    {hasUnread && (
+                      <Badge
+                        colorPalette="blue"
+                        variant="solid"
+                        borderRadius="full"
+                        fontSize="xs"
+                        px="2"
+                        minW="6"
+                        textAlign="center"
+                      >
+                        {unreadCount}
+                      </Badge>
+                    )}
+                  </HStack>
                 )}
-                <HStack gap="1">
+                <HStack gap="0" opacity={0} _groupHover={{ opacity: 1 }} transition="opacity 0.15s">
                   {editingId !== contact.id && (
-                    <IconButton
-                      size="xs"
-                      variant="ghost"
-                      aria-label="Edit contact alias"
-                      title="Rename contact"
-                      onClick={(event) => startEditing(contact, event)}
-                      color={colors.textSubtle}
-                      _hover={{ color: colors.textMuted }}
-                    >
-                      <PencilIcon />
-                    </IconButton>
+                    <>
+                      <IconButton
+                        size="xs"
+                        variant="ghost"
+                        aria-label="Edit contact alias"
+                        title="Rename contact"
+                        onClick={(event) => startEditing(contact, event)}
+                        color={colors.textSubtle}
+                        _hover={{ color: colors.textMuted }}
+                      >
+                        <PencilIcon />
+                      </IconButton>
+                      <IconButton
+                        size="xs"
+                        variant="ghost"
+                        aria-label="Show QR code"
+                        title="Show QR code for this contact"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onShowQr(contact);
+                        }}
+                        color={colors.textSubtle}
+                        _hover={{ color: colors.textMuted }}
+                      >
+                        <QrCodeIcon />
+                      </IconButton>
+                      <IconButton
+                        size="xs"
+                        variant="ghost"
+                        aria-label="Copy npub"
+                        title="Copy npub to clipboard"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigator.clipboard.writeText(contact.npub);
+                        }}
+                        color={colors.textSubtle}
+                        _hover={{ color: colors.textMuted }}
+                      >
+                        <CopyIcon />
+                      </IconButton>
+                      <IconButton
+                        size="xs"
+                        variant="ghost"
+                        aria-label="Delete contact"
+                        title="Remove contact"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRequestDelete(contact);
+                        }}
+                        color={colors.textSubtle}
+                        _hover={{ color: colors.textMuted }}
+                        data-testid={`delete-contact-${contact.id}`}
+                      >
+                        <TrashIcon />
+                      </IconButton>
+                    </>
                   )}
-                  <IconButton
-                    size="xs"
-                    variant="ghost"
-                    aria-label="Copy npub"
-                    title="Copy npub to clipboard"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigator.clipboard.writeText(contact.npub);
-                    }}
-                    color={colors.textSubtle}
-                    _hover={{ color: colors.textMuted }}
-                  >
-                    <CopyIcon />
-                  </IconButton>
-                  <IconButton
-                    size="xs"
-                    variant="ghost"
-                    aria-label="Delete contact"
-                    title="Remove contact"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onRequestDelete(contact);
-                    }}
-                    color={colors.textSubtle}
-                    _hover={{ color: colors.textMuted }}
-                    data-testid={`delete-contact-${contact.id}`}
-                  >
-                    <TrashIcon />
-                  </IconButton>
-                  <ContactStateBadge state={contact.state} />
                 </HStack>
               </HStack>
             </Box>
@@ -901,10 +1004,12 @@ function MessageStatusBadge({
 }: {
   status: 'queued' | 'sending' | 'sent' | 'error';
 }) {
+  // Only show badge for non-sent states
+  if (status === 'sent') return null;
+
   const palette = {
     queued: 'orange',
     sending: 'blue',
-    sent: 'green',
     error: 'red',
   }[status];
 
@@ -913,9 +1018,7 @@ function MessageStatusBadge({
       ? 'Queued'
       : status === 'sending'
         ? 'Sending'
-        : status === 'sent'
-          ? 'Sent'
-          : 'Error';
+        : 'Error';
 
   return (
     <Badge colorPalette={palette} variant="subtle" size="xs">
@@ -924,9 +1027,24 @@ function MessageStatusBadge({
   );
 }
 
+function DateSeparator({ date }: { date: string }) {
+  const colors = useThemeColors();
+  return (
+    <HStack my="3" gap="3">
+      <Separator flex="1" borderColor={colors.border} />
+      <Text fontSize="xs" color={colors.textSubtle} whiteSpace="nowrap">
+        {date}
+      </Text>
+      <Separator flex="1" borderColor={colors.border} />
+    </HStack>
+  );
+}
+
 function MessageBubble({
   message,
   isOwn,
+  onMouseEnter,
+  onMouseLeave,
 }: {
   message: {
     id: string;
@@ -935,8 +1053,12 @@ function MessageBubble({
     status: 'queued' | 'sending' | 'sent' | 'error';
   };
   isOwn: boolean;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
 }) {
   const colors = useThemeColors();
+  const statusBadge = <MessageStatusBadge status={message.status} />;
+
   return (
     <HStack justify={isOwn ? 'flex-end' : 'flex-start'} align="flex-end" mb="2" gap="2" data-testid="message-bubble">
       <Box
@@ -947,16 +1069,17 @@ function MessageBubble({
         borderRadius="md"
         p="3"
         className="message-bubble"
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
       >
         <Text color={colors.text} whiteSpace="pre-wrap">
           {message.content}
         </Text>
-        <HStack justify="space-between" mt="2" gap="2">
-          <Text fontSize="xs" color={colors.textSubtle}>
-            {formatTimestamp(message.timestamp)}
-          </Text>
-          <MessageStatusBadge status={message.status} />
-        </HStack>
+        {statusBadge && (
+          <HStack justify="flex-end" mt="2" gap="2">
+            {statusBadge}
+          </HStack>
+        )}
       </Box>
     </HStack>
   );
@@ -967,7 +1090,7 @@ interface ConversationPaneProps {
   contact: NostlingContact | null;
   messages: NostlingMessage[];
   onSend: (plaintext: string) => Promise<boolean>;
-  queueSummary: { queued: number; sending: number; errors: number };
+  onMessageHover: (info: string | null) => void;
 }
 
 function ConversationPane({
@@ -975,7 +1098,7 @@ function ConversationPane({
   contact,
   messages,
   onSend,
-  queueSummary,
+  onMessageHover,
 }: ConversationPaneProps) {
   const colors = useThemeColors();
   const [draft, setDraft] = useState('');
@@ -985,17 +1108,19 @@ function ConversationPane({
 
   const canSend = Boolean(identity && contact && draft.trim().length > 0 && !isSending);
 
+  const handleMessageHover = (message: NostlingMessage | null) => {
+    if (message) {
+      const sender = message.direction === 'outgoing' ? 'you' : contact?.alias || contact?.profileName || 'contact';
+      onMessageHover(`sent by ${sender} on ${formatTimestamp(message.timestamp)}`);
+    } else {
+      onMessageHover(null);
+    }
+  };
+
   useEffect(() => {
     if (!listRef.current) return;
     listRef.current.scrollTop = listRef.current.scrollHeight;
   }, [messages.length]);
-
-  const queueText = useMemo(() => {
-    if (queueSummary.errors > 0) return `${queueSummary.errors} message error(s)`;
-    if (queueSummary.sending > 0) return `${queueSummary.sending} sending`;
-    if (queueSummary.queued > 0) return `${queueSummary.queued} queued (offline)`;
-    return 'Queue idle';
-  }, [queueSummary]);
 
   const handleSend = async () => {
     if (!canSend) return;
@@ -1008,6 +1133,13 @@ function ConversationPane({
       setSendError('Message failed to send. Check your connection and try again.');
     }
     setIsSending(false);
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (shouldSubmitOnKeyDown(event)) {
+      event.preventDefault();
+      handleSend();
+    }
   };
 
   if (!identity) {
@@ -1033,56 +1165,59 @@ function ConversationPane({
   }
 
   return (
-    <Box borderWidth="1px" borderColor={colors.border} borderRadius="md" bg={colors.surfaceBgSubtle} className="conversation-pane" data-testid="conversation-pane">
-      <Box ref={listRef} px="4" pt="4" pb="2" h="50vh" overflowY="auto" className="conversation-messages">
+    <Flex direction="column" h="100%" borderWidth="1px" borderColor={colors.border} borderRadius="md" bg={colors.surfaceBgSubtle} className="conversation-pane" data-testid="conversation-pane">
+      <Box ref={listRef} px="4" pt="4" pb="2" flex="1" overflowY="auto" className="conversation-messages">
         {messages.length === 0 && (
           <Text color={colors.textSubtle} fontSize="sm">
             No messages yet. Send a welcome message to start the handshake.
           </Text>
         )}
-        {messages.map((message) => (
-          <MessageBubble
-            key={message.id}
-            message={{
-              id: message.id,
-              content: message.content,
-              timestamp: message.timestamp,
-              status: message.status,
-            }}
-            isOwn={message.direction === 'outgoing'}
-          />
-        ))}
+        {(() => {
+          let prevDate: string | null = null;
+          return messages.map((message) => {
+            const msgDate = new Date(message.timestamp).toDateString();
+            const showSeparator = msgDate !== prevDate;
+            prevDate = msgDate;
+            return (
+              <Fragment key={message.id}>
+                {showSeparator && <DateSeparator date={formatRelativeDate(message.timestamp)} />}
+                <MessageBubble
+                  message={{
+                    id: message.id,
+                    content: message.content,
+                    timestamp: message.timestamp,
+                    status: message.status,
+                  }}
+                  isOwn={message.direction === 'outgoing'}
+                  onMouseEnter={() => handleMessageHover(message)}
+                  onMouseLeave={() => handleMessageHover(null)}
+                />
+              </Fragment>
+            );
+          });
+        })()}
       </Box>
 
       <Separator borderColor={colors.border} />
       <Box p="4" bg={colors.surfaceBg} borderBottomRadius="md">
-        <Stack gap="2">
-          <Textarea
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            placeholder="Type a message..."
-            resize="vertical"
-            minH="100px"
-            color={colors.text}
-            borderColor={colors.borderSubtle}
-            _placeholder={{ color: colors.textSubtle }}
-          />
-          {sendError && (
-            <Text color="red.300" fontSize="sm">
-              {sendError}
-            </Text>
-          )}
-          <HStack justify="space-between" align="center">
-            <Text color={colors.textSubtle} fontSize="sm">
-              {queueText}
-            </Text>
-            <Button size="sm" colorPalette="blue" onClick={handleSend} disabled={!canSend} loading={isSending}>
-              Send Message
-            </Button>
-          </HStack>
-        </Stack>
+        <Textarea
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Type a message... (Enter to send, Shift+Enter for new line)"
+          resize="vertical"
+          minH="100px"
+          color={colors.text}
+          borderColor={colors.borderSubtle}
+          _placeholder={{ color: colors.textSubtle }}
+        />
+        {sendError && (
+          <Text color="red.300" fontSize="sm" mt="2">
+            {sendError}
+          </Text>
+        )}
       </Box>
-    </Box>
+    </Flex>
   );
 }
 
@@ -1458,6 +1593,8 @@ function Sidebar({
   onRequestDeleteContact,
   onRenameIdentity,
   onRenameContact,
+  unreadCounts,
+  newlyArrived,
 }: {
   identities: NostlingIdentity[];
   contacts: Record<string, NostlingContact[]>;
@@ -1470,10 +1607,13 @@ function Sidebar({
   onRequestDeleteContact: (contact: NostlingContact) => void;
   onRenameIdentity: (identityId: string, label: string) => Promise<void>;
   onRenameContact: (contactId: string, alias: string) => Promise<void>;
+  unreadCounts?: Record<string, number>;
+  newlyArrived?: Set<string>;
 }) {
   const colors = useThemeColors();
   const currentContacts = selectedIdentityId ? contacts[selectedIdentityId] || [] : [];
   const [qrDisplayIdentity, setQrDisplayIdentity] = useState<NostlingIdentity | null>(null);
+  const [qrDisplayContact, setQrDisplayContact] = useState<NostlingContact | null>(null);
 
   return (
     <Box
@@ -1504,6 +1644,9 @@ function Sidebar({
           disabled={identities.length === 0}
           onRequestDelete={onRequestDeleteContact}
           onRename={onRenameContact}
+          onShowQr={setQrDisplayContact}
+          unreadCounts={unreadCounts}
+          newlyArrived={newlyArrived}
         />
       </VStack>
       <QrCodeDisplayModal
@@ -1511,6 +1654,12 @@ function Sidebar({
         onClose={() => setQrDisplayIdentity(null)}
         npub={qrDisplayIdentity?.npub || ''}
         label={qrDisplayIdentity?.label}
+      />
+      <QrCodeDisplayModal
+        isOpen={qrDisplayContact !== null}
+        onClose={() => setQrDisplayContact(null)}
+        npub={qrDisplayContact?.npub || ''}
+        label={qrDisplayContact?.alias}
       />
     </Box>
   );
@@ -1535,10 +1684,14 @@ function App({ onThemeChange }: AppProps) {
   const [currentView, setCurrentView] = useState<AppView>('chat');
   const [currentThemeId, setCurrentThemeId] = useState<ThemeId>('dark');
 
+  // Track last selected contact per identity to restore when switching back
+  const lastContactPerIdentityRef = useRef<Record<string, string>>({});
+
   // Relay state management (per-identity)
   const [currentRelays, setCurrentRelays] = useState<NostlingRelayEndpoint[]>([]);
   const [relayStatus, setRelayStatus] = useState<Record<string, string>>({});
   const [relayHoverInfo, setRelayHoverInfo] = useState<{ url: string; status: string } | null>(null);
+  const [messageHoverInfo, setMessageHoverInfo] = useState<string | null>(null);
   const [conflictModalOpen, setConflictModalOpen] = useState(false);
   const [conflictMessage, setConflictMessage] = useState('');
 
@@ -1643,6 +1796,32 @@ function App({ onThemeChange }: AppProps) {
     }
   }, [nostling.contacts, selectedContactId, selectedIdentityId]);
 
+  // Track contact selection for each identity
+  useEffect(() => {
+    if (selectedIdentityId && selectedContactId) {
+      lastContactPerIdentityRef.current[selectedIdentityId] = selectedContactId;
+    }
+  }, [selectedIdentityId, selectedContactId]);
+
+  // Handle identity selection with immediate contact restoration (no flicker)
+  const handleSelectIdentity = (newIdentityId: string) => {
+    if (newIdentityId === selectedIdentityId) return;
+
+    // Get contacts for the target identity
+    const targetContacts = nostling.contacts[newIdentityId] || [];
+
+    // Determine which contact to select: remembered or first
+    const rememberedContactId = lastContactPerIdentityRef.current[newIdentityId];
+    const validRememberedContact = rememberedContactId && targetContacts.some((c) => c.id === rememberedContactId);
+    const contactToSelect = validRememberedContact
+      ? rememberedContactId
+      : targetContacts[0]?.id ?? null;
+
+    // Set both identity and contact atomically
+    setSelectedIdentityId(newIdentityId);
+    setSelectedContactId(contactToSelect);
+  };
+
   const handleCreateIdentity = async (values: IdentityFormState) => {
     const identity = await nostling.createIdentity({ label: values.label, nsec: values.nsec || undefined });
     if (identity) {
@@ -1694,6 +1873,19 @@ function App({ onThemeChange }: AppProps) {
 
     return () => stopPolling();
   }, [nostling.refreshMessages, selectedContactId, selectedIdentityId]);
+
+  // Refresh unread counts periodically for the selected identity
+  useEffect(() => {
+    if (!selectedIdentityId) return;
+
+    // Refresh unread counts immediately and every 3 seconds
+    nostling.refreshUnreadCounts(selectedIdentityId);
+    const interval = setInterval(() => {
+      nostling.refreshUnreadCounts(selectedIdentityId);
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [selectedIdentityId, nostling.refreshUnreadCounts]);
 
   const handleShowRelayConfig = () => {
     setCurrentView('relay-config');
@@ -1804,25 +1996,31 @@ function App({ onThemeChange }: AppProps) {
           contacts={nostling.contacts}
           selectedIdentityId={selectedIdentityId}
           selectedContactId={selectedContactId}
-          onSelectIdentity={setSelectedIdentityId}
-          onSelectContact={setSelectedContactId}
+          onSelectIdentity={handleSelectIdentity}
+          onSelectContact={(contactId) => {
+            setSelectedContactId(contactId);
+            // Mark messages as read when selecting a contact
+            if (selectedIdentityId && contactId) {
+              void nostling.markMessagesRead(selectedIdentityId, contactId);
+            }
+          }}
           onOpenIdentityModal={() => setIdentityModalOpen(true)}
           onOpenContactModal={() => setContactModalOpen(true)}
           onRequestDeleteContact={handleRequestDeleteContact}
           onRenameIdentity={handleRenameIdentity}
           onRenameContact={handleRenameContact}
+          unreadCounts={selectedIdentityId ? nostling.unreadCounts[selectedIdentityId] : undefined}
+          newlyArrived={selectedIdentityId ? nostling.newlyArrived[selectedIdentityId] : undefined}
         />
-        <Box as="main" flex="1" p="4" overflowY="auto">
+        <Flex as="main" direction="column" flex="1" p="4" overflow="hidden">
           {currentView === 'chat' ? (
-            <Stack gap="4">
-              <ConversationPane
-                identity={selectedIdentity}
-                contact={selectedContact}
-                messages={conversationMessages}
-                onSend={handleSendMessage}
-                queueSummary={nostling.queueSummary}
-              />
-            </Stack>
+            <ConversationPane
+              identity={selectedIdentity}
+              contact={selectedContact}
+              messages={conversationMessages}
+              onSend={handleSendMessage}
+              onMessageHover={setMessageHoverInfo}
+            />
           ) : currentView === 'relay-config' ? (
             <Box borderWidth="1px" borderColor={colors.border} borderRadius="md" bg={colors.surfaceBgSubtle} p="4" data-testid="relay-config-view">
               <HStack justify="space-between" mb="4">
@@ -1866,7 +2064,7 @@ function App({ onThemeChange }: AppProps) {
               onRetryFailed={nostling.retryFailedMessages}
             />
           )}
-        </Box>
+        </Flex>
       </Flex>
       <IdentityModal
         isOpen={identityModalOpen}
@@ -1906,6 +2104,7 @@ function App({ onThemeChange }: AppProps) {
         nostlingStatus={nostling.nostlingStatusText}
         nostlingError={nostling.lastError}
         relayHoverInfo={relayHoverInfo}
+        messageHoverInfo={messageHoverInfo}
       />
     </Flex>
   );
