@@ -33,6 +33,7 @@ import {
 } from '../shared/types';
 import './types.d.ts';
 import { getStatusText, isRefreshEnabled } from './utils';
+import { startConversationPoller } from './utils/conversation-poller';
 import { useNostlingState } from './nostling/state';
 import { RelayTable } from './components/RelayTable';
 import { RelayConflictModal } from './components/RelayConflictModal';
@@ -1368,8 +1369,14 @@ function App({ onThemeChange }: AppProps) {
   };
 
   useEffect(() => {
-    if (!selectedIdentityId || !selectedContactId) return;
-    nostling.refreshMessages(selectedIdentityId, selectedContactId);
+    const stopPolling = startConversationPoller({
+      identityId: selectedIdentityId,
+      contactId: selectedContactId,
+      refreshMessages: nostling.refreshMessages,
+      intervalMs: 2000,
+    });
+
+    return () => stopPolling();
   }, [nostling.refreshMessages, selectedContactId, selectedIdentityId]);
 
   const handleShowRelayConfig = () => {
