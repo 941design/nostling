@@ -1,6 +1,6 @@
 {
   "name": "nostling",
-  "version": "0.0.29",
+  "version": "0.0.30",
   "description": "Desktop app bootstrap with secure auto-updates",
   "main": "dist/main/index.js",
   "author": "markus.rother@mustwork.de",
