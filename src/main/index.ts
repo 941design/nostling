@@ -501,10 +501,14 @@ app.on('ready', async () => {
       listIdentities: () => getNostlingService().listIdentities(),
       createIdentity: (request) => getNostlingService().createIdentity(request),
       removeIdentity: (identityId) => getNostlingService().removeIdentity(identityId),
+      updateIdentityLabel: (identityId: string, label: string) =>
+        getNostlingService().updateIdentityLabel(identityId, label),
       updateIdentityTheme: (identityId, themeId) => getNostlingService().updateIdentityTheme(identityId, themeId),
       listContacts: (identityId) => getNostlingService().listContacts(identityId),
       addContact: (request) => getNostlingService().addContact(request),
       removeContact: (contactId) => getNostlingService().removeContact(contactId),
+      updateContactAlias: (contactId: string, alias: string) =>
+        getNostlingService().updateContactAlias(contactId, alias),
       markContactConnected: (contactId) => getNostlingService().markContactConnected(contactId),
       listMessages: (identityId, contactId) => getNostlingService().listMessages(identityId, contactId),
       sendMessage: (request) => getNostlingService().sendMessage(request),

@@ -87,6 +87,27 @@ describe('NostlingService', () => {
     expect(messages[0].status).toBe('sent');
   });
 
+  it('updates identity labels inline and persists them', async () => {
+    const identity = await service.createIdentity({ label: 'Original', nsec: 'secret', npub: 'npub1' });
+
+    const updated = await service.updateIdentityLabel(identity.id, 'Updated Name');
+    expect(updated.label).toBe('Updated Name');
+
+    const [persisted] = await service.listIdentities();
+    expect(persisted.label).toBe('Updated Name');
+  });
+
+  it('updates contact aliases inline and persists them', async () => {
+    const identity = await service.createIdentity({ label: 'Owner', nsec: 'secret', npub: 'npub1' });
+    const contact = await service.addContact({ identityId: identity.id, npub: 'npub-contact', alias: 'Friend' });
+
+    const updated = await service.updateContactAlias(contact.id, 'Trusted Friend');
+    expect(updated.alias).toBe('Trusted Friend');
+
+    const [persisted] = await service.listContacts(identity.id);
+    expect(persisted.alias).toBe('Trusted Friend');
+  });
+
   it('marks pending contacts connected when receiving a message and discards unknown senders', async () => {
     const identity = await service.createIdentity({ label: 'Receiver', nsec: 'secret', npub: 'npub1' });
     const contact = await service.addContact({ identityId: identity.id, npub: 'npub2' });

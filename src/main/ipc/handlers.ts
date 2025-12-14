@@ -21,10 +21,12 @@ interface NostlingIpcDependencies {
   listIdentities: () => Promise<any>;
   createIdentity: (request: CreateIdentityRequest) => Promise<any>;
   removeIdentity: (identityId: string) => Promise<void>;
+  updateIdentityLabel: (identityId: string, label: string) => Promise<any>;
   updateIdentityTheme: (identityId: string, themeId: string) => Promise<void>;
   listContacts: (identityId: string) => Promise<any>;
   addContact: (request: AddContactRequest) => Promise<any>;
   removeContact: (contactId: string) => Promise<void>;
+  updateContactAlias: (contactId: string, alias: string) => Promise<any>;
   markContactConnected: (contactId: string) => Promise<any>;
   listMessages: (identityId: string, contactId: string) => Promise<any>;
   sendMessage: (request: SendNostrMessageRequest) => Promise<any>;
@@ -154,6 +156,9 @@ export function registerHandlers(dependencies: {
     ipcMain.handle('nostling:identities:remove', async (_, identityId: string) =>
       dependencies.nostling!.removeIdentity(identityId)
     );
+    ipcMain.handle('nostling:identities:update-label', async (_, identityId: string, label: string) =>
+      dependencies.nostling!.updateIdentityLabel(identityId, label)
+    );
     ipcMain.handle('nostling:identities:update-theme', async (_, identityId: string, themeId: string) =>
       dependencies.nostling!.updateIdentityTheme(identityId, themeId)
     );
@@ -167,6 +172,9 @@ export function registerHandlers(dependencies: {
     );
     ipcMain.handle('nostling:contacts:remove', async (_, contactId: string) =>
       dependencies.nostling!.removeContact(contactId)
+    );
+    ipcMain.handle('nostling:contacts:update-alias', async (_, contactId: string, alias: string) =>
+      dependencies.nostling!.updateContactAlias(contactId, alias)
     );
     ipcMain.handle('nostling:contacts:mark-connected', async (_, contactId: string) =>
       dependencies.nostling!.markContactConnected(contactId)

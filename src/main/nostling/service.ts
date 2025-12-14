@@ -183,6 +183,31 @@ export class NostlingService {
     log('info', `Removed nostling identity ${id}`);
   }
 
+  async updateIdentityLabel(identityId: string, label: string): Promise<NostlingIdentity> {
+    const trimmed = label.trim();
+    if (!trimmed) {
+      throw new Error('Identity label cannot be empty');
+    }
+
+    this.assertIdentityExists(identityId);
+    this.database.run('UPDATE nostr_identities SET label = ? WHERE id = ?', [trimmed, identityId]);
+    log('info', `Updated label for identity ${identityId}`);
+
+    const stmt = this.database.prepare(
+      'SELECT id, npub, secret_ref, label, relays, theme, created_at FROM nostr_identities WHERE id = ? LIMIT 1'
+    );
+    stmt.bind([identityId]);
+    const hasRow = stmt.step();
+    const row = hasRow ? (stmt.getAsObject() as unknown as IdentityRow) : null;
+    stmt.free();
+
+    if (!row) {
+      throw new Error(`Identity not found: ${identityId}`);
+    }
+
+    return this.mapIdentityRow(row);
+  }
+
   async updateIdentityTheme(identityId: string, themeId: string): Promise<void> {
     const { updateIdentityTheme } = await import('./update-identity-theme');
     await updateIdentityTheme(this.database, identityId, themeId);
@@ -261,6 +286,18 @@ export class NostlingService {
     this.database.run('UPDATE nostr_contacts SET deleted_at = ?, last_message_at = NULL WHERE id = ?', [now, contactId]);
     this.database.run('DELETE FROM nostr_messages WHERE contact_id = ?', [contactId]);
     log('info', `Removed nostling contact ${contactId}`);
+  }
+
+  async updateContactAlias(contactId: string, alias: string): Promise<NostlingContact> {
+    const trimmed = alias.trim();
+    if (!trimmed) {
+      throw new Error('Contact alias cannot be empty');
+    }
+
+    const existing = this.getContact(contactId);
+    this.database.run('UPDATE nostr_contacts SET alias = ? WHERE id = ?', [trimmed, contactId]);
+    log('info', `Updated alias for contact ${contactId}`);
+    return { ...existing, alias: trimmed };
   }
 
   async markContactConnected(contactId: string): Promise<NostlingContact> {

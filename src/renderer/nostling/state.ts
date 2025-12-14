@@ -195,6 +195,23 @@ export function useNostlingState() {
     [hasBridge, recordError]
   );
 
+  const updateIdentityLabel = useCallback(
+    async (identityId: string, label: string) => {
+      if (!hasBridge) return null;
+
+      try {
+        const updated = await window.api.nostling!.identities.updateLabel(identityId, label);
+        setIdentities((current) => current.map((identity) => (identity.id === identityId ? updated : identity)));
+        setLastSync(new Date().toISOString());
+        return updated;
+      } catch (error) {
+        recordError('Update identity label failed', error);
+        return null;
+      }
+    },
+    [hasBridge, recordError]
+  );
+
   const addContact = useCallback(
     async (request: AddContactRequest) => {
       if (!hasBridge) return null;
@@ -236,6 +253,28 @@ export function useNostlingState() {
       } catch (error) {
         recordError('Remove contact failed', error);
         return false;
+      }
+    },
+    [hasBridge, recordError]
+  );
+
+  const updateContactAlias = useCallback(
+    async (contactId: string, alias: string) => {
+      if (!hasBridge) return null;
+
+      try {
+        const contact = await window.api.nostling!.contacts.updateAlias(contactId, alias);
+        setContacts((current) => {
+          const existing = current[contact.identityId] || [];
+          return {
+            ...current,
+            [contact.identityId]: existing.map((entry) => (entry.id === contact.id ? contact : entry)),
+          };
+        });
+        return contact;
+      } catch (error) {
+        recordError('Update contact alias failed', error);
+        return null;
       }
     },
     [hasBridge, recordError]
@@ -379,6 +418,8 @@ export function useNostlingState() {
     addContact,
     removeContact,
     markContactConnected,
+    updateIdentityLabel,
+    updateContactAlias,
     sendMessage,
     discardUnknown,
     retryFailedMessages,

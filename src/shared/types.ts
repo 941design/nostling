@@ -217,12 +217,14 @@ export interface NostlingApi {
     list(): Promise<NostlingIdentity[]>;
     create(request: CreateIdentityRequest): Promise<NostlingIdentity>;
     remove(id: string): Promise<void>;
+    updateLabel(identityId: string, label: string): Promise<NostlingIdentity>;
     updateTheme(identityId: string, themeId: string): Promise<void>;
   };
   contacts: {
     list(identityId: string): Promise<NostlingContact[]>;
     add(request: AddContactRequest): Promise<NostlingContact>;
     remove(contactId: string): Promise<void>;
+    updateAlias(contactId: string, alias: string): Promise<NostlingContact>;
     markConnected(contactId: string): Promise<NostlingContact>;
   };
   messages: {

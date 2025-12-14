@@ -87,6 +87,24 @@ const TrashIcon = () => (
   </svg>
 );
 
+const PencilIcon = () => (
+  <svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor">
+    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1.003 1.003 0 000-1.42l-2.34-2.34a1.003 1.003 0 00-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z" />
+  </svg>
+);
+
+const CheckIcon = () => (
+  <svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor">
+    <path d="M9 16.2l-3.5-3.5-1.4 1.4L9 19 20.3 7.7l-1.4-1.4z" />
+  </svg>
+);
+
+const CloseIcon = () => (
+  <svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor">
+    <path d="M18.3 5.71L12 12l6.3 6.29-1.41 1.42L12 13.41l-6.29 6.3-1.42-1.42L10.59 12 4.29 5.71 5.71 4.29 12 10.59l6.29-6.3z" />
+  </svg>
+);
+
 const initialUpdateState: UpdateState = { phase: 'idle' };
 
 function useStatus() {
@@ -502,14 +520,50 @@ function IdentityList({
   onSelect,
   onOpenCreate,
   onShowQr,
+  onRename,
 }: {
   identities: NostlingIdentity[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   onOpenCreate: () => void;
   onShowQr: (identity: NostlingIdentity) => void;
+  onRename: (id: string, label: string) => Promise<void>;
 }) {
   const colors = useThemeColors();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draftLabel, setDraftLabel] = useState('');
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (editingId) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [editingId]);
+
+  const startEditing = (identity: NostlingIdentity, event: React.MouseEvent) => {
+    event.stopPropagation();
+    setEditingId(identity.id);
+    setDraftLabel(identity.label);
+  };
+
+  const cancelEditing = (event?: React.MouseEvent) => {
+    event?.stopPropagation();
+    setEditingId(null);
+    setDraftLabel('');
+  };
+
+  const saveEditing = async (identityId: string, event?: React.MouseEvent) => {
+    event?.stopPropagation();
+    const trimmed = draftLabel.trim();
+    if (!trimmed) {
+      cancelEditing();
+      return;
+    }
+    await onRename(identityId, trimmed);
+    setEditingId(null);
+  };
+
   return (
     <Box data-testid="identity-list">
       <HStack justify="space-between" mb="2">
@@ -551,11 +605,65 @@ function IdentityList({
               onClick={() => onSelect(identity.id)}
               data-testid={`identity-item-${identity.id}`}
             >
-              <HStack justify="space-between" align="center">
-                <Text color={colors.text} fontWeight="semibold" lineClamp={1} flex="1">
-                  {displayName}
-                </Text>
+              <HStack justify="space-between" align="center" gap="2">
+                {editingId === identity.id ? (
+                  <HStack align="center" gap="1" flex="1">
+                    <Input
+                      ref={inputRef}
+                      size="sm"
+                      value={draftLabel}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(event) => setDraftLabel(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault();
+                          void saveEditing(identity.id);
+                        } else if (event.key === 'Escape') {
+                          event.preventDefault();
+                          cancelEditing();
+                        }
+                      }}
+                    />
+                    <IconButton
+                      size="xs"
+                      variant="ghost"
+                      aria-label="Save identity name"
+                      onClick={(event) => void saveEditing(identity.id, event)}
+                      color={colors.textSubtle}
+                      _hover={{ color: colors.textMuted }}
+                    >
+                      <CheckIcon />
+                    </IconButton>
+                    <IconButton
+                      size="xs"
+                      variant="ghost"
+                      aria-label="Cancel editing"
+                      onClick={(event) => cancelEditing(event)}
+                      color={colors.textSubtle}
+                      _hover={{ color: colors.textMuted }}
+                    >
+                      <CloseIcon />
+                    </IconButton>
+                  </HStack>
+                ) : (
+                  <Text color={colors.text} fontWeight="semibold" lineClamp={1} flex="1">
+                    {displayName}
+                  </Text>
+                )}
                 <HStack gap="1">
+                  {editingId !== identity.id && (
+                    <IconButton
+                      size="xs"
+                      variant="ghost"
+                      aria-label="Edit identity name"
+                      title="Rename identity"
+                      onClick={(event) => startEditing(identity, event)}
+                      color={colors.textSubtle}
+                      _hover={{ color: colors.textMuted }}
+                    >
+                      <PencilIcon />
+                    </IconButton>
+                  )}
                   <IconButton
                     size="xs"
                     variant="ghost"
@@ -601,6 +709,7 @@ function ContactList({
   onOpenAdd,
   disabled,
   onRequestDelete,
+  onRename,
 }: {
   contacts: NostlingContact[];
   selectedId: string | null;
@@ -608,8 +717,43 @@ function ContactList({
   onOpenAdd: () => void;
   disabled: boolean;
   onRequestDelete: (contact: NostlingContact) => void;
+  onRename: (contactId: string, alias: string) => Promise<void>;
 }) {
   const colors = useThemeColors();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draftAlias, setDraftAlias] = useState('');
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (editingId) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [editingId]);
+
+  const startEditing = (contact: NostlingContact, event: React.MouseEvent) => {
+    event.stopPropagation();
+    setEditingId(contact.id);
+    setDraftAlias(contact.alias);
+  };
+
+  const cancelEditing = (event?: React.MouseEvent) => {
+    event?.stopPropagation();
+    setEditingId(null);
+    setDraftAlias('');
+  };
+
+  const saveEditing = async (contactId: string, event?: React.MouseEvent) => {
+    event?.stopPropagation();
+    const trimmed = draftAlias.trim();
+    if (!trimmed) {
+      cancelEditing();
+      return;
+    }
+    await onRename(contactId, trimmed);
+    setEditingId(null);
+  };
+
   return (
     <Box mt="6" data-testid="contact-list">
       <HStack justify="space-between" mb="2">
@@ -652,11 +796,66 @@ function ContactList({
               onClick={() => onSelect(contact.id)}
               data-testid={`contact-item-${contact.id}`}
             >
-              <HStack justify="space-between" align="center">
-                <Text color={colors.text} fontWeight="semibold" lineClamp={1} flex="1">
-                  {displayName}
-                </Text>
+              <HStack justify="space-between" align="center" gap="2">
+                {editingId === contact.id ? (
+                  <HStack align="center" gap="1" flex="1">
+                    <Input
+                      ref={inputRef}
+                      size="sm"
+                      value={draftAlias}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(event) => setDraftAlias(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault();
+                          void saveEditing(contact.id);
+                        }
+                        if (event.key === 'Escape') {
+                          event.preventDefault();
+                          cancelEditing();
+                        }
+                      }}
+                    />
+                    <IconButton
+                      size="xs"
+                      variant="ghost"
+                      aria-label="Save contact alias"
+                      onClick={(event) => void saveEditing(contact.id, event)}
+                      color={colors.textSubtle}
+                      _hover={{ color: colors.textMuted }}
+                    >
+                      <CheckIcon />
+                    </IconButton>
+                    <IconButton
+                      size="xs"
+                      variant="ghost"
+                      aria-label="Cancel editing"
+                      onClick={(event) => cancelEditing(event)}
+                      color={colors.textSubtle}
+                      _hover={{ color: colors.textMuted }}
+                    >
+                      <CloseIcon />
+                    </IconButton>
+                  </HStack>
+                ) : (
+                  <Text color={colors.text} fontWeight="semibold" lineClamp={1} flex="1">
+                    {displayName}
+                  </Text>
+                )}
                 <HStack gap="1">
+                  {editingId !== contact.id && (
+                    <IconButton
+                      size="xs"
+                      variant="ghost"
+                      aria-label="Edit contact alias"
+                      title="Rename contact"
+                      onClick={(event) => startEditing(contact, event)}
+                      color={colors.textSubtle}
+                      _hover={{ color: colors.textMuted }}
+                    >
+                      <PencilIcon />
+                    </IconButton>
+                  )}
                   <IconButton
                     size="xs"
                     variant="ghost"
@@ -1257,6 +1456,8 @@ function Sidebar({
   onOpenIdentityModal,
   onOpenContactModal,
   onRequestDeleteContact,
+  onRenameIdentity,
+  onRenameContact,
 }: {
   identities: NostlingIdentity[];
   contacts: Record<string, NostlingContact[]>;
@@ -1267,6 +1468,8 @@ function Sidebar({
   onOpenIdentityModal: () => void;
   onOpenContactModal: () => void;
   onRequestDeleteContact: (contact: NostlingContact) => void;
+  onRenameIdentity: (identityId: string, label: string) => Promise<void>;
+  onRenameContact: (contactId: string, alias: string) => Promise<void>;
 }) {
   const colors = useThemeColors();
   const currentContacts = selectedIdentityId ? contacts[selectedIdentityId] || [] : [];
@@ -1290,6 +1493,7 @@ function Sidebar({
           onSelect={onSelectIdentity}
           onOpenCreate={onOpenIdentityModal}
           onShowQr={setQrDisplayIdentity}
+          onRename={onRenameIdentity}
         />
         <Separator borderColor={colors.borderSubtle} />
         <ContactList
@@ -1299,6 +1503,7 @@ function Sidebar({
           onOpenAdd={onOpenContactModal}
           disabled={identities.length === 0}
           onRequestDelete={onRequestDeleteContact}
+          onRename={onRenameContact}
         />
       </VStack>
       <QrCodeDisplayModal
@@ -1456,6 +1661,17 @@ function App({ onThemeChange }: AppProps) {
     }
   };
 
+  const handleRenameIdentity = async (identityId: string, label: string) => {
+    await nostling.updateIdentityLabel(identityId, label);
+  };
+
+  const handleRenameContact = async (contactId: string, alias: string) => {
+    const updated = await nostling.updateContactAlias(contactId, alias);
+    if (updated && updated.identityId === selectedIdentityId) {
+      setSelectedContactId(updated.id);
+    }
+  };
+
   const handleSendMessage = async (plaintext: string) => {
     if (!selectedIdentityId || !selectedContactId) return false;
 
@@ -1593,6 +1809,8 @@ function App({ onThemeChange }: AppProps) {
           onOpenIdentityModal={() => setIdentityModalOpen(true)}
           onOpenContactModal={() => setContactModalOpen(true)}
           onRequestDeleteContact={handleRequestDeleteContact}
+          onRenameIdentity={handleRenameIdentity}
+          onRenameContact={handleRenameContact}
         />
         <Box as="main" flex="1" p="4" overflowY="auto">
           {currentView === 'chat' ? (

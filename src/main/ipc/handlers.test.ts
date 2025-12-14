@@ -528,9 +528,18 @@ describe('registerHandlers', () => {
       listIdentities: jest.fn<() => Promise<NostlingIdentity[]>>().mockResolvedValue([exampleIdentity]),
       createIdentity: jest.fn<() => Promise<NostlingIdentity>>().mockResolvedValue(exampleIdentity),
       removeIdentity: jest.fn<() => Promise<void>>().mockResolvedValue(),
+      updateIdentityLabel: jest.fn<() => Promise<NostlingIdentity>>().mockResolvedValue({
+        ...exampleIdentity,
+        label: 'Updated',
+      }),
+      updateIdentityTheme: jest.fn<() => Promise<void>>().mockResolvedValue(),
       listContacts: jest.fn<() => Promise<NostlingContact[]>>().mockResolvedValue([exampleContact]),
       addContact: jest.fn<() => Promise<NostlingContact>>().mockResolvedValue(exampleContact),
       removeContact: jest.fn<() => Promise<void>>().mockResolvedValue(),
+      updateContactAlias: jest.fn<() => Promise<NostlingContact>>().mockResolvedValue({
+        ...exampleContact,
+        alias: 'Updated Alias',
+      }),
       markContactConnected: jest
         .fn<() => Promise<NostlingContact>>()
         .mockResolvedValue({ ...exampleContact, state: 'connected' as const }),
@@ -861,8 +870,8 @@ describe('registerHandlers', () => {
       const nostlingDeps = createNostlingDependencies();
       registerHandlers({ ...deps, nostling: nostlingDeps });
 
-      // Base handlers plus 16 nostling channels (including retryFailedMessages, 4 relay handlers, and updateTheme)
-      expect(handlers.size).toBe(29);
+      // Base handlers plus 18 nostling channels (including retryFailedMessages, rename flows, 4 relay handlers, and updateTheme)
+      expect(handlers.size).toBe(31);
       expect(handlers.has('nostling:identities:list')).toBe(true);
       expect(handlers.has('nostling:contacts:add')).toBe(true);
       expect(handlers.has('nostling:messages:send')).toBe(true);

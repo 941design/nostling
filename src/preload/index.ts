@@ -91,6 +91,13 @@ const api: RendererApi = {
       async remove(identityId: string) {
         return ipcRenderer.invoke('nostling:identities:remove', identityId) as Promise<void>;
       },
+      async updateLabel(identityId: string, label: string) {
+        return ipcRenderer.invoke(
+          'nostling:identities:update-label',
+          identityId,
+          label
+        ) as ReturnType<NostlingApi['identities']['updateLabel']>;
+      },
       async updateTheme(identityId: string, themeId: string) {
         return ipcRenderer.invoke('nostling:identities:update-theme', identityId, themeId) as Promise<void>;
       },
@@ -104,6 +111,13 @@ const api: RendererApi = {
       },
       async remove(contactId: string) {
         return ipcRenderer.invoke('nostling:contacts:remove', contactId) as Promise<void>;
+      },
+      async updateAlias(contactId: string, alias: string) {
+        return ipcRenderer.invoke(
+          'nostling:contacts:update-alias',
+          contactId,
+          alias
+        ) as ReturnType<NostlingApi['contacts']['updateAlias']>;
       },
       async markConnected(contactId: string) {
         return ipcRenderer.invoke('nostling:contacts:mark-connected', contactId) as ReturnType<
