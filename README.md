@@ -30,10 +30,21 @@ A desktop messaging application built on the Nostr protocol with secure auto-upd
   + banner
   + reuse color theme
 
+### Bugs
+
++ uncaught regression when trying to scan a new contact
+
 ### Features
 
 + change aliases
++ hide/delete messages -> "x hidden messages" expand to modal
++ display date in timeline and time on hover over message
 + better trashcan icon
++ when removing a contact
++ mark new messages as they arrive in main panel (when first displayed, and in visible screen)
++ add symbol to contact to indicate unread messages
++ add bell icon or desktop feedback when messages arrive
++ allow removing identites
 + menu
   + identities ?
 	+ add/remove
