@@ -158,6 +158,19 @@ export class RelayConfigManager {
    *        d. If parse fails: log warning, return empty array
    *        e. If parse succeeds: validate structure, sort by order, return
    */
+  /**
+   * Get default relays, respecting NOSTLING_DEV_RELAY environment variable.
+   * When set, uses only the dev relay as default instead of production relays.
+   */
+  private getDefaultRelays(): NostlingRelayEndpoint[] {
+    const devRelayUrl = process.env.NOSTLING_DEV_RELAY;
+    if (devRelayUrl) {
+      log('info', `Using dev relay: ${devRelayUrl}`);
+      return [{ url: devRelayUrl, read: true, write: true, order: 0 }];
+    }
+    return DEFAULT_RELAYS;
+  }
+
   async loadRelays(identityId: string): Promise<NostlingRelayEndpoint[]> {
     const configPath = this.getIdentityConfigPath(identityId);
     const configDir = path.dirname(configPath);
@@ -180,11 +193,13 @@ export class RelayConfigManager {
         return relays;
       } catch (error: any) {
         if (error.code === 'ENOENT') {
-          const content = JSON.stringify(DEFAULT_RELAYS, null, 2);
+          // No config file - use default relays (may be dev relay if env var set)
+          const defaultRelays = this.getDefaultRelays();
+          const content = JSON.stringify(defaultRelays, null, 2);
           await fs.writeFile(configPath, content, { encoding: 'utf-8', mode: 0o600 });
           const hash = this.computeFileHash(content);
           this.fileHashes.set(identityId, hash);
-          return DEFAULT_RELAYS;
+          return defaultRelays;
         }
 
         if (error instanceof SyntaxError) {

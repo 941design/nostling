@@ -1,3 +1,7 @@
+// Initialize paths first - must happen before any imports that use getUserDataPath()
+import { initializePaths, getUserDataPath } from './paths';
+initializePaths();
+
 import { app, BrowserWindow, Menu } from 'electron';
 import path from 'path';
 import { autoUpdater } from 'electron-updater';
@@ -469,7 +473,7 @@ app.on('ready', async () => {
     throw new Error('Database not initialized after migrations');
   }
   const secretStore = createSecretStore();
-  const configDir = app.getPath('userData');
+  const configDir = getUserDataPath();
   nostlingService = new NostlingService(database, secretStore, configDir);
   await nostlingService.initialize();
 

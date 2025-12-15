@@ -1,8 +1,8 @@
 import fs from 'fs';
 import path from 'path';
-import { app } from 'electron';
 import { AppConfig, LogLevel, AutoCheckInterval, MessagePollingInterval } from '../shared/types';
 import { log } from './logging';
+import { getUserDataPath } from './paths';
 
 const DEFAULT_CONFIG: AppConfig = {
   autoUpdate: true,
@@ -11,15 +11,19 @@ const DEFAULT_CONFIG: AppConfig = {
   messagePollingInterval: '10s', // Message polling: default to 10 seconds
 };
 
-const CONFIG_FILE = path.join(app.getPath('userData'), 'config.json');
+// Lazy evaluation to ensure paths are initialized before use
+function getConfigFile(): string {
+  return path.join(getUserDataPath(), 'config.json');
+}
 
 export function loadConfig(): AppConfig {
   try {
-    if (!fs.existsSync(CONFIG_FILE)) {
+    const configFile = getConfigFile();
+    if (!fs.existsSync(configFile)) {
       saveConfig(DEFAULT_CONFIG);
       return DEFAULT_CONFIG;
     }
-    const raw = fs.readFileSync(CONFIG_FILE, 'utf8');
+    const raw = fs.readFileSync(configFile, 'utf8');
     const parsed = JSON.parse(raw);
     return normalizeConfig(parsed);
   } catch (error) {
@@ -30,8 +34,9 @@ export function loadConfig(): AppConfig {
 
 export function saveConfig(config: Partial<AppConfig>): AppConfig {
   const merged = normalizeConfig({ ...DEFAULT_CONFIG, ...config });
-  fs.mkdirSync(path.dirname(CONFIG_FILE), { recursive: true });
-  fs.writeFileSync(CONFIG_FILE, JSON.stringify(merged, null, 2));
+  const configFile = getConfigFile();
+  fs.mkdirSync(path.dirname(configFile), { recursive: true });
+  fs.writeFileSync(configFile, JSON.stringify(merged, null, 2));
   log('info', 'Configuration saved');
   return merged;
 }

@@ -1,0 +1,11 @@
+services:
+  nostr-relay:
+    image: scsibug/nostr-rs-relay:latest
+    container_name: nostling-dev-relay
+    ports:
+      - "8080:8080"
+    volumes:
+      - nostr-relay-data:/usr/src/app/db
+
+volumes:
+  nostr-relay-data:

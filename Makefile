@@ -1,4 +1,4 @@
-.PHONY: help clean install dev build test lint lint-fix lint-all package release sign-manifest test-e2e test-e2e-native test-e2e-ui test-e2e-headed test-e2e-debug test-e2e-clean test-all dev-update-release dev-update-prerelease dev-update-local local-release local-release-clean test-version-upgrade version-patch version-minor version-major install-hooks
+.PHONY: help clean install build test lint lint-fix lint-all package release sign-manifest test-e2e test-e2e-native test-e2e-ui test-e2e-headed test-e2e-debug test-e2e-clean test-all dev-update-release dev-update-prerelease dev-update-local local-release local-release-clean test-version-upgrade version-patch version-minor version-major install-hooks run-prod run-dev dev-relay-start dev-relay-stop dev-relay-logs dev-relay-clean dev-main dev-preload dev-renderer
 
 .DEFAULT_GOAL := help
 
@@ -14,8 +14,32 @@ clean: ## Remove build artifacts and dependencies
 install: ## Install dependencies
 	npm install
 
-dev: ## Start development mode with hot reload
+run-prod: ## Run app in production mode (uses system userData)
 	npm run dev
+
+run-dev: dev-relay-start ## Run app in dev mode with local nostr relay
+	@mkdir -p /tmp/nostling-dev-data
+	NOSTLING_DATA_DIR=/tmp/nostling-dev-data \
+	NOSTLING_DEV_RELAY=ws://localhost:8080 \
+	npm run dev
+
+# Dev Relay Management
+dev-relay-start: ## Start local nostr relay for development
+	@docker compose -f docker-compose.dev.yml up -d
+	@echo "Waiting for relay to be ready..."
+	@sleep 2
+	@echo "Nostr relay ready at ws://localhost:8080"
+
+dev-relay-stop: ## Stop local nostr relay
+	@docker compose -f docker-compose.dev.yml down
+
+dev-relay-logs: ## Show relay logs
+	@docker compose -f docker-compose.dev.yml logs -f nostr-relay
+
+dev-relay-clean: ## Stop relay and remove data
+	@docker compose -f docker-compose.dev.yml down -v
+	@rm -rf /tmp/nostling-dev-data
+	@echo "Dev environment cleaned"
 
 dev-main: ## Start main process development mode only
 	npm run dev:main

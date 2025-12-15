@@ -1,8 +1,9 @@
 import fs from 'fs';
 import path from 'path';
-import { app, safeStorage } from 'electron';
+import { safeStorage } from 'electron';
 import { randomUUID } from 'crypto';
 import { log } from '../logging';
+import { getUserDataPath } from '../paths';
 
 export type SecretStoreKind = 'local' | 'external';
 
@@ -36,7 +37,7 @@ class LocalSecretStore implements NostlingSecretStore {
   private readonly storagePath: string;
 
   constructor(storagePath?: string) {
-    this.storagePath = storagePath || path.join(app.getPath('userData'), 'nostling-secrets.json');
+    this.storagePath = storagePath || path.join(getUserDataPath(), 'nostling-secrets.json');
   }
 
   async getSecret(ref: string): Promise<string | null> {

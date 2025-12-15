@@ -8,7 +8,7 @@
 import initSqlJs, { Database } from 'sql.js';
 import fs from 'fs';
 import path from 'path';
-import { app } from 'electron';
+import { getUserDataPath } from '../paths';
 
 let db: Database | null = null;
 let dbPath: string | null = null;
@@ -63,7 +63,7 @@ export async function initDatabase(): Promise<Database> {
   }
 
   const SQL = await initSqlJs();
-  const userDataPath = app.getPath('userData');
+  const userDataPath = getUserDataPath();
   dbPath = path.join(userDataPath, 'nostling.db');
 
   let database: Database;
@@ -129,7 +129,7 @@ export async function flushDatabase(): Promise<void> {
   const data = db.export();
   const buffer = Buffer.from(data);
 
-  const userDataPath = app.getPath('userData');
+  const userDataPath = getUserDataPath();
   fs.mkdirSync(userDataPath, { recursive: true });
 
   const tempPath = `${dbPath}.tmp`;

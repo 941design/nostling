@@ -19,6 +19,7 @@ import * as https from 'https';
 import { SignedManifest, ManifestArtifact } from '../../shared/types';
 import { hashFile, hashMatches } from '../security/crypto';
 import { log } from '../logging';
+import { getUserDataPath } from '../paths';
 
 const execAsync = promisify(exec);
 
@@ -36,7 +37,7 @@ const UPDATER_CACHE_DIR = 'nostling-updater';
 export function getUpdaterCacheDir(): string {
   // Electron doesn't have 'cache' in app.getPath, but we can construct it
   // from userData which is ~/Library/Application Support/nostling on macOS
-  const userDataPath = app.getPath('userData');
+  const userDataPath = getUserDataPath();
 
   if (process.platform === 'darwin') {
     // macOS: ~/Library/Caches/nostling-updater

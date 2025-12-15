@@ -1,9 +1,12 @@
 import fs from 'fs';
 import path from 'path';
-import { app } from 'electron';
 import { LogEntry, LogLevel } from '../shared/types';
+import { getUserDataPath } from './paths';
 
-const LOG_FILE = path.join(app.getPath('userData'), 'logs', 'app.log');
+// Lazy evaluation to ensure paths are initialized before use
+function getLogFile(): string {
+  return path.join(getUserDataPath(), 'logs', 'app.log');
+}
 const MAX_LINES = 200;
 
 const LEVEL_PRIORITY: Record<LogLevel, number> = {
@@ -33,10 +36,11 @@ export function log(level: LogLevel, message: string) {
 
 export function getRecentLogs(): LogEntry[] {
   try {
-    if (!fs.existsSync(LOG_FILE)) {
+    const logFile = getLogFile();
+    if (!fs.existsSync(logFile)) {
       return [];
     }
-    const lines = fs.readFileSync(LOG_FILE, 'utf8').trim().split('\n');
+    const lines = fs.readFileSync(logFile, 'utf8').trim().split('\n');
     return lines
       .filter(Boolean)
       .slice(-MAX_LINES)
@@ -49,8 +53,9 @@ export function getRecentLogs(): LogEntry[] {
 
 function writeEntry(entry: LogEntry) {
   try {
-    fs.mkdirSync(path.dirname(LOG_FILE), { recursive: true });
-    fs.appendFileSync(LOG_FILE, JSON.stringify(entry) + '\n');
+    const logFile = getLogFile();
+    fs.mkdirSync(path.dirname(logFile), { recursive: true });
+    fs.appendFileSync(logFile, JSON.stringify(entry) + '\n');
     console.log(`[${entry.timestamp}] [${entry.level}] ${entry.message}`);
   } catch (error) {
     console.error('Failed to write log', error);

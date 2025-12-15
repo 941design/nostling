@@ -1,11 +1,17 @@
-version: '3.8'
-
 services:
+  nostr-relay:
+    image: scsibug/nostr-rs-relay:latest
+    container_name: nostling-e2e-relay
+    ports:
+      - "8080:8080"
+
   e2e-test:
     build:
       context: .
       dockerfile: Dockerfile.e2e
     container_name: nostling-e2e-test
+    depends_on:
+      - nostr-relay
     volumes:
       # Mount test results and reports for local inspection
       - ./test-results:/app/test-results
@@ -14,6 +20,8 @@ services:
       - CI=true
       - NODE_ENV=test
       - FORCE_COLOR=1
+      - NOSTLING_DATA_DIR=/tmp/nostling-e2e-data
+      - NOSTLING_DEV_RELAY=ws://nostr-relay:8080
     # Allocate sufficient shared memory for Chromium
     shm_size: '2gb'
     # Show output in real-time

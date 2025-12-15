@@ -25,6 +25,9 @@ export const test = base.extend<ElectronFixtures>({
         ...process.env,
         NODE_ENV: 'test',
         ELECTRON_DISABLE_SECURITY_WARNINGS: 'true',
+        // Pass through env vars for dev/e2e environment isolation
+        ...(process.env.NOSTLING_DATA_DIR && { NOSTLING_DATA_DIR: process.env.NOSTLING_DATA_DIR }),
+        ...(process.env.NOSTLING_DEV_RELAY && { NOSTLING_DEV_RELAY: process.env.NOSTLING_DEV_RELAY }),
       },
     });
 
