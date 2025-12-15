@@ -1,0 +1,75 @@
+{
+  "id": "arctic",
+  "name": "Arctic",
+  "description": "Ice cool crisp light theme",
+  "extends": "default",
+  "metadata": {
+    "brightness": "light",
+    "colorFamily": "blues"
+  },
+  "colors": {
+    "brand": {
+      "50": "#ecfeff",
+      "100": "#cffafe",
+      "200": "#a5f3fc",
+      "300": "#67e8f9",
+      "400": "#22d3ee",
+      "500": "#0891b2",
+      "600": "#0e7490",
+      "700": "#155e75",
+      "800": "#164e63",
+      "900": "#083344"
+    },
+    "semantic": {
+      "appBg": "#f0f9ff",
+      "surfaceBg": "#ffffff",
+      "surfaceBgSubtle": "#e0f2fe",
+      "surfaceBgSelected": "#bae6fd",
+      "menuBg": "#ffffff",
+      "border": "#7dd3fc",
+      "borderSubtle": "#38bdf8",
+      "text": "#0c4a6e",
+      "textMuted": "#0369a1",
+      "textSubtle": "#0891b2",
+      "statusSuccess": "#15803d",
+      "statusWarning": "#b45309",
+      "statusError": "#b91c1c",
+      "statusInfo": "#0891b2",
+      "buttonPrimaryBg": "#0891b2",
+      "buttonPrimaryText": "#ffffff",
+      "buttonPrimaryHover": "#0e7490",
+      "buttonSecondaryBg": "#e0f2fe",
+      "buttonSecondaryText": "#0c4a6e",
+      "buttonSecondaryHover": "#bae6fd",
+      "buttonDangerBg": "#b91c1c",
+      "buttonDangerText": "#ffffff",
+      "buttonDangerHover": "#991b1b",
+      "inputBg": "#ffffff",
+      "inputBorder": "#7dd3fc",
+      "inputFocus": "#0891b2",
+      "link": "#0369a1",
+      "linkHover": "#0891b2",
+      "ownBubbleBg": "#164e63",
+      "ownBubbleBorder": "#155e75",
+      "ownBubbleText": "#ffffff"
+    },
+    "previewColors": {
+      "primary": "#0891b2",
+      "background": "#f0f9ff",
+      "text": "#0c4a6e"
+    }
+  },
+  "typography": {
+    "fontSizes": {
+      "xs": "0.6875rem",
+      "sm": "0.8125rem",
+      "md": "0.9375rem"
+    }
+  },
+  "radii": {
+    "sm": "0.0625rem",
+    "md": "0.25rem",
+    "lg": "0.375rem",
+    "xl": "0.5rem"
+  }
+}

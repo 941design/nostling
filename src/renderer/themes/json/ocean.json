@@ -1,0 +1,55 @@
+{
+  "id": "ocean",
+  "name": "Ocean",
+  "description": "Cool blue-teal aquatic theme",
+  "extends": "default",
+  "metadata": {
+    "brightness": "dark",
+    "colorFamily": "blues"
+  },
+  "colors": {
+    "brand": {
+      "50": "#ecfeff",
+      "100": "#cffafe",
+      "200": "#a5f3fc",
+      "300": "#67e8f9",
+      "400": "#22d3ee",
+      "500": "#06b6d4",
+      "600": "#0891b2",
+      "700": "#0e7490",
+      "800": "#155e75",
+      "900": "#164e63"
+    },
+    "semantic": {
+      "appBg": "#0c1821",
+      "surfaceBgSubtle": "rgba(6, 182, 212, 0.05)",
+      "surfaceBgSelected": "rgba(6, 182, 212, 0.15)",
+      "menuBg": "#0f2733",
+      "border": "rgba(6, 182, 212, 0.2)",
+      "borderSubtle": "rgba(6, 182, 212, 0.3)",
+      "text": "#99f6e4",
+      "textMuted": "#5eead4",
+      "textSubtle": "#2dd4bf",
+      "statusInfo": "#06b6d4",
+      "buttonPrimaryBg": "#06b6d4",
+      "buttonPrimaryHover": "#0891b2",
+      "inputFocus": "#06b6d4",
+      "link": "#22d3ee",
+      "linkHover": "#06b6d4",
+      "ownBubbleBg": "#164e63",
+      "ownBubbleBorder": "#155e75",
+      "ownBubbleText": "#cffafe"
+    },
+    "previewColors": {
+      "primary": "#06b6d4",
+      "background": "#0c1821",
+      "text": "#99f6e4"
+    }
+  },
+  "radii": {
+    "sm": "0.1875rem",
+    "md": "0.4375rem",
+    "lg": "0.5625rem",
+    "xl": "0.8125rem"
+  }
+}

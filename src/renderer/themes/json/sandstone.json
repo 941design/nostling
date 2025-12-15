@@ -1,0 +1,79 @@
+{
+  "id": "sandstone",
+  "name": "Sandstone",
+  "description": "Desert earth warm light theme",
+  "extends": "default",
+  "metadata": {
+    "brightness": "light",
+    "colorFamily": "warm"
+  },
+  "colors": {
+    "brand": {
+      "50": "#fffbeb",
+      "100": "#fef3c7",
+      "200": "#fde68a",
+      "300": "#fcd34d",
+      "400": "#d97706",
+      "500": "#b45309",
+      "600": "#92400e",
+      "700": "#78350f",
+      "800": "#5c2d0e",
+      "900": "#422006"
+    },
+    "semantic": {
+      "appBg": "#faf5f0",
+      "surfaceBg": "#ffffff",
+      "surfaceBgSubtle": "#f5ebe0",
+      "surfaceBgSelected": "#e8dccf",
+      "menuBg": "#ffffff",
+      "border": "#d4c4b0",
+      "borderSubtle": "#c9b89d",
+      "text": "#44342a",
+      "textMuted": "#6b5a4d",
+      "textSubtle": "#8b7a6b",
+      "statusSuccess": "#15803d",
+      "statusWarning": "#b45309",
+      "statusError": "#b91c1c",
+      "statusInfo": "#b45309",
+      "buttonPrimaryBg": "#b45309",
+      "buttonPrimaryText": "#ffffff",
+      "buttonPrimaryHover": "#92400e",
+      "buttonSecondaryBg": "#f5ebe0",
+      "buttonSecondaryText": "#44342a",
+      "buttonSecondaryHover": "#e8dccf",
+      "buttonDangerBg": "#b91c1c",
+      "buttonDangerText": "#ffffff",
+      "buttonDangerHover": "#991b1b",
+      "inputBg": "#ffffff",
+      "inputBorder": "#d4c4b0",
+      "inputFocus": "#b45309",
+      "link": "#92400e",
+      "linkHover": "#78350f",
+      "ownBubbleBg": "#5c2d0e",
+      "ownBubbleBorder": "#78350f",
+      "ownBubbleText": "#ffffff"
+    },
+    "previewColors": {
+      "primary": "#b45309",
+      "background": "#faf5f0",
+      "text": "#44342a"
+    }
+  },
+  "typography": {
+    "fonts": {
+      "body": "Georgia, 'Times New Roman', serif",
+      "heading": "Georgia, 'Times New Roman', serif"
+    },
+    "fontSizes": {
+      "xs": "0.8125rem",
+      "sm": "0.9375rem",
+      "md": "1.0625rem"
+    }
+  },
+  "radii": {
+    "sm": "0.1875rem",
+    "md": "0.4375rem",
+    "lg": "0.625rem",
+    "xl": "0.875rem"
+  }
+}

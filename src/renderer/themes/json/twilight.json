@@ -1,0 +1,62 @@
+{
+  "id": "twilight",
+  "name": "Twilight",
+  "description": "Deep indigo night theme",
+  "extends": "default",
+  "metadata": {
+    "brightness": "dark",
+    "colorFamily": "purple"
+  },
+  "colors": {
+    "brand": {
+      "50": "#eef2ff",
+      "100": "#e0e7ff",
+      "200": "#c7d2fe",
+      "300": "#a5b4fc",
+      "400": "#818cf8",
+      "500": "#6366f1",
+      "600": "#4f46e5",
+      "700": "#4338ca",
+      "800": "#3730a3",
+      "900": "#312e81"
+    },
+    "semantic": {
+      "appBg": "#0a0a1a",
+      "surfaceBgSubtle": "rgba(99, 102, 241, 0.05)",
+      "surfaceBgSelected": "rgba(99, 102, 241, 0.15)",
+      "menuBg": "#12122d",
+      "border": "rgba(99, 102, 241, 0.2)",
+      "borderSubtle": "rgba(99, 102, 241, 0.3)",
+      "text": "#c7d2fe",
+      "textMuted": "#a5b4fc",
+      "textSubtle": "#818cf8",
+      "statusInfo": "#6366f1",
+      "buttonPrimaryBg": "#6366f1",
+      "buttonPrimaryHover": "#4f46e5",
+      "inputFocus": "#6366f1",
+      "link": "#818cf8",
+      "linkHover": "#6366f1",
+      "ownBubbleBg": "#312e81",
+      "ownBubbleBorder": "#3730a3",
+      "ownBubbleText": "#e0e7ff"
+    },
+    "previewColors": {
+      "primary": "#6366f1",
+      "background": "#0a0a1a",
+      "text": "#c7d2fe"
+    }
+  },
+  "typography": {
+    "fontSizes": {
+      "xs": "0.6875rem",
+      "sm": "0.8125rem",
+      "md": "0.9375rem"
+    }
+  },
+  "radii": {
+    "sm": "0.125rem",
+    "md": "0.3125rem",
+    "lg": "0.4375rem",
+    "xl": "0.625rem"
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "id": "dark",
+  "name": "Dark",
+  "description": "Default dark theme",
+  "extends": "default",
+  "metadata": {
+    "brightness": "dark",
+    "colorFamily": "blues"
+  },
+  "colors": {
+    "brand": {
+      "50": "#e0f7ff",
+      "100": "#b8ecfe",
+      "200": "#8ee0fb",
+      "300": "#63d4f8",
+      "400": "#38bdf8",
+      "500": "#0ea5e9",
+      "600": "#0284c7",
+      "700": "#0369a1",
+      "800": "#075985",
+      "900": "#0c4a6e"
+    },
+    "semantic": {
+      "buttonPrimaryBg": "#38bdf8",
+      "buttonPrimaryHover": "#0ea5e9",
+      "ownBubbleBg": "#0c4a6e",
+      "ownBubbleBorder": "#0369a1",
+      "ownBubbleText": "#e2e8f0"
+    },
+    "previewColors": {
+      "primary": "#38bdf8",
+      "background": "#0f172a",
+      "text": "#e2e8f0"
+    }
+  }
+}

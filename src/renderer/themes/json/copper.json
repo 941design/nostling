@@ -1,0 +1,62 @@
+{
+  "id": "copper",
+  "name": "Copper",
+  "description": "Industrial warmth metallic theme",
+  "extends": "default",
+  "metadata": {
+    "brightness": "dark",
+    "colorFamily": "warm"
+  },
+  "colors": {
+    "brand": {
+      "50": "#fdf8f3",
+      "100": "#f7e8d8",
+      "200": "#edd5b8",
+      "300": "#daa06d",
+      "400": "#cd7f32",
+      "500": "#b8732c",
+      "600": "#a06427",
+      "700": "#885520",
+      "800": "#6e4519",
+      "900": "#543612"
+    },
+    "semantic": {
+      "appBg": "#151210",
+      "surfaceBgSubtle": "rgba(205, 127, 50, 0.05)",
+      "surfaceBgSelected": "rgba(205, 127, 50, 0.15)",
+      "menuBg": "#252018",
+      "border": "rgba(205, 127, 50, 0.2)",
+      "borderSubtle": "rgba(205, 127, 50, 0.3)",
+      "text": "#f5ebe0",
+      "textMuted": "#daa06d",
+      "textSubtle": "#b8956e",
+      "buttonPrimaryBg": "#cd7f32",
+      "buttonPrimaryText": "#151210",
+      "buttonPrimaryHover": "#b8732c",
+      "inputFocus": "#cd7f32",
+      "link": "#daa06d",
+      "linkHover": "#cd7f32",
+      "ownBubbleBg": "#543612",
+      "ownBubbleBorder": "#6e4519",
+      "ownBubbleText": "#f7e8d8"
+    },
+    "previewColors": {
+      "primary": "#cd7f32",
+      "background": "#151210",
+      "text": "#f5ebe0"
+    }
+  },
+  "typography": {
+    "fontSizes": {
+      "xs": "0.6875rem",
+      "sm": "0.8125rem",
+      "md": "0.9375rem"
+    }
+  },
+  "radii": {
+    "sm": "0.0625rem",
+    "md": "0.1875rem",
+    "lg": "0.3125rem",
+    "xl": "0.4375rem"
+  }
+}

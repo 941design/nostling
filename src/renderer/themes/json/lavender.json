@@ -1,0 +1,75 @@
+{
+  "id": "lavender",
+  "name": "Lavender",
+  "description": "Gentle calm soothing light theme",
+  "extends": "default",
+  "metadata": {
+    "brightness": "light",
+    "colorFamily": "purple"
+  },
+  "colors": {
+    "brand": {
+      "50": "#faf5ff",
+      "100": "#f3e8ff",
+      "200": "#e9d5ff",
+      "300": "#d8b4fe",
+      "400": "#c084fc",
+      "500": "#8b5cf6",
+      "600": "#7c3aed",
+      "700": "#6d28d9",
+      "800": "#5b21b6",
+      "900": "#4c1d95"
+    },
+    "semantic": {
+      "appBg": "#f5f3ff",
+      "surfaceBg": "#ffffff",
+      "surfaceBgSubtle": "#ede9fe",
+      "surfaceBgSelected": "#ddd6fe",
+      "menuBg": "#ffffff",
+      "border": "#c4b5fd",
+      "borderSubtle": "#a78bfa",
+      "text": "#4c1d95",
+      "textMuted": "#6d28d9",
+      "textSubtle": "#7c3aed",
+      "statusSuccess": "#15803d",
+      "statusWarning": "#b45309",
+      "statusError": "#b91c1c",
+      "statusInfo": "#8b5cf6",
+      "buttonPrimaryBg": "#8b5cf6",
+      "buttonPrimaryText": "#ffffff",
+      "buttonPrimaryHover": "#7c3aed",
+      "buttonSecondaryBg": "#ede9fe",
+      "buttonSecondaryText": "#4c1d95",
+      "buttonSecondaryHover": "#ddd6fe",
+      "buttonDangerBg": "#b91c1c",
+      "buttonDangerText": "#ffffff",
+      "buttonDangerHover": "#991b1b",
+      "inputBg": "#ffffff",
+      "inputBorder": "#c4b5fd",
+      "inputFocus": "#8b5cf6",
+      "link": "#7c3aed",
+      "linkHover": "#8b5cf6",
+      "ownBubbleBg": "#5b21b6",
+      "ownBubbleBorder": "#6d28d9",
+      "ownBubbleText": "#ffffff"
+    },
+    "previewColors": {
+      "primary": "#8b5cf6",
+      "background": "#f5f3ff",
+      "text": "#4c1d95"
+    }
+  },
+  "typography": {
+    "fontSizes": {
+      "xs": "0.8125rem",
+      "sm": "0.9375rem",
+      "md": "1.0625rem"
+    }
+  },
+  "radii": {
+    "sm": "0.25rem",
+    "md": "0.5rem",
+    "lg": "0.75rem",
+    "xl": "1rem"
+  }
+}

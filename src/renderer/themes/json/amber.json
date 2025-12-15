@@ -1,0 +1,54 @@
+{
+  "id": "amber",
+  "name": "Amber",
+  "description": "Golden amber theme",
+  "extends": "default",
+  "metadata": {
+    "brightness": "dark",
+    "colorFamily": "warm"
+  },
+  "colors": {
+    "brand": {
+      "50": "#fffbeb",
+      "100": "#fef3c7",
+      "200": "#fde68a",
+      "300": "#fcd34d",
+      "400": "#fbbf24",
+      "500": "#f59e0b",
+      "600": "#d97706",
+      "700": "#b45309",
+      "800": "#92400e",
+      "900": "#78350f"
+    },
+    "semantic": {
+      "appBg": "#1a1410",
+      "surfaceBgSubtle": "rgba(245, 158, 11, 0.05)",
+      "surfaceBgSelected": "rgba(245, 158, 11, 0.15)",
+      "menuBg": "#2d231a",
+      "border": "rgba(245, 158, 11, 0.2)",
+      "borderSubtle": "rgba(245, 158, 11, 0.3)",
+      "text": "#fde68a",
+      "textMuted": "#fcd34d",
+      "textSubtle": "#fbbf24",
+      "buttonPrimaryBg": "#f59e0b",
+      "buttonPrimaryHover": "#d97706",
+      "inputFocus": "#f59e0b",
+      "link": "#fbbf24",
+      "linkHover": "#f59e0b",
+      "ownBubbleBg": "#78350f",
+      "ownBubbleBorder": "#92400e",
+      "ownBubbleText": "#fef3c7"
+    },
+    "previewColors": {
+      "primary": "#f59e0b",
+      "background": "#1a1410",
+      "text": "#fde68a"
+    }
+  },
+  "radii": {
+    "sm": "0.1875rem",
+    "md": "0.4375rem",
+    "lg": "0.5625rem",
+    "xl": "0.8125rem"
+  }
+}

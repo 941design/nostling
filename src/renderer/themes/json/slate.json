@@ -1,0 +1,58 @@
+{
+  "id": "slate",
+  "name": "Slate",
+  "description": "Minimalist professional neutral theme",
+  "extends": "default",
+  "metadata": {
+    "brightness": "dark",
+    "colorFamily": "neutral"
+  },
+  "colors": {
+    "brand": {
+      "50": "#f8fafc",
+      "100": "#f1f5f9",
+      "200": "#e2e8f0",
+      "300": "#cbd5e1",
+      "400": "#94a3b8",
+      "500": "#64748b",
+      "600": "#475569",
+      "700": "#334155",
+      "800": "#1e293b",
+      "900": "#0f172a"
+    },
+    "semantic": {
+      "appBg": "#0f1419",
+      "surfaceBgSubtle": "rgba(100, 116, 139, 0.05)",
+      "surfaceBgSelected": "rgba(100, 116, 139, 0.15)",
+      "menuBg": "#1a2027",
+      "border": "rgba(100, 116, 139, 0.2)",
+      "borderSubtle": "rgba(100, 116, 139, 0.3)",
+      "buttonPrimaryBg": "#64748b",
+      "buttonPrimaryHover": "#475569",
+      "inputFocus": "#64748b",
+      "link": "#94a3b8",
+      "linkHover": "#64748b",
+      "ownBubbleBg": "#1e293b",
+      "ownBubbleBorder": "#334155",
+      "ownBubbleText": "#f1f5f9"
+    },
+    "previewColors": {
+      "primary": "#64748b",
+      "background": "#0f1419",
+      "text": "#e2e8f0"
+    }
+  },
+  "typography": {
+    "fontSizes": {
+      "xs": "0.6875rem",
+      "sm": "0.8125rem",
+      "md": "0.9375rem"
+    }
+  },
+  "radii": {
+    "sm": "0.0625rem",
+    "md": "0.25rem",
+    "lg": "0.375rem",
+    "xl": "0.5rem"
+  }
+}

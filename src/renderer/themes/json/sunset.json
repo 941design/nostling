@@ -1,0 +1,61 @@
+{
+  "id": "sunset",
+  "name": "Sunset",
+  "description": "Warm orange and pink gradient theme",
+  "extends": "default",
+  "metadata": {
+    "brightness": "dark",
+    "colorFamily": "warm"
+  },
+  "colors": {
+    "brand": {
+      "50": "#fff7ed",
+      "100": "#ffedd5",
+      "200": "#fed7aa",
+      "300": "#fdba74",
+      "400": "#fb923c",
+      "500": "#f97316",
+      "600": "#ea580c",
+      "700": "#c2410c",
+      "800": "#9a3412",
+      "900": "#7c2d12"
+    },
+    "semantic": {
+      "appBg": "#1a1412",
+      "surfaceBgSubtle": "rgba(251, 146, 60, 0.05)",
+      "surfaceBgSelected": "rgba(251, 146, 60, 0.15)",
+      "menuBg": "#2d211d",
+      "border": "rgba(251, 146, 60, 0.2)",
+      "borderSubtle": "rgba(251, 146, 60, 0.3)",
+      "text": "#fed7aa",
+      "textMuted": "#f9a870",
+      "textSubtle": "#c67d4d",
+      "buttonPrimaryBg": "#fb923c",
+      "buttonPrimaryHover": "#f97316",
+      "inputFocus": "#fb923c",
+      "link": "#fdba74",
+      "linkHover": "#fb923c",
+      "ownBubbleBg": "#7c2d12",
+      "ownBubbleBorder": "#9a3412",
+      "ownBubbleText": "#ffedd5"
+    },
+    "previewColors": {
+      "primary": "#fb923c",
+      "background": "#1a1412",
+      "text": "#fed7aa"
+    }
+  },
+  "typography": {
+    "fontSizes": {
+      "xs": "0.8125rem",
+      "sm": "0.9375rem",
+      "md": "1.0625rem"
+    }
+  },
+  "radii": {
+    "sm": "0.1875rem",
+    "md": "0.4375rem",
+    "lg": "0.5625rem",
+    "xl": "0.8125rem"
+  }
+}

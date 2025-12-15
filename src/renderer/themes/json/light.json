@@ -1,0 +1,62 @@
+{
+  "id": "light",
+  "name": "Light",
+  "description": "Clean light theme with high contrast",
+  "extends": "default",
+  "metadata": {
+    "brightness": "light",
+    "colorFamily": "blues"
+  },
+  "colors": {
+    "brand": {
+      "50": "#e0f7ff",
+      "100": "#b8ecfe",
+      "200": "#8ee0fb",
+      "300": "#63d4f8",
+      "400": "#0ea5e9",
+      "500": "#0284c7",
+      "600": "#0369a1",
+      "700": "#075985",
+      "800": "#0c4a6e",
+      "900": "#083344"
+    },
+    "semantic": {
+      "appBg": "#f8fafc",
+      "surfaceBg": "#ffffff",
+      "surfaceBgSubtle": "#f1f5f9",
+      "surfaceBgSelected": "#e2e8f0",
+      "menuBg": "#ffffff",
+      "border": "#e2e8f0",
+      "borderSubtle": "#cbd5e1",
+      "text": "#1e293b",
+      "textMuted": "#475569",
+      "textSubtle": "#94a3b8",
+      "statusSuccess": "#15803d",
+      "statusWarning": "#b45309",
+      "statusError": "#b91c1c",
+      "statusInfo": "#0284c7",
+      "buttonPrimaryBg": "#0ea5e9",
+      "buttonPrimaryText": "#ffffff",
+      "buttonPrimaryHover": "#0284c7",
+      "buttonSecondaryBg": "#f1f5f9",
+      "buttonSecondaryText": "#1e293b",
+      "buttonSecondaryHover": "#e2e8f0",
+      "buttonDangerBg": "#b91c1c",
+      "buttonDangerText": "#ffffff",
+      "buttonDangerHover": "#991b1b",
+      "inputBg": "#ffffff",
+      "inputBorder": "#e2e8f0",
+      "inputFocus": "#0ea5e9",
+      "link": "#0284c7",
+      "linkHover": "#0369a1",
+      "ownBubbleBg": "#0c4a6e",
+      "ownBubbleBorder": "#075985",
+      "ownBubbleText": "#ffffff"
+    },
+    "previewColors": {
+      "primary": "#0ea5e9",
+      "background": "#f8fafc",
+      "text": "#1e293b"
+    }
+  }
+}

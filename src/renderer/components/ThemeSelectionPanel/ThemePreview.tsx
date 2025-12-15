@@ -132,8 +132,10 @@ function MockConversationSection(): React.ReactElement {
 
         <HStack justify="flex-start">
           <Box
-            bg={colors.surfaceBg}
+            bg={colors.surfaceBgSubtle}
             color={colors.text}
+            borderWidth="1px"
+            borderColor={colors.border}
             p={3}
             borderRadius="md"
             fontSize="md"
@@ -145,8 +147,10 @@ function MockConversationSection(): React.ReactElement {
 
         <HStack justify="flex-end">
           <Box
-            bg={colors.surfaceBgSelected}
-            color={colors.text}
+            bg={colors.ownBubbleBg}
+            color={colors.ownBubbleText}
+            borderWidth="1px"
+            borderColor={colors.ownBubbleBorder}
             p={3}
             borderRadius="md"
             fontSize="md"
@@ -158,8 +162,10 @@ function MockConversationSection(): React.ReactElement {
 
         <HStack justify="flex-start">
           <Box
-            bg={colors.surfaceBg}
+            bg={colors.surfaceBgSubtle}
             color={colors.text}
+            borderWidth="1px"
+            borderColor={colors.border}
             p={3}
             borderRadius="md"
             fontSize="md"

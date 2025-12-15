@@ -5,9 +5,10 @@
  * Components can use the useThemeColors() hook to access current theme colors.
  */
 
-import React, { createContext, useContext, useMemo } from 'react';
+import React, { createContext, useContext, useEffect, useMemo } from 'react';
 import { getSemanticColors, type ThemeSemanticColors } from './useTheme';
 import type { ThemeId } from './definitions';
+import { resolveTheme } from './loader';
 
 /**
  * Theme context value
@@ -60,6 +61,34 @@ export function ThemeProvider({ themeId, children }: ThemeProviderProps): React.
     }),
     [themeId]
   );
+
+  // Inject theme CSS variables directly onto :root
+  // This bypasses Chakra's static token system for dynamic theme switching
+  useEffect(() => {
+    const theme = resolveTheme(themeId);
+    const root = document.documentElement;
+
+    // Inject font sizes
+    if (theme.typography?.fontSizes) {
+      for (const [key, value] of Object.entries(theme.typography.fontSizes)) {
+        root.style.setProperty(`--chakra-font-sizes-${key}`, value);
+      }
+    }
+
+    // Inject radii
+    if (theme.radii) {
+      for (const [key, value] of Object.entries(theme.radii)) {
+        root.style.setProperty(`--chakra-radii-${key}`, value);
+      }
+    }
+
+    // Inject fonts
+    if (theme.typography?.fonts) {
+      for (const [key, value] of Object.entries(theme.typography.fonts)) {
+        root.style.setProperty(`--chakra-fonts-${key}`, value);
+      }
+    }
+  }, [themeId]);
 
   return <ThemeContext.Provider value={contextValue}>{children}</ThemeContext.Provider>;
 }

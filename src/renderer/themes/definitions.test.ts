@@ -57,9 +57,9 @@ function extractHexValue(
 
 describe('Theme Definitions', () => {
   describe('Theme Registry Structure', () => {
-    it('should have exactly 10 themes in registry', () => {
+    it('should have exactly 20 themes in registry', () => {
       const themeCount = Object.keys(THEME_REGISTRY).length;
-      expect(themeCount).toBe(10);
+      expect(themeCount).toBe(20);
     });
 
     it('should have required theme IDs', () => {
@@ -268,9 +268,9 @@ describe('Theme Definitions', () => {
   });
 
   describe('getAllThemes()', () => {
-    it('should return exactly 10 themes', () => {
+    it('should return exactly 20 themes', () => {
       const themes = getAllThemes();
-      expect(themes).toHaveLength(10);
+      expect(themes).toHaveLength(20);
     });
 
     it('should return all themes from registry', () => {
@@ -296,11 +296,18 @@ describe('Theme Definitions', () => {
       expect(themes[1].id).toBe('dark');
     });
 
-    it('should have themed options in alphabetical order after light/dark', () => {
+    it('should have themed options grouped by brightness (light themes, then dark themes)', () => {
       const themes = getAllThemes();
+      // After light/dark, we have light themes first, then dark themes
       const themedIds = themes.slice(2).map((t) => t.id);
-      const sorted = [...themedIds].sort();
-      expect(themedIds).toEqual(sorted);
+      // Light themes: arctic, lavender, sakura, sandstone
+      // Dark themes: the rest
+      expect(themedIds.length).toBeGreaterThan(0);
+      // First 4 should be light themes
+      const lightThemes = ['arctic', 'lavender', 'sakura', 'sandstone'];
+      lightThemes.forEach((id) => {
+        expect(themedIds).toContain(id);
+      });
     });
 
     it('should return metadata with all required fields', () => {

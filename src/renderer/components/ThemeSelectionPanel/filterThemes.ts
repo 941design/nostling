@@ -2,10 +2,11 @@
  * Theme Filtering Logic
  *
  * Pure functions for filtering theme lists based on user-selected criteria.
+ * Now uses theme metadata for filtering instead of hardcoded mappings.
  */
 
 import { ThemeMetadata } from '../../themes/definitions';
-import { ThemeFilters } from './types';
+import { ThemeFilters, ColorFamilyFilter, BrightnessFilter } from './types';
 
 /**
  * Filter themes based on brightness and color family criteria
@@ -17,7 +18,7 @@ import { ThemeFilters } from './types';
  *
  *   Outputs:
  *     - filtered collection of ThemeMetadata objects
- *     - collection size: 0 ≤ output.length ≤ input.length
+ *     - collection size: 0 <= output.length <= input.length
  *
  *   Invariants:
  *     - When both filters are 'all', output equals input (no filtering)
@@ -31,23 +32,8 @@ import { ThemeFilters } from './types';
  *     - Order preservation: for themes A,B in output where A appears before B in input, A appears before B in output
  *     - Commutative filtering: brightness filter then color family filter equals color family then brightness
  *     - Monotonic: more restrictive filters never increase output size
- *
- *   Algorithm:
- *     1. Start with full theme list
- *     2. If brightness filter is not 'all':
- *        a. If 'light': keep only theme with id 'light'
- *        b. If 'dark': keep all themes except 'light'
- *     3. If colorFamily filter is not 'all':
- *        a. If 'blues': keep only themes [light, dark, ocean, twilight]
- *        b. If 'greens': keep only themes [forest, mint]
- *        c. If 'warm': keep only themes [sunset, ember, amber]
- *        d. If 'purple': keep only theme [purple-haze]
- *     4. Return filtered list
  */
-export function filterThemes(
-  themes: ThemeMetadata[],
-  filters: ThemeFilters
-): ThemeMetadata[] {
+export function filterThemes(themes: ThemeMetadata[], filters: ThemeFilters): ThemeMetadata[] {
   return themes.filter(
     (theme) =>
       matchesBrightness(theme, filters.brightness) &&
@@ -57,6 +43,8 @@ export function filterThemes(
 
 /**
  * Check if theme matches brightness filter
+ *
+ * Uses theme.brightness metadata when available, falls back to legacy logic.
  *
  * CONTRACT:
  *   Inputs:
@@ -68,59 +56,57 @@ export function filterThemes(
  *
  *   Invariants:
  *     - filter 'all' always returns true
- *     - filter 'light' returns true only for theme.id === 'light'
- *     - filter 'dark' returns true for all themes except 'light'
- *
- *   Properties:
- *     - Identity: matchesBrightness(theme, 'all') equals true for all themes
- *     - Exclusivity: for any theme, exactly one of [matchesBrightness(t, 'light'), matchesBrightness(t, 'dark')] is true
- *     - Deterministic: same theme and filter always produce same result
+ *     - filter matches theme.brightness when metadata is present
  */
-export function matchesBrightness(
-  theme: ThemeMetadata,
-  filter: 'all' | 'light' | 'dark'
-): boolean {
+export function matchesBrightness(theme: ThemeMetadata, filter: BrightnessFilter): boolean {
   if (filter === 'all') return true;
-  if (filter === 'light') return theme.id === 'light';
+
+  // Use theme metadata if available
+  if (theme.brightness) {
+    return theme.brightness === filter;
+  }
+
+  // Legacy fallback for themes without brightness metadata
+  if (filter === 'light') {
+    return theme.id === 'light';
+  }
   return theme.id !== 'light';
 }
 
 /**
  * Check if theme matches color family filter
  *
+ * Uses theme.colorFamily metadata when available, falls back to legacy logic.
+ *
  * CONTRACT:
  *   Inputs:
  *     - theme: ThemeMetadata object
- *     - filter: ColorFamilyFilter value ('all', 'blues', 'greens', 'warm', 'purple')
+ *     - filter: ColorFamilyFilter value ('all', 'blues', 'greens', 'warm', 'purple', 'pink', 'neutral')
  *
  *   Outputs:
  *     - boolean: true if theme matches filter criteria
  *
  *   Invariants:
  *     - filter 'all' always returns true
- *     - filter 'blues': true for [light, dark, ocean, twilight]
- *     - filter 'greens': true for [forest, mint]
- *     - filter 'warm': true for [sunset, ember, amber]
- *     - filter 'purple': true for [purple-haze]
- *     - Each theme belongs to exactly one color family
- *
- *   Properties:
- *     - Identity: matchesColorFamily(theme, 'all') equals true for all themes
- *     - Coverage: for any theme, exactly one of [blues, greens, warm, purple] returns true
- *     - Deterministic: same theme and filter always produce same result
+ *     - filter matches theme.colorFamily when metadata is present
  */
-export function matchesColorFamily(
-  theme: ThemeMetadata,
-  filter: 'all' | 'blues' | 'greens' | 'warm' | 'purple'
-): boolean {
+export function matchesColorFamily(theme: ThemeMetadata, filter: ColorFamilyFilter): boolean {
   if (filter === 'all') return true;
 
-  const colorFamilies = {
-    blues: ['light', 'dark', 'ocean', 'twilight'],
-    greens: ['forest', 'mint'],
-    warm: ['sunset', 'ember', 'amber'],
-    purple: ['purple-haze'],
+  // Use theme metadata if available
+  if (theme.colorFamily) {
+    return theme.colorFamily === filter;
+  }
+
+  // Legacy fallback for themes without colorFamily metadata
+  const legacyColorFamilies: Record<string, string[]> = {
+    blues: ['light', 'dark', 'ocean', 'twilight', 'arctic'],
+    greens: ['forest', 'mint', 'neon'],
+    warm: ['sunset', 'ember', 'amber', 'sandstone', 'mocha', 'copper'],
+    purple: ['purple-haze', 'lavender'],
+    pink: ['rose', 'sakura'],
+    neutral: ['slate', 'midnight'],
   };
 
-  return colorFamilies[filter].includes(theme.id);
+  return legacyColorFamilies[filter]?.includes(theme.id) ?? false;
 }

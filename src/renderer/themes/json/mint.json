@@ -1,0 +1,61 @@
+{
+  "id": "mint",
+  "name": "Mint",
+  "description": "Fresh mint green theme",
+  "extends": "default",
+  "metadata": {
+    "brightness": "dark",
+    "colorFamily": "greens"
+  },
+  "colors": {
+    "brand": {
+      "50": "#ecfdf5",
+      "100": "#d1fae5",
+      "200": "#a7f3d0",
+      "300": "#6ee7b7",
+      "400": "#34d399",
+      "500": "#10b981",
+      "600": "#059669",
+      "700": "#047857",
+      "800": "#065f46",
+      "900": "#064e3b"
+    },
+    "semantic": {
+      "appBg": "#0a1f14",
+      "surfaceBgSubtle": "rgba(16, 185, 129, 0.05)",
+      "surfaceBgSelected": "rgba(16, 185, 129, 0.15)",
+      "menuBg": "#0d2b1a",
+      "border": "rgba(16, 185, 129, 0.2)",
+      "borderSubtle": "rgba(16, 185, 129, 0.3)",
+      "text": "#a7f3d0",
+      "textMuted": "#6ee7b7",
+      "textSubtle": "#34d399",
+      "buttonPrimaryBg": "#10b981",
+      "buttonPrimaryHover": "#059669",
+      "inputFocus": "#10b981",
+      "link": "#34d399",
+      "linkHover": "#10b981",
+      "ownBubbleBg": "#064e3b",
+      "ownBubbleBorder": "#065f46",
+      "ownBubbleText": "#d1fae5"
+    },
+    "previewColors": {
+      "primary": "#10b981",
+      "background": "#0a1f14",
+      "text": "#a7f3d0"
+    }
+  },
+  "typography": {
+    "fontSizes": {
+      "xs": "0.8125rem",
+      "sm": "0.9375rem",
+      "md": "1.0625rem"
+    }
+  },
+  "radii": {
+    "sm": "0.1875rem",
+    "md": "0.4375rem",
+    "lg": "0.625rem",
+    "xl": "0.875rem"
+  }
+}

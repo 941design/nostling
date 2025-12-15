@@ -1,0 +1,73 @@
+{
+  "id": "midnight",
+  "name": "Midnight",
+  "description": "Deep space noir OLED-friendly theme",
+  "extends": "default",
+  "metadata": {
+    "brightness": "dark",
+    "colorFamily": "neutral"
+  },
+  "colors": {
+    "brand": {
+      "50": "#eef2ff",
+      "100": "#e0e7ff",
+      "200": "#c7d2fe",
+      "300": "#a5b4fc",
+      "400": "#818cf8",
+      "500": "#6366f1",
+      "600": "#4f46e5",
+      "700": "#4338ca",
+      "800": "#3730a3",
+      "900": "#312e81"
+    },
+    "semantic": {
+      "appBg": "#000000",
+      "surfaceBg": "#0a0a0f",
+      "surfaceBgSubtle": "rgba(165, 180, 252, 0.03)",
+      "surfaceBgSelected": "rgba(165, 180, 252, 0.1)",
+      "menuBg": "#0f0f18",
+      "border": "rgba(165, 180, 252, 0.15)",
+      "borderSubtle": "rgba(165, 180, 252, 0.25)",
+      "text": "#e8eaed",
+      "textMuted": "#9aa0a6",
+      "textSubtle": "#5f6368",
+      "statusInfo": "#a5b4fc",
+      "buttonPrimaryBg": "#a5b4fc",
+      "buttonPrimaryText": "#000000",
+      "buttonPrimaryHover": "#818cf8",
+      "buttonSecondaryBg": "rgba(165, 180, 252, 0.1)",
+      "buttonSecondaryText": "#e8eaed",
+      "buttonSecondaryHover": "rgba(165, 180, 252, 0.15)",
+      "inputFocus": "#a5b4fc",
+      "link": "#c7d2fe",
+      "linkHover": "#a5b4fc",
+      "ownBubbleBg": "#312e81",
+      "ownBubbleBorder": "#3730a3",
+      "ownBubbleText": "#e0e7ff"
+    },
+    "previewColors": {
+      "primary": "#a5b4fc",
+      "background": "#000000",
+      "text": "#e8eaed"
+    }
+  },
+  "typography": {
+    "fontSizes": {
+      "xs": "0.6875rem",
+      "sm": "0.8125rem",
+      "md": "0.9375rem"
+    }
+  },
+  "radii": {
+    "sm": "0.0625rem",
+    "md": "0.25rem",
+    "lg": "0.375rem",
+    "xl": "0.5rem"
+  },
+  "shadows": {
+    "sm": "none",
+    "md": "none",
+    "lg": "none",
+    "xl": "none"
+  }
+}

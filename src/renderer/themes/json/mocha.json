@@ -1,0 +1,62 @@
+{
+  "id": "mocha",
+  "name": "Mocha",
+  "description": "Coffee shop cozy warm theme",
+  "extends": "default",
+  "metadata": {
+    "brightness": "dark",
+    "colorFamily": "warm"
+  },
+  "colors": {
+    "brand": {
+      "50": "#fdf8f3",
+      "100": "#f9ebe0",
+      "200": "#f0d5be",
+      "300": "#e4c49a",
+      "400": "#d4a574",
+      "500": "#b8895a",
+      "600": "#9a6f42",
+      "700": "#7a5733",
+      "800": "#5c4125",
+      "900": "#3d2a18"
+    },
+    "semantic": {
+      "appBg": "#1a1310",
+      "surfaceBgSubtle": "rgba(212, 165, 116, 0.05)",
+      "surfaceBgSelected": "rgba(212, 165, 116, 0.15)",
+      "menuBg": "#2d241e",
+      "border": "rgba(212, 165, 116, 0.2)",
+      "borderSubtle": "rgba(212, 165, 116, 0.3)",
+      "text": "#f5e6d3",
+      "textMuted": "#d4c4b0",
+      "textSubtle": "#b8a590",
+      "buttonPrimaryBg": "#d4a574",
+      "buttonPrimaryText": "#1a1310",
+      "buttonPrimaryHover": "#b8895a",
+      "inputFocus": "#d4a574",
+      "link": "#e4c49a",
+      "linkHover": "#d4a574",
+      "ownBubbleBg": "#3d2a18",
+      "ownBubbleBorder": "#5c4125",
+      "ownBubbleText": "#f9ebe0"
+    },
+    "previewColors": {
+      "primary": "#d4a574",
+      "background": "#1a1310",
+      "text": "#f5e6d3"
+    }
+  },
+  "typography": {
+    "fontSizes": {
+      "xs": "0.8125rem",
+      "sm": "0.9375rem",
+      "md": "1.0625rem"
+    }
+  },
+  "radii": {
+    "sm": "0.1875rem",
+    "md": "0.4375rem",
+    "lg": "0.625rem",
+    "xl": "0.875rem"
+  }
+}

@@ -297,14 +297,17 @@ describe('Theme Selection Panel Integration: Filtering Workflow', () => {
 
         expect(state.availableThemes.length).toBe(expectedCount);
 
-        // Specific cases
+        // Verify specific themes exist in filtered results
         if (brightness === 'light') {
-          expect(state.availableThemes.length).toBe(1);
-          expect(state.availableThemes[0].id).toBe('light');
+          // Should include light theme and other light themes
+          expect(state.availableThemes.some((t) => t.id === 'light')).toBe(true);
+          expect(state.availableThemes.length).toBeGreaterThan(0);
         } else if (brightness === 'dark') {
-          expect(state.availableThemes.length).toBe(9); // dark + 8 variants
+          // Should include dark theme and other dark themes
+          expect(state.availableThemes.some((t) => t.id === 'dark')).toBe(true);
+          expect(state.availableThemes.length).toBeGreaterThan(0);
         } else {
-          expect(state.availableThemes.length).toBe(10); // all themes
+          expect(state.availableThemes.length).toBe(20); // all themes
         }
       }),
       fcOptions
@@ -335,9 +338,8 @@ describe('Theme Selection Panel Integration: Filtering Workflow', () => {
           // warm: sunset, ember, amber
           expect(state.availableThemes.some((t) => t.id === 'sunset')).toBe(true);
         } else if (colorFamily === 'purple') {
-          // purple: purple-haze
-          expect(state.availableThemes.length).toBe(1);
-          expect(state.availableThemes[0].id).toBe('purple-haze');
+          // purple: purple-haze, lavender, midnight
+          expect(state.availableThemes.some((t) => t.id === 'purple-haze')).toBe(true);
         }
       }),
       fcOptions

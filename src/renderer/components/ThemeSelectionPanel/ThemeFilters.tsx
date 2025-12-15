@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { Button, HStack, VStack, Text } from '@chakra-ui/react';
-import { ThemeFilters as ThemeFiltersType } from './types';
+import { ThemeFilters as ThemeFiltersType, ColorFamilyFilter } from './types';
 import { useThemeColors } from '../../themes/ThemeContext';
 
 export interface ThemeFiltersProps {
@@ -77,12 +77,14 @@ function ThemeFiltersComponent({
     { value: 'dark', label: 'Dark' },
   ];
 
-  const colorFamilyOptions: Array<{ value: 'all' | 'blues' | 'greens' | 'warm' | 'purple'; label: string }> = [
+  const colorFamilyOptions: Array<{ value: ColorFamilyFilter; label: string }> = [
     { value: 'all', label: 'All' },
     { value: 'blues', label: 'Blues' },
     { value: 'greens', label: 'Greens' },
     { value: 'warm', label: 'Warm' },
     { value: 'purple', label: 'Purple' },
+    { value: 'pink', label: 'Pink' },
+    { value: 'neutral', label: 'Neutral' },
   ];
 
   const handleBrightnessClick = (value: 'all' | 'light' | 'dark') => {
@@ -91,7 +93,7 @@ function ThemeFiltersComponent({
     }
   };
 
-  const handleColorFamilyClick = (value: 'all' | 'blues' | 'greens' | 'warm' | 'purple') => {
+  const handleColorFamilyClick = (value: ColorFamilyFilter) => {
     if (!disabled && filters.colorFamily !== value) {
       onFilterChange({ ...filters, colorFamily: value });
     }

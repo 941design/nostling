@@ -1,0 +1,75 @@
+{
+  "id": "sakura",
+  "name": "Sakura",
+  "description": "Cherry blossom delicate light theme",
+  "extends": "default",
+  "metadata": {
+    "brightness": "light",
+    "colorFamily": "pink"
+  },
+  "colors": {
+    "brand": {
+      "50": "#fdf2f8",
+      "100": "#fce7f3",
+      "200": "#fbcfe8",
+      "300": "#f9a8d4",
+      "400": "#f472b6",
+      "500": "#ec4899",
+      "600": "#db2777",
+      "700": "#be185d",
+      "800": "#9d174d",
+      "900": "#831843"
+    },
+    "semantic": {
+      "appBg": "#fdf2f8",
+      "surfaceBg": "#ffffff",
+      "surfaceBgSubtle": "#fce7f3",
+      "surfaceBgSelected": "#fbcfe8",
+      "menuBg": "#ffffff",
+      "border": "#f9a8d4",
+      "borderSubtle": "#f472b6",
+      "text": "#701a4e",
+      "textMuted": "#9d174d",
+      "textSubtle": "#be185d",
+      "statusSuccess": "#15803d",
+      "statusWarning": "#b45309",
+      "statusError": "#b91c1c",
+      "statusInfo": "#ec4899",
+      "buttonPrimaryBg": "#ec4899",
+      "buttonPrimaryText": "#ffffff",
+      "buttonPrimaryHover": "#db2777",
+      "buttonSecondaryBg": "#fce7f3",
+      "buttonSecondaryText": "#701a4e",
+      "buttonSecondaryHover": "#fbcfe8",
+      "buttonDangerBg": "#b91c1c",
+      "buttonDangerText": "#ffffff",
+      "buttonDangerHover": "#991b1b",
+      "inputBg": "#ffffff",
+      "inputBorder": "#f9a8d4",
+      "inputFocus": "#ec4899",
+      "link": "#db2777",
+      "linkHover": "#ec4899",
+      "ownBubbleBg": "#9d174d",
+      "ownBubbleBorder": "#be185d",
+      "ownBubbleText": "#ffffff"
+    },
+    "previewColors": {
+      "primary": "#ec4899",
+      "background": "#fdf2f8",
+      "text": "#701a4e"
+    }
+  },
+  "typography": {
+    "fontSizes": {
+      "xs": "0.8125rem",
+      "sm": "0.9375rem",
+      "md": "1.0625rem"
+    }
+  },
+  "radii": {
+    "sm": "0.25rem",
+    "md": "0.5rem",
+    "lg": "0.75rem",
+    "xl": "1rem"
+  }
+}

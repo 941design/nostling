@@ -23,7 +23,7 @@ import { BrightnessFilter, ColorFamilyFilter, ThemeFilters } from './types';
 
 describe('ThemeFilters Component - Property-Based Tests', () => {
   const validBrightnessFilters: BrightnessFilter[] = ['all', 'light', 'dark'];
-  const validColorFamilyFilters: ColorFamilyFilter[] = ['all', 'blues', 'greens', 'warm', 'purple'];
+  const validColorFamilyFilters: ColorFamilyFilter[] = ['all', 'blues', 'greens', 'warm', 'purple', 'pink', 'neutral'];
 
   describe('P001-P003: All Valid Filter State Combinations', () => {
     it('P001: Every brightness filter value is in valid set', () => {
@@ -332,7 +332,7 @@ describe('ThemeFilters Component - Property-Based Tests', () => {
           fc.oneof(...validColorFamilyFilters.map((v) => fc.constant(v))),
           (colorFamily) => {
             const expectedTestId = `filter-color-${colorFamily}`;
-            expect(expectedTestId).toMatch(/^filter-color-(all|blues|greens|warm|purple)$/);
+            expect(expectedTestId).toMatch(/^filter-color-(all|blues|greens|warm|purple|pink|neutral)$/);
             expect(expectedTestId).toContain('filter-color-');
             expect(expectedTestId).toContain(colorFamily);
             return true;
@@ -478,7 +478,7 @@ describe('ThemeFilters Component - Property-Based Tests', () => {
           (brightness, colorFamily) => {
             const filters: ThemeFilters = { brightness, colorFamily };
             const colorFamilyButtonCount = validColorFamilyFilters.length;
-            expect(colorFamilyButtonCount).toBe(5);
+            expect(colorFamilyButtonCount).toBe(7);
             expect(['all', 'blues', 'greens', 'warm', 'purple']).toHaveLength(5);
             return true;
           }
@@ -489,7 +489,7 @@ describe('ThemeFilters Component - Property-Based Tests', () => {
 
     it('P021: Rendering buttons preserves filter labels consistently', () => {
       const brightnessLabels = { all: 'All', light: 'Light', dark: 'Dark' };
-      const colorLabels = { all: 'All', blues: 'Blues', greens: 'Greens', warm: 'Warm', purple: 'Purple' };
+      const colorLabels: Record<string, string> = { all: 'All', blues: 'Blues', greens: 'Greens', warm: 'Warm', purple: 'Purple', pink: 'Pink', neutral: 'Neutral' };
 
       fc.assert(
         fc.property(

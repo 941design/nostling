@@ -1111,16 +1111,16 @@ function MessageBubble({
     <HStack justify={isOwn ? 'flex-end' : 'flex-start'} align="flex-end" mb="2" gap="2" data-testid="message-bubble">
       <Box
         maxW="70%"
-        bg={isOwn ? 'brand.900' : colors.surfaceBgSubtle}
+        bg={isOwn ? colors.ownBubbleBg : colors.surfaceBgSubtle}
         borderWidth="1px"
-        borderColor={isOwn ? 'brand.700' : colors.border}
+        borderColor={isOwn ? colors.ownBubbleBorder : colors.border}
         borderRadius="md"
         p="3"
         className={isInflight ? 'message-bubble message-inflight' : 'message-bubble'}
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
       >
-        <Text color={colors.text} whiteSpace="pre-wrap">
+        <Text color={isOwn ? colors.ownBubbleText : colors.text} whiteSpace="pre-wrap">
           {message.content}
         </Text>
       </Box>

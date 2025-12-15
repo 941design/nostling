@@ -27,6 +27,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { NostlingRelayEndpoint } from '../../shared/types';
+import { useThemeColors } from '../themes/ThemeContext';
 
 interface RelayTableProps {
   identityId: string;
@@ -53,21 +54,28 @@ interface StatusDotProps {
 
 // StatusDot sub-component: renders a colored circle that shows status in footer on hover
 function StatusDot({ status, url, onHover }: StatusDotProps) {
-  const colorMap: Record<string, string> = {
-    connected: '#48BB78',      // green
-    connecting: '#ECC94B',     // yellow
-    error: '#F56565',          // red
-    disconnected: '#F56565',   // red
-  };
+  const colors = useThemeColors();
 
-  const bgColor = colorMap[status] || '#A0AEC0'; // gray as fallback
+  const getStatusColor = (): string => {
+    switch (status) {
+      case 'connected':
+        return colors.statusSuccess;
+      case 'connecting':
+        return colors.statusWarning;
+      case 'error':
+      case 'disconnected':
+        return colors.statusError;
+      default:
+        return colors.textSubtle;
+    }
+  };
 
   return (
     <Box
       width="8px"
       height="8px"
       borderRadius="full"
-      bg={bgColor}
+      bg={getStatusColor()}
       display="inline-block"
       cursor="pointer"
       onMouseEnter={() => onHover?.(url, status)}
@@ -85,6 +93,7 @@ const SortableRelayRow = React.memo(function SortableRelayRow({
   onStatusHover,
 }: SortableRelayRowProps) {
   const [editUrl, setEditUrl] = useState(relay.url);
+  const colors = useThemeColors();
 
   const { attributes, listeners, setNodeRef, transform, transition } =
     useSortable({ id: relay.url });
@@ -147,7 +156,7 @@ const SortableRelayRow = React.memo(function SortableRelayRow({
       ref={setNodeRef}
       style={style}
       height="36px"
-      _hover={{ bg: 'gray.50' }}
+      _hover={{ bg: colors.surfaceBgSubtle }}
     >
       {/* Drag handle */}
       <Table.Cell
@@ -158,7 +167,7 @@ const SortableRelayRow = React.memo(function SortableRelayRow({
         {...attributes}
         {...listeners}
       >
-        <Text fontSize="sm" color="gray.400">
+        <Text fontSize="sm" color={colors.textSubtle}>
           :::
         </Text>
       </Table.Cell>
@@ -268,6 +277,7 @@ export function RelayTable({
   onStatusHover,
 }: RelayTableProps) {
   const [newRelayUrl, setNewRelayUrl] = useState('');
+  const colors = useThemeColors();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -377,9 +387,9 @@ export function RelayTable({
         collisionDetection={closestCenter}
         onDragEnd={handleDragEnd}
       >
-        <Box overflowX="auto" borderRadius="md" border="1px" borderColor="gray.200">
+        <Box overflowX="auto" borderRadius="md" border="1px" borderColor={colors.border}>
           <Table.Root size="sm">
-            <Table.Header bg="gray.50">
+            <Table.Header bg={colors.surfaceBgSubtle}>
               <Table.Row height="36px">
                 <Table.ColumnHeader width="40px" padding="1" fontSize="xs">
                   ⋮⋮
@@ -422,10 +432,10 @@ export function RelayTable({
               </SortableContext>
 
               {/* Add relay row */}
-              <Table.Row height="36px" _hover={{ bg: 'gray.50' }}>
+              <Table.Row height="36px" _hover={{ bg: colors.surfaceBgSubtle }}>
                 <Table.Cell colSpan={7} padding="1">
                   <HStack gap="2">
-                    <Text fontSize="xs" color="gray.500" width="40px">
+                    <Text fontSize="xs" color={colors.textSubtle} width="40px">
                       +
                     </Text>
                     <Input
@@ -445,7 +455,7 @@ export function RelayTable({
       </DndContext>
 
       {/* Footer summary */}
-      <Text fontSize="xs" color="gray.600">
+      <Text fontSize="xs" color={colors.textMuted}>
         {relays.length} relays · {connectedCount} connected · {failedCount} failed
       </Text>
     </VStack>

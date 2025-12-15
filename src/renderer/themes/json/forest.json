@@ -1,0 +1,54 @@
+{
+  "id": "forest",
+  "name": "Forest",
+  "description": "Nature-inspired green theme",
+  "extends": "default",
+  "metadata": {
+    "brightness": "dark",
+    "colorFamily": "greens"
+  },
+  "colors": {
+    "brand": {
+      "50": "#f0fdf4",
+      "100": "#dcfce7",
+      "200": "#bbf7d0",
+      "300": "#86efac",
+      "400": "#4ade80",
+      "500": "#22c55e",
+      "600": "#16a34a",
+      "700": "#15803d",
+      "800": "#166534",
+      "900": "#14532d"
+    },
+    "semantic": {
+      "appBg": "#0a1f0a",
+      "surfaceBgSubtle": "rgba(34, 197, 94, 0.05)",
+      "surfaceBgSelected": "rgba(34, 197, 94, 0.15)",
+      "menuBg": "#0d2b0d",
+      "border": "rgba(34, 197, 94, 0.2)",
+      "borderSubtle": "rgba(34, 197, 94, 0.3)",
+      "text": "#bbf7d0",
+      "textMuted": "#86efac",
+      "textSubtle": "#4ade80",
+      "buttonPrimaryBg": "#22c55e",
+      "buttonPrimaryHover": "#16a34a",
+      "inputFocus": "#22c55e",
+      "link": "#4ade80",
+      "linkHover": "#22c55e",
+      "ownBubbleBg": "#14532d",
+      "ownBubbleBorder": "#166534",
+      "ownBubbleText": "#dcfce7"
+    },
+    "previewColors": {
+      "primary": "#22c55e",
+      "background": "#0a1f0a",
+      "text": "#bbf7d0"
+    }
+  },
+  "radii": {
+    "sm": "0.1875rem",
+    "md": "0.4375rem",
+    "lg": "0.5625rem",
+    "xl": "0.8125rem"
+  }
+}

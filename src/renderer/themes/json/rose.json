@@ -1,0 +1,62 @@
+{
+  "id": "rose",
+  "name": "Rose",
+  "description": "Soft romantic dusty rose theme",
+  "extends": "default",
+  "metadata": {
+    "brightness": "dark",
+    "colorFamily": "pink"
+  },
+  "colors": {
+    "brand": {
+      "50": "#fdf2f8",
+      "100": "#fce7f3",
+      "200": "#fbcfe8",
+      "300": "#f9a8d4",
+      "400": "#f472b6",
+      "500": "#ec4899",
+      "600": "#db2777",
+      "700": "#be185d",
+      "800": "#9d174d",
+      "900": "#831843"
+    },
+    "semantic": {
+      "appBg": "#1a0d14",
+      "surfaceBgSubtle": "rgba(244, 114, 182, 0.05)",
+      "surfaceBgSelected": "rgba(244, 114, 182, 0.15)",
+      "menuBg": "#2d1824",
+      "border": "rgba(244, 114, 182, 0.2)",
+      "borderSubtle": "rgba(244, 114, 182, 0.3)",
+      "text": "#fce7f3",
+      "textMuted": "#f9a8d4",
+      "textSubtle": "#f472b6",
+      "statusInfo": "#f472b6",
+      "buttonPrimaryBg": "#f472b6",
+      "buttonPrimaryHover": "#ec4899",
+      "inputFocus": "#f472b6",
+      "link": "#f9a8d4",
+      "linkHover": "#f472b6",
+      "ownBubbleBg": "#831843",
+      "ownBubbleBorder": "#9d174d",
+      "ownBubbleText": "#fce7f3"
+    },
+    "previewColors": {
+      "primary": "#f472b6",
+      "background": "#1a0d14",
+      "text": "#fce7f3"
+    }
+  },
+  "typography": {
+    "fontSizes": {
+      "xs": "0.8125rem",
+      "sm": "0.9375rem",
+      "md": "1.0625rem"
+    }
+  },
+  "radii": {
+    "sm": "0.25rem",
+    "md": "0.5rem",
+    "lg": "0.75rem",
+    "xl": "1rem"
+  }
+}

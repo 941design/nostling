@@ -1,0 +1,55 @@
+{
+  "id": "purple-haze",
+  "name": "Purple Haze",
+  "description": "Vibrant purple and violet theme",
+  "extends": "default",
+  "metadata": {
+    "brightness": "dark",
+    "colorFamily": "purple"
+  },
+  "colors": {
+    "brand": {
+      "50": "#faf5ff",
+      "100": "#f3e8ff",
+      "200": "#e9d5ff",
+      "300": "#d8b4fe",
+      "400": "#c084fc",
+      "500": "#a855f7",
+      "600": "#9333ea",
+      "700": "#7e22ce",
+      "800": "#6b21a8",
+      "900": "#581c87"
+    },
+    "semantic": {
+      "appBg": "#1a0a2e",
+      "surfaceBgSubtle": "rgba(168, 85, 247, 0.05)",
+      "surfaceBgSelected": "rgba(168, 85, 247, 0.15)",
+      "menuBg": "#2d1050",
+      "border": "rgba(168, 85, 247, 0.2)",
+      "borderSubtle": "rgba(168, 85, 247, 0.3)",
+      "text": "#e9d5ff",
+      "textMuted": "#d8b4fe",
+      "textSubtle": "#c084fc",
+      "statusInfo": "#a855f7",
+      "buttonPrimaryBg": "#a855f7",
+      "buttonPrimaryHover": "#9333ea",
+      "inputFocus": "#a855f7",
+      "link": "#c084fc",
+      "linkHover": "#a855f7",
+      "ownBubbleBg": "#581c87",
+      "ownBubbleBorder": "#6b21a8",
+      "ownBubbleText": "#f3e8ff"
+    },
+    "previewColors": {
+      "primary": "#a855f7",
+      "background": "#1a0a2e",
+      "text": "#e9d5ff"
+    }
+  },
+  "radii": {
+    "sm": "0.1875rem",
+    "md": "0.375rem",
+    "lg": "0.5rem",
+    "xl": "0.6875rem"
+  }
+}
