@@ -5,7 +5,7 @@
  * Uses fast-check for property-based testing.
  */
 
-import { jest, describe, it, expect, beforeEach } from '@jest/globals';
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 
 jest.mock('../logging', () => ({
   log: jest.fn(),
@@ -147,6 +147,10 @@ describe('sendProfileToContact - Property-Based Tests', () => {
     senderKeypair = keypair;
   });
 
+  afterEach(() => {
+    db.close();
+  });
+
   it('property: idempotence - sending same profile hash twice skips second send', async () => {
     await fc.assert(
       fc.asyncProperty(
@@ -157,31 +161,35 @@ describe('sendProfileToContact - Property-Based Tests', () => {
           const testDb = await createTestDatabase();
           const testPool = new MockRelayPool();
 
-          // First send
-          const result1 = await sendProfileToContact(
-            profileEvent,
-            profileHash,
-            senderKeypair,
-            recipientPubkey,
-            testPool as any,
-            testDb
-          );
+          try {
+            // First send
+            const result1 = await sendProfileToContact(
+              profileEvent,
+              profileHash,
+              senderKeypair,
+              recipientPubkey,
+              testPool as any,
+              testDb
+            );
 
-          // Second send with same hash
-          const result2 = await sendProfileToContact(
-            profileEvent,
-            profileHash,
-            senderKeypair,
-            recipientPubkey,
-            testPool as any,
-            testDb
-          );
+            // Second send with same hash
+            const result2 = await sendProfileToContact(
+              profileEvent,
+              profileHash,
+              senderKeypair,
+              recipientPubkey,
+              testPool as any,
+              testDb
+            );
 
-          expect(result1.success).toBe(true);
-          expect(result1.skipped).toBeUndefined();
-          expect(result2.success).toBe(true);
-          expect(result2.skipped).toBe(true);
-          expect(testPool.publishedEvents.length).toBe(1); // Only one publish
+            expect(result1.success).toBe(true);
+            expect(result1.skipped).toBeUndefined();
+            expect(result2.success).toBe(true);
+            expect(result2.skipped).toBe(true);
+            expect(testPool.publishedEvents.length).toBe(1); // Only one publish
+          } finally {
+            testDb.close();
+          }
         }
       ),
       { numRuns: 20 }
@@ -198,23 +206,27 @@ describe('sendProfileToContact - Property-Based Tests', () => {
           const testDb = await createTestDatabase();
           const testPool = new MockRelayPool();
 
-          await sendProfileToContact(
-            profileEvent,
-            profileHash,
-            senderKeypair,
-            recipientPubkey,
-            testPool as any,
-            testDb
-          );
+          try {
+            await sendProfileToContact(
+              profileEvent,
+              profileHash,
+              senderKeypair,
+              recipientPubkey,
+              testPool as any,
+              testDb
+            );
 
-          expect(testPool.publishedEvents.length).toBe(1);
-          const wrappedEvent = testPool.publishedEvents[0];
+            expect(testPool.publishedEvents.length).toBe(1);
+            const wrappedEvent = testPool.publishedEvents[0];
 
-          // Wrapped event should NOT be PRIVATE_PROFILE_KIND
-          expect(wrappedEvent.kind).not.toBe(PRIVATE_PROFILE_KIND);
+            // Wrapped event should NOT be PRIVATE_PROFILE_KIND
+            expect(wrappedEvent.kind).not.toBe(PRIVATE_PROFILE_KIND);
 
-          // Wrapped event should be kind 1059 (NIP-59 gift wrap)
-          expect(wrappedEvent.kind).toBe(1059);
+            // Wrapped event should be kind 1059 (NIP-59 gift wrap)
+            expect(wrappedEvent.kind).toBe(1059);
+          } finally {
+            testDb.close();
+          }
         }
       ),
       { numRuns: 20 }
@@ -231,22 +243,26 @@ describe('sendProfileToContact - Property-Based Tests', () => {
           const testDb = await createTestDatabase();
           const testPool = new MockRelayPool();
 
-          const result = await sendProfileToContact(
-            profileEvent,
-            profileHash,
-            senderKeypair,
-            recipientPubkey,
-            testPool as any,
-            testDb
-          );
+          try {
+            const result = await sendProfileToContact(
+              profileEvent,
+              profileHash,
+              senderKeypair,
+              recipientPubkey,
+              testPool as any,
+              testDb
+            );
 
-          expect(result.success).toBe(true);
+            expect(result.success).toBe(true);
 
-          const sendState = getSendState(senderKeypair.pubkeyHex, recipientPubkey, testDb);
-          expect(sendState).not.toBeNull();
-          expect(sendState!.lastSentProfileHash).toBe(profileHash);
-          expect(sendState!.lastSentProfileEventId).toBe(result.eventId);
-          expect(sendState!.lastSuccessAt).toBeDefined();
+            const sendState = getSendState(senderKeypair.pubkeyHex, recipientPubkey, testDb);
+            expect(sendState).not.toBeNull();
+            expect(sendState!.lastSentProfileHash).toBe(profileHash);
+            expect(sendState!.lastSentProfileEventId).toBe(result.eventId);
+            expect(sendState!.lastSuccessAt).toBeDefined();
+          } finally {
+            testDb.close();
+          }
         }
       ),
       { numRuns: 20 }
@@ -264,22 +280,26 @@ describe('sendProfileToContact - Property-Based Tests', () => {
           const testPool = new MockRelayPool();
           testPool.shouldSucceed = false;
 
-          const result = await sendProfileToContact(
-            profileEvent,
-            profileHash,
-            senderKeypair,
-            recipientPubkey,
-            testPool as any,
-            testDb
-          );
+          try {
+            const result = await sendProfileToContact(
+              profileEvent,
+              profileHash,
+              senderKeypair,
+              recipientPubkey,
+              testPool as any,
+              testDb
+            );
 
-          expect(result.success).toBe(false);
-          expect(result.error).toBeDefined();
+            expect(result.success).toBe(false);
+            expect(result.error).toBeDefined();
 
-          const sendState = getSendState(senderKeypair.pubkeyHex, recipientPubkey, testDb);
-          expect(sendState).not.toBeNull();
-          expect(sendState!.lastError).toBeDefined();
-          expect(sendState!.lastAttemptAt).toBeDefined();
+            const sendState = getSendState(senderKeypair.pubkeyHex, recipientPubkey, testDb);
+            expect(sendState).not.toBeNull();
+            expect(sendState!.lastError).toBeDefined();
+            expect(sendState!.lastAttemptAt).toBeDefined();
+          } finally {
+            testDb.close();
+          }
         }
       ),
       { numRuns: 20 }
@@ -296,23 +316,27 @@ describe('sendProfileToContact - Property-Based Tests', () => {
           const testDb = await createTestDatabase();
           const testPool = new MockRelayPool();
 
-          await sendProfileToContact(
-            profileEvent,
-            profileHash,
-            senderKeypair,
-            recipientKeypair.pubkeyHex,
-            testPool as any,
-            testDb
-          );
+          try {
+            await sendProfileToContact(
+              profileEvent,
+              profileHash,
+              senderKeypair,
+              recipientKeypair.pubkeyHex,
+              testPool as any,
+              testDb
+            );
 
-          const wrappedEvent = testPool.publishedEvents[0];
+            const wrappedEvent = testPool.publishedEvents[0];
 
-          // Unwrap with recipient's private key
-          const unwrapped = unwrapEvent(wrappedEvent, recipientKeypair.secretKey);
+            // Unwrap with recipient's private key
+            const unwrapped = unwrapEvent(wrappedEvent, recipientKeypair.secretKey);
 
-          // Unwrapped content should match original profile event
-          expect(unwrapped.kind).toBe(PRIVATE_PROFILE_KIND);
-          expect(unwrapped.content).toBe(profileEvent.content);
+            // Unwrapped content should match original profile event
+            expect(unwrapped.kind).toBe(PRIVATE_PROFILE_KIND);
+            expect(unwrapped.content).toBe(profileEvent.content);
+          } finally {
+            testDb.close();
+          }
         }
       ),
       { numRuns: 10 }
@@ -332,31 +356,35 @@ describe('sendProfileToContact - Property-Based Tests', () => {
           const testDb = await createTestDatabase();
           const testPool = new MockRelayPool();
 
-          const result1 = await sendProfileToContact(
-            profileEvent,
-            hash1,
-            senderKeypair,
-            recipientPubkey,
-            testPool as any,
-            testDb
-          );
+          try {
+            const result1 = await sendProfileToContact(
+              profileEvent,
+              hash1,
+              senderKeypair,
+              recipientPubkey,
+              testPool as any,
+              testDb
+            );
 
-          const publishCount1 = testPool.publishedEvents.length;
+            const publishCount1 = testPool.publishedEvents.length;
 
-          const result2 = await sendProfileToContact(
-            profileEvent,
-            hash2,
-            senderKeypair,
-            recipientPubkey,
-            testPool as any,
-            testDb
-          );
+            const result2 = await sendProfileToContact(
+              profileEvent,
+              hash2,
+              senderKeypair,
+              recipientPubkey,
+              testPool as any,
+              testDb
+            );
 
-          expect(result1.success).toBe(true);
-          expect(result1.skipped).toBeUndefined();
-          expect(result2.success).toBe(true);
-          expect(result2.skipped).toBeUndefined();
-          expect(testPool.publishedEvents.length).toBe(publishCount1 + 1); // Two publishes
+            expect(result1.success).toBe(true);
+            expect(result1.skipped).toBeUndefined();
+            expect(result2.success).toBe(true);
+            expect(result2.skipped).toBeUndefined();
+            expect(testPool.publishedEvents.length).toBe(publishCount1 + 1); // Two publishes
+          } finally {
+            testDb.close();
+          }
         }
       ),
       { numRuns: 20 }
@@ -386,6 +414,10 @@ describe('sendProfileToAllContacts - Property-Based Tests', () => {
     db.run('DELETE FROM nostr_profile_send_state');
   });
 
+  afterEach(() => {
+    db.close();
+  });
+
   it('property: completeness - all active contacts receive send attempt', async () => {
     await fc.assert(
       fc.asyncProperty(
@@ -397,28 +429,32 @@ describe('sendProfileToAllContacts - Property-Based Tests', () => {
           const testDb = await createTestDatabase();
           const testIdentityId = randomUUID();
 
-          // Insert contacts
-          for (const spec of contactSpecs) {
-            const { keypair: contactKeypair } = generateKeypair();
-            testDb.run(
-              'INSERT INTO nostr_contacts (id, identity_id, npub, alias, state) VALUES (?, ?, ?, ?, ?)',
-              [randomUUID(), testIdentityId, contactKeypair.npub, 'Test', 'connected']
+          try {
+            // Insert contacts
+            for (const spec of contactSpecs) {
+              const { keypair: contactKeypair } = generateKeypair();
+              testDb.run(
+                'INSERT INTO nostr_contacts (id, identity_id, npub, alias, state) VALUES (?, ?, ?, ?, ?)',
+                [randomUUID(), testIdentityId, contactKeypair.npub, 'Test', 'connected']
+              );
+            }
+
+            mockPool.resetMock();
+
+            const results = await sendProfileToAllContacts(
+              profileEvent,
+              profileHash,
+              senderKeypair,
+              testIdentityId,
+              mockPool as any,
+              testDb
             );
+
+            expect(results.length).toBe(contactSpecs.length);
+            expect(results.every(r => r.contactId !== '')).toBe(true);
+          } finally {
+            testDb.close();
           }
-
-          mockPool.resetMock();
-
-          const results = await sendProfileToAllContacts(
-            profileEvent,
-            profileHash,
-            senderKeypair,
-            testIdentityId,
-            mockPool as any,
-            testDb
-          );
-
-          expect(results.length).toBe(contactSpecs.length);
-          expect(results.every(r => r.contactId !== '')).toBe(true);
         }
       ),
       { numRuns: 10 }
@@ -434,30 +470,34 @@ describe('sendProfileToAllContacts - Property-Based Tests', () => {
           const testDb = await createTestDatabase();
           const testIdentityId = randomUUID();
 
-          // Insert 3 contacts
-          const contacts = [];
-          for (let i = 0; i < 3; i++) {
-            const { keypair: contactKeypair } = generateKeypair();
-            const contactId = randomUUID();
-            testDb.run(
-              'INSERT INTO nostr_contacts (id, identity_id, npub, alias, state) VALUES (?, ?, ?, ?, ?)',
-              [contactId, testIdentityId, contactKeypair.npub, `Contact ${i}`, 'connected']
+          try {
+            // Insert 3 contacts
+            const contacts = [];
+            for (let i = 0; i < 3; i++) {
+              const { keypair: contactKeypair } = generateKeypair();
+              const contactId = randomUUID();
+              testDb.run(
+                'INSERT INTO nostr_contacts (id, identity_id, npub, alias, state) VALUES (?, ?, ?, ?, ?)',
+                [contactId, testIdentityId, contactKeypair.npub, `Contact ${i}`, 'connected']
+              );
+              contacts.push({ id: contactId, keypair: contactKeypair });
+            }
+
+            mockPool.resetMock();
+
+            const results = await sendProfileToAllContacts(
+              profileEvent,
+              profileHash,
+              senderKeypair,
+              testIdentityId,
+              mockPool as any,
+              testDb
             );
-            contacts.push({ id: contactId, keypair: contactKeypair });
+
+            expect(results.length).toBe(3);
+          } finally {
+            testDb.close();
           }
-
-          mockPool.resetMock();
-
-          const results = await sendProfileToAllContacts(
-            profileEvent,
-            profileHash,
-            senderKeypair,
-            testIdentityId,
-            mockPool as any,
-            testDb
-          );
-
-          expect(results.length).toBe(3);
         }
       ),
       { numRuns: 10 }
@@ -500,30 +540,34 @@ describe('sendProfileToAllContacts - Property-Based Tests', () => {
           const { keypair: contact1 } = generateKeypair();
           const { keypair: contact2 } = generateKeypair();
 
-          // Insert active contact
-          testDb.run(
-            'INSERT INTO nostr_contacts (id, identity_id, npub, alias, state) VALUES (?, ?, ?, ?, ?)',
-            [randomUUID(), testIdentityId, contact1.npub, 'Active', 'connected']
-          );
+          try {
+            // Insert active contact
+            testDb.run(
+              'INSERT INTO nostr_contacts (id, identity_id, npub, alias, state) VALUES (?, ?, ?, ?, ?)',
+              [randomUUID(), testIdentityId, contact1.npub, 'Active', 'connected']
+            );
 
-          // Insert deleted contact
-          testDb.run(
-            'INSERT INTO nostr_contacts (id, identity_id, npub, alias, state, deleted_at) VALUES (?, ?, ?, ?, ?, ?)',
-            [randomUUID(), testIdentityId, contact2.npub, 'Deleted', 'connected', new Date().toISOString()]
-          );
+            // Insert deleted contact
+            testDb.run(
+              'INSERT INTO nostr_contacts (id, identity_id, npub, alias, state, deleted_at) VALUES (?, ?, ?, ?, ?, ?)',
+              [randomUUID(), testIdentityId, contact2.npub, 'Deleted', 'connected', new Date().toISOString()]
+            );
 
-          mockPool.resetMock();
+            mockPool.resetMock();
 
-          const results = await sendProfileToAllContacts(
-            profileEvent,
-            profileHash,
-            senderKeypair,
-            testIdentityId,
-            mockPool as any,
-            testDb
-          );
+            const results = await sendProfileToAllContacts(
+              profileEvent,
+              profileHash,
+              senderKeypair,
+              testIdentityId,
+              mockPool as any,
+              testDb
+            );
 
-          expect(results.length).toBe(1); // Only active contact
+            expect(results.length).toBe(1); // Only active contact
+          } finally {
+            testDb.close();
+          }
         }
       ),
       { numRuns: 10 }
@@ -540,6 +584,10 @@ describe('getSendState - Property-Based Tests', () => {
 
   beforeEach(async () => {
     db = await createTestDatabase();
+  });
+
+  afterEach(() => {
+    db.close();
   });
 
   it('property: determinism - same inputs return same output', async () => {
@@ -623,6 +671,10 @@ describe('sendProfileToContact - Example Tests', () => {
     mockPool = new MockRelayPool();
     const { keypair } = generateKeypair();
     senderKeypair = keypair;
+  });
+
+  afterEach(() => {
+    db.close();
   });
 
   it('example: simple send succeeds', async () => {

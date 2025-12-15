@@ -245,11 +245,14 @@ describe('NostlingService', () => {
     const filters = await service.getKind4Filters(identity.id);
 
     // Verify filters use hex pubkeys (64-char lowercase hex strings)
+    // Use order-independent comparison since contact order is not guaranteed
     expect(filters).toHaveLength(2);
-    expect(filters[0].authors).toEqual([contact1Keypair.keypair.pubkeyHex, contact2Keypair.keypair.pubkeyHex]);
+    expect(filters[0].authors).toHaveLength(2);
+    expect(filters[0].authors).toEqual(expect.arrayContaining([contact1Keypair.keypair.pubkeyHex, contact2Keypair.keypair.pubkeyHex]));
     expect(filters[0]['#p']).toEqual([ownerKeypair.keypair.pubkeyHex]);
     expect(filters[1].authors).toEqual([ownerKeypair.keypair.pubkeyHex]);
-    expect(filters[1]['#p']).toEqual([contact1Keypair.keypair.pubkeyHex, contact2Keypair.keypair.pubkeyHex]);
+    expect(filters[1]['#p']).toHaveLength(2);
+    expect(filters[1]['#p']).toEqual(expect.arrayContaining([contact1Keypair.keypair.pubkeyHex, contact2Keypair.keypair.pubkeyHex]));
 
     // Verify hex format (64 lowercase hex chars)
     const hexPattern = /^[0-9a-f]{64}$/;

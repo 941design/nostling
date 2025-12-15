@@ -111,7 +111,7 @@ function storePublicProfile(pubkeyHex: string, profileName: string): void {
 // ============================================================================
 
 describe('NostlingService - Contact Display Names', () => {
-  test('contact without explicit alias uses npub as profileName (default behavior)', async () => {
+  test('contact without explicit alias uses private profile name when available', async () => {
     const keypair = generateKeypair();
     const identity = await service.createIdentity({
       label: 'Test Identity',
@@ -126,13 +126,15 @@ describe('NostlingService - Contact Display Names', () => {
     });
 
     const contactPubkeyHex = npubToHex(contactKeypair.keypair.npub);
-    storePrivateReceivedProfile(contactPubkeyHex, 'ShouldBeIgnored');
+    storePrivateReceivedProfile(contactPubkeyHex, 'PrivateProfileName');
 
     const contacts = await service.listContacts(identity.id);
     const retrievedContact = contacts.find(c => c.id === contact.id);
 
     expect(retrievedContact).toBeDefined();
-    expect(retrievedContact!.profileName).toBe(contactKeypair.keypair.npub);
+    // Per precedence: alias > private > public > npub
+    // No alias set, so private profile name should be used
+    expect(retrievedContact!.profileName).toBe('PrivateProfileName');
   });
 
   test('contact with alias prioritizes alias over private profile', async () => {
@@ -422,7 +424,7 @@ describe('NostlingService - Identity Display Names', () => {
 // ============================================================================
 
 describe('NostlingService - Display Name Precedence', () => {
-  test('contacts always use alias as profileName (service sets npub as default alias)', async () => {
+  test('contacts follow precedence: alias > private > public > npub', async () => {
     const keypair = generateKeypair();
     const identity = await service.createIdentity({
       label: 'Test Identity',
@@ -441,10 +443,12 @@ describe('NostlingService - Display Name Precedence', () => {
       npub: contactKeypair.keypair.npub,
     });
 
+    // Without alias, private profile takes precedence over public
     let contacts = await service.listContacts(identity.id);
     let retrieved = contacts.find(c => c.id === contact1.id);
-    expect(retrieved?.profileName).toBe(contactKeypair.keypair.npub);
+    expect(retrieved?.profileName).toBe('PrivateName');
 
+    // With alias set, alias takes highest precedence
     await service.updateContactAlias(contact1.id, 'AliasName');
     contacts = await service.listContacts(identity.id);
     retrieved = contacts.find(c => c.id === contact1.id);

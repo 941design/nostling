@@ -29,7 +29,9 @@ describe('RelayPool', () => {
       ensureRelay: jest.fn(),
       close: jest.fn(),
       publish: jest.fn(),
+      subscribe: jest.fn(() => ({ close: jest.fn() })),
       subscribeMany: jest.fn(() => ({ close: jest.fn() })),
+      querySync: jest.fn(() => Promise.resolve([])),
       listConnectionStatus: jest.fn(() => new Map())
     } as any;
 
@@ -254,7 +256,7 @@ describe('RelayPool', () => {
     it('subscribes to all connected relays', async () => {
       mockPool.ensureRelay.mockResolvedValue({} as any);
       const mockSub = { close: jest.fn() };
-      mockPool.subscribeMany.mockReturnValue(mockSub as any);
+      mockPool.subscribe.mockReturnValue(mockSub as any);
 
       const endpoints: RelayEndpoint[] = [
         { url: 'wss://relay1.example.com' },
@@ -268,7 +270,7 @@ describe('RelayPool', () => {
 
       const subscription = pool.subscribe(filters, onEvent);
 
-      expect(mockPool.subscribeMany).toHaveBeenCalledWith(
+      expect(mockPool.subscribe).toHaveBeenCalledWith(
         [normalizeUrl('wss://relay1.example.com'), normalizeUrl('wss://relay2.example.com')],
         { kinds: [4] },
         expect.objectContaining({
@@ -284,7 +286,7 @@ describe('RelayPool', () => {
       mockPool.ensureRelay.mockResolvedValue({} as any);
 
       let capturedEventHandler: ((event: any) => void) | undefined;
-      mockPool.subscribeMany.mockImplementation((relays, filter, params) => {
+      mockPool.subscribe.mockImplementation((relays, filter, params) => {
         capturedEventHandler = params.onevent;
         return { close: jest.fn() } as any;
       });
@@ -498,7 +500,7 @@ describe('RelayPool', () => {
             mockPool.ensureRelay.mockResolvedValue({} as any);
 
             let capturedEventHandler: ((event: any) => void) | undefined;
-            mockPool.subscribeMany.mockImplementation((relays, filter, params) => {
+            mockPool.subscribe.mockImplementation((relays, filter, params) => {
               capturedEventHandler = params.onevent;
               return { close: jest.fn() } as any;
             });
@@ -571,11 +573,11 @@ describe('RelayPool', () => {
           ),
           async (readableRelays) => {
             mockPool.ensureRelay.mockClear();
-            mockPool.subscribeMany.mockClear();
+            mockPool.subscribe.mockClear();
             mockPool.publish.mockClear();
             mockPool.ensureRelay.mockResolvedValue({} as any);
             const mockSub = { close: jest.fn() };
-            mockPool.subscribeMany.mockReturnValue(mockSub as any);
+            mockPool.subscribe.mockReturnValue(mockSub as any);
 
             pool = new RelayPool();
             await pool.connect(readableRelays);
@@ -583,8 +585,8 @@ describe('RelayPool', () => {
             const onEvent = jest.fn();
             pool.subscribe([{ kinds: [1] }], onEvent);
 
-            expect(mockPool.subscribeMany).toHaveBeenCalled();
-            const subscribeCall = mockPool.subscribeMany.mock.calls[0];
+            expect(mockPool.subscribe).toHaveBeenCalled();
+            const subscribeCall = mockPool.subscribe.mock.calls[0];
             const relaysPassedToSubscribe = subscribeCall[0] as string[];
 
             for (const relay of readableRelays) {
@@ -610,14 +612,14 @@ describe('RelayPool', () => {
           async (writeOnlyRelays) => {
             mockPool.ensureRelay.mockResolvedValue({} as any);
             const mockSub = { close: jest.fn() };
-            mockPool.subscribeMany.mockReturnValue(mockSub as any);
+            mockPool.subscribe.mockReturnValue(mockSub as any);
 
             await pool.connect(writeOnlyRelays);
 
             const onEvent = jest.fn();
             const subscription = pool.subscribe([{ kinds: [1] }], onEvent);
 
-            expect(mockPool.subscribeMany).not.toHaveBeenCalled();
+            expect(mockPool.subscribe).not.toHaveBeenCalled();
             expect(() => subscription.close()).not.toThrow();
           }
         ),
@@ -637,7 +639,7 @@ describe('RelayPool', () => {
           ),
           async (writableRelays) => {
             mockPool.ensureRelay.mockClear();
-            mockPool.subscribeMany.mockClear();
+            mockPool.subscribe.mockClear();
             mockPool.publish.mockClear();
             mockPool.ensureRelay.mockResolvedValue({} as any);
             mockPool.publish.mockReturnValue(
@@ -723,11 +725,11 @@ describe('RelayPool', () => {
           ),
           async (mixedRelays) => {
             mockPool.ensureRelay.mockClear();
-            mockPool.subscribeMany.mockClear();
+            mockPool.subscribe.mockClear();
             mockPool.publish.mockClear();
             mockPool.ensureRelay.mockResolvedValue({} as any);
             const mockSub = { close: jest.fn() };
-            mockPool.subscribeMany.mockReturnValue(mockSub as any);
+            mockPool.subscribe.mockReturnValue(mockSub as any);
             mockPool.publish.mockReturnValue(
               mixedRelays.map(() => Promise.resolve('OK'))
             );
@@ -738,8 +740,8 @@ describe('RelayPool', () => {
             const onEvent = jest.fn();
             pool.subscribe([{ kinds: [1] }], onEvent);
 
-            expect(mockPool.subscribeMany).toHaveBeenCalled();
-            const subscribeCall = mockPool.subscribeMany.mock.calls[0];
+            expect(mockPool.subscribe).toHaveBeenCalled();
+            const subscribeCall = mockPool.subscribe.mock.calls[0];
             const relaysForSubscribe = subscribeCall[0] as string[];
             expect(relaysForSubscribe).toHaveLength(mixedRelays.length);
 
@@ -777,11 +779,11 @@ describe('RelayPool', () => {
           ),
           async (legacyEndpoints) => {
             mockPool.ensureRelay.mockClear();
-            mockPool.subscribeMany.mockClear();
+            mockPool.subscribe.mockClear();
             mockPool.publish.mockClear();
             mockPool.ensureRelay.mockResolvedValue({} as any);
             const mockSub = { close: jest.fn() };
-            mockPool.subscribeMany.mockReturnValue(mockSub as any);
+            mockPool.subscribe.mockReturnValue(mockSub as any);
             mockPool.publish.mockReturnValue(
               legacyEndpoints.map(() => Promise.resolve('OK'))
             );
@@ -792,8 +794,8 @@ describe('RelayPool', () => {
             const onEvent = jest.fn();
             pool.subscribe([{ kinds: [1] }], onEvent);
 
-            expect(mockPool.subscribeMany).toHaveBeenCalled();
-            const subscribeCall = mockPool.subscribeMany.mock.calls[0];
+            expect(mockPool.subscribe).toHaveBeenCalled();
+            const subscribeCall = mockPool.subscribe.mock.calls[0];
             const relaysForSubscribe = subscribeCall[0] as string[];
             expect(relaysForSubscribe).toHaveLength(legacyEndpoints.length);
 

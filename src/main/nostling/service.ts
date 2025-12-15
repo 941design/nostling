@@ -682,7 +682,7 @@ export class NostlingService {
   // Backward compatibility alias (used in tests and polling)
   async getKind4Filters(identityId: string): Promise<NostrKind4Filter[]> {
     const filters = await this.getSubscriptionFilters(identityId);
-    return filters.filter((f): f is NostrKind4Filter => f.kinds?.includes(4)) as NostrKind4Filter[];
+    return filters.filter((f): f is NostrKind4Filter => f.kinds?.includes(4) === true) as NostrKind4Filter[];
   }
 
   async getRelaysForIdentity(identityId: string): Promise<NostlingRelayEndpoint[]> {
