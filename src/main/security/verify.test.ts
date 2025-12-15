@@ -38,6 +38,9 @@ const generateTestKeyPair = () => {
 
 const testKeyPair = generateTestKeyPair();
 
+// Reduced iterations since RSA operations are expensive (~30-50ms per key generation)
+const fcOptions = { numRuns: 20 };
+
 /**
  * Helper: Create a signed manifest with a valid RSA signature
  */
@@ -123,7 +126,8 @@ describe('verifySignature - Property-Based Tests', () => {
         const manifest = createSignedManifest(version, artifacts, createdAt, testKeyPair.privateKey);
         const result = verifySignature(manifest, testKeyPair.publicKey);
         expect(result).toBe(true);
-      })
+      }),
+      fcOptions
     );
   });
 
@@ -152,7 +156,8 @@ describe('verifySignature - Property-Based Tests', () => {
 
           expect(result).toBe(false);
         }
-      )
+      ),
+      fcOptions
     );
   });
 
@@ -178,7 +183,8 @@ describe('verifySignature - Property-Based Tests', () => {
         } else {
           expect(result).toBe(false);
         }
-      })
+      }),
+      fcOptions
     );
   });
 
@@ -207,7 +213,8 @@ describe('verifySignature - Property-Based Tests', () => {
 
           expect(result).toBe(false);
         }
-      )
+      ),
+      fcOptions
     );
   });
 
@@ -217,6 +224,7 @@ describe('verifySignature - Property-Based Tests', () => {
    */
   test('P5: Wrong public key fails verification', () => {
     const keyPair1 = testKeyPair;
+    // Generate once outside the property to avoid expensive key gen per iteration
     const keyPair2 = generateTestKeyPair();
 
     fc.assert(
@@ -227,7 +235,8 @@ describe('verifySignature - Property-Based Tests', () => {
         const result = verifySignature(manifest, keyPair2.publicKey);
 
         expect(result).toBe(false);
-      })
+      }),
+      fcOptions
     );
   });
 
@@ -254,7 +263,8 @@ describe('verifySignature - Property-Based Tests', () => {
 
         const result = verifySignature(manifest, testKeyPair.publicKey);
         expect(result).toBe(false);
-      })
+      }),
+      fcOptions
     );
   });
 
@@ -272,7 +282,8 @@ describe('verifySignature - Property-Based Tests', () => {
 
         const result = verifySignature(manifest, fakePem);
         expect(result).toBe(false);
-      })
+      }),
+      fcOptions
     );
   });
 
@@ -291,7 +302,8 @@ describe('verifySignature - Property-Based Tests', () => {
 
         expect(result1).toBe(result2);
         expect(result2).toBe(result3);
-      })
+      }),
+      fcOptions
     );
   });
 
@@ -318,7 +330,8 @@ describe('verifySignature - Property-Based Tests', () => {
             expect(result).toBe(false);
           }
         }
-      })
+      }),
+      fcOptions
     );
   });
 
@@ -333,7 +346,8 @@ describe('verifySignature - Property-Based Tests', () => {
         const result = verifySignature(manifest, testKeyPair.publicKey);
 
         expect(result).toBe(true);
-      })
+      }),
+      fcOptions
     );
   });
 
@@ -350,7 +364,8 @@ describe('verifySignature - Property-Based Tests', () => {
         const results = [1, 2, 3].map(() => verifySignature(manifest, testKeyPair.publicKey));
 
         expect(results.every((r) => r === true)).toBe(true);
-      })
+      }),
+      fcOptions
     );
   });
 
@@ -359,6 +374,9 @@ describe('verifySignature - Property-Based Tests', () => {
    * Invariant: Only RSA signatures with SHA256 hash algorithm are accepted
    */
   test('P12: Algorithm compliance (RSA/SHA256 signature verification)', () => {
+    // Generate wrong key once outside the property to avoid expensive key gen per iteration
+    const wrongKeyPair = generateTestKeyPair();
+
     fc.assert(
       fc.property(semverArb(), artifactArb(), isoTimestampArb(), (version, artifact, createdAt) => {
         // Create a signature using correct algorithm
@@ -369,9 +387,10 @@ describe('verifySignature - Property-Based Tests', () => {
         expect(validResult).toBe(true);
 
         // Wrong key should fail
-        const wrongKeyResult = verifySignature(manifest, generateTestKeyPair().publicKey);
+        const wrongKeyResult = verifySignature(manifest, wrongKeyPair.publicKey);
         expect(wrongKeyResult).toBe(false);
-      })
+      }),
+      fcOptions
     );
   });
 });

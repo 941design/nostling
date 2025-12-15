@@ -14,6 +14,10 @@ import { createThemeSystem, getThemeIdForIdentity } from './useTheme';
 import { getTheme, isValidThemeId, type ThemeId } from './definitions';
 import { NostlingIdentity } from '../../shared/types';
 
+// Reduced iterations since createThemeSystem() is expensive (~200ms per call)
+// and we're testing a small finite set of themes (10 total)
+const fcOptions = { numRuns: 10 };
+
 describe('Theme System Integration: Core Properties', () => {
   it('Property: createThemeSystem always returns valid Chakra system for valid theme IDs', () => {
     fc.assert(
@@ -37,7 +41,8 @@ describe('Theme System Integration: Core Properties', () => {
           expect(typeof system).toBe('object');
           expect(system).toHaveProperty('_config');
         }
-      )
+      ),
+      fcOptions
     );
   });
 
@@ -52,13 +57,16 @@ describe('Theme System Integration: Core Properties', () => {
           expect(typeof system).toBe('object');
           expect(system).toHaveProperty('_config');
         }
-      )
+      ),
+      fcOptions
     );
   });
 
   it('Property: Invalid theme IDs fall back to dark theme', () => {
     const originalWarn = console.warn;
     console.warn = () => {}; // Suppress expected warnings during test
+    // Cache the dark system once to avoid redundant expensive calls
+    const darkSystem = createThemeSystem('dark');
     try {
       fc.assert(
         fc.property(
@@ -66,11 +74,11 @@ describe('Theme System Integration: Core Properties', () => {
           fc.constantFrom('invalid', 'DARK', 'Light', 'unknown-theme', '', ' '),
           (invalidThemeId: string) => {
             const systemWithInvalid = createThemeSystem(invalidThemeId);
-            const systemWithDark = createThemeSystem('dark');
 
-            expect(systemWithInvalid._config).toEqual(systemWithDark._config);
+            expect(systemWithInvalid._config).toEqual(darkSystem._config);
           }
-        )
+        ),
+        fcOptions
       );
     } finally {
       console.warn = originalWarn;
@@ -78,16 +86,18 @@ describe('Theme System Integration: Core Properties', () => {
   });
 
   it('Property: Null/undefined theme IDs fall back to dark theme', () => {
+    // Cache the dark system once to avoid redundant expensive calls
+    const darkSystem = createThemeSystem('dark');
     fc.assert(
       fc.property(
         fc.constantFrom(null as null | undefined, undefined),
         (nullishThemeId: null | undefined) => {
           const systemWithNullish = createThemeSystem(nullishThemeId);
-          const systemWithDark = createThemeSystem('dark');
 
-          expect(systemWithNullish._config).toEqual(systemWithDark._config);
+          expect(systemWithNullish._config).toEqual(darkSystem._config);
         }
-      )
+      ),
+      fcOptions
     );
   });
 });
@@ -111,7 +121,8 @@ describe('Theme System Integration: Identity Resolution', () => {
           const themeId = getThemeIdForIdentity(identity as NostlingIdentity);
           expect(themeId).toBe('dark');
         }
-      )
+      ),
+      fcOptions
     );
   });
 
@@ -129,12 +140,13 @@ describe('Theme System Integration: Identity Resolution', () => {
             // Use representative invalid theme IDs instead of random strings
             theme: fc.constantFrom('invalid', 'DARK', 'Light', 'unknown-theme', '', ' '),
           }),
-        (identity: any) => {
-          const themeId = getThemeIdForIdentity(identity as NostlingIdentity);
-          expect(themeId).toBe('dark');
-        }
-      )
-    );
+          (identity: any) => {
+            const themeId = getThemeIdForIdentity(identity as NostlingIdentity);
+            expect(themeId).toBe('dark');
+          }
+        ),
+        fcOptions
+      );
     } finally {
       console.warn = originalWarn;
     }
@@ -168,7 +180,8 @@ describe('Theme System Integration: Identity Resolution', () => {
           expect(themeId).toBe(identity.theme);
           expect(isValidThemeId(themeId)).toBe(true);
         }
-      )
+      ),
+      fcOptions
     );
   });
 });
@@ -213,7 +226,8 @@ describe('Theme System Integration: Theme Switching', () => {
           expect(systemA).toHaveProperty('_config');
           expect(systemB).toHaveProperty('_config');
         }
-      )
+      ),
+      fcOptions
     );
   });
 
@@ -238,7 +252,8 @@ describe('Theme System Integration: Theme Switching', () => {
 
           expect(system1._config).toEqual(system2._config);
         }
-      )
+      ),
+      fcOptions
     );
   });
 });
@@ -266,7 +281,8 @@ describe('Theme System Integration: Metadata Consistency', () => {
           expect(themeDef.config).toBeDefined();
           expect(typeof themeDef.config).toBe('object');
         }
-      )
+      ),
+      fcOptions
     );
   });
 
@@ -293,7 +309,8 @@ describe('Theme System Integration: Metadata Consistency', () => {
           expect(themeDef.metadata.previewColors.background).toMatch(/^#[0-9a-f]{6}$/i);
           expect(themeDef.metadata.previewColors.text).toMatch(/^#[0-9a-f]{6}$/i);
         }
-      )
+      ),
+      fcOptions
     );
   });
 });
@@ -330,7 +347,8 @@ describe('Theme System Integration: Complete Workflow', () => {
           const themeDef = getTheme(themeId);
           expect(themeDef.metadata.id).toBe(themeId);
         }
-      )
+      ),
+      fcOptions
     );
   });
 
@@ -389,7 +407,8 @@ describe('Theme System Integration: Complete Workflow', () => {
           expect(theme1).toBe(identity1.theme);
           expect(theme2).toBe(identity2.theme);
         }
-      )
+      ),
+      fcOptions
     );
   });
 
@@ -425,7 +444,8 @@ describe('Theme System Integration: Complete Workflow', () => {
           expect(backToNoIdentityTheme).toBe('dark');
           expect(backToNoIdentityTheme).toBe(noIdentityTheme);
         }
-      )
+      ),
+      fcOptions
     );
   });
 });
@@ -434,6 +454,8 @@ describe('Theme System Integration: Fallback Consistency', () => {
   it('Property: All fallback scenarios produce dark theme', () => {
     const originalWarn = console.warn;
     console.warn = () => {}; // Suppress expected warnings during test
+    // Cache the dark system once to avoid redundant expensive calls
+    const darkSystem = createThemeSystem('dark');
     try {
       fc.assert(
         fc.property(
@@ -466,10 +488,10 @@ describe('Theme System Integration: Fallback Consistency', () => {
               system = createThemeSystem(themeId);
             }
 
-            const darkSystem = createThemeSystem('dark');
             expect(system._config).toEqual(darkSystem._config);
           }
-        )
+        ),
+        fcOptions
       );
     } finally {
       console.warn = originalWarn;

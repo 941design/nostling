@@ -52,6 +52,9 @@ describe('RSA Manifest Generation', () => {
     return { publicKey, privateKey };
   };
 
+  // Pre-generate keypairs to avoid expensive generation per iteration
+  const sharedKeyPair = generateRsaKeyPair();
+
   const signManifest = (manifest: UnsignedManifest, privateKey: string): string => {
     const canonicalJson = JSON.stringify(manifest, null, 0);
     const signer = crypto.createSign('SHA256');
@@ -145,7 +148,6 @@ describe('RSA Manifest Generation', () => {
           fc.nat(999),
           fc.nat(999),
           (filenames, major, minor, patch) => {
-            const { privateKey } = generateRsaKeyPair();
             const tempDir = fs.mkdtempSync(path.join(__dirname, 'test-'));
             const version = `${major}.${minor}.${patch}`;
 
@@ -161,7 +163,7 @@ describe('RSA Manifest Generation', () => {
               });
 
               const unsigned: UnsignedManifest = { version, files };
-              const signature = signManifest(unsigned, privateKey);
+              const signature = signManifest(unsigned, sharedKeyPair.privateKey);
               const signed: SignedManifestFile = { ...unsigned, signature };
 
               const hasVersion = typeof signed.version === 'string' && signed.version.length > 0;
@@ -183,7 +185,6 @@ describe('RSA Manifest Generation', () => {
         fc.property(
           fc.array(fc.nat(1000), { minLength: 2, maxLength: 10 }),
           (numbers) => {
-            const { privateKey } = generateRsaKeyPair();
             const tempDir = fs.mkdtempSync(path.join(__dirname, 'test-'));
 
             try {
@@ -198,7 +199,7 @@ describe('RSA Manifest Generation', () => {
               });
 
               const unsigned: UnsignedManifest = { version: '1.0.0', files };
-              const signature = signManifest(unsigned, privateKey);
+              const signature = signManifest(unsigned, sharedKeyPair.privateKey);
               const signed: SignedManifestFile = { ...unsigned, signature };
 
               let ordersMatch = signed.files.length === filenames.length;
@@ -230,7 +231,6 @@ describe('RSA Manifest Generation', () => {
           fc.nat(999),
           fc.nat(999),
           (major, minor, patch) => {
-            const { publicKey, privateKey } = generateRsaKeyPair();
             const tempDir = fs.mkdtempSync(path.join(__dirname, 'test-'));
             const version = `${major}.${minor}.${patch}`;
 
@@ -243,9 +243,9 @@ describe('RSA Manifest Generation', () => {
               ];
 
               const unsigned: UnsignedManifest = { version, files };
-              const signature = signManifest(unsigned, privateKey);
+              const signature = signManifest(unsigned, sharedKeyPair.privateKey);
 
-              return verifySignature(unsigned, signature, publicKey);
+              return verifySignature(unsigned, signature, sharedKeyPair.publicKey);
             } finally {
               fs.rmSync(tempDir, { recursive: true });
             }
@@ -270,8 +270,6 @@ describe('RSA Manifest Generation', () => {
 
             if (version1 === version2) return true;
 
-            const { privateKey } = generateRsaKeyPair();
-
             const manifest1: UnsignedManifest = {
               version: version1,
               files: [{ url: 'test.zip', sha256: 'a'.repeat(64) }],
@@ -282,8 +280,8 @@ describe('RSA Manifest Generation', () => {
               files: [{ url: 'test.zip', sha256: 'a'.repeat(64) }],
             };
 
-            const sig1 = signManifest(manifest1, privateKey);
-            const sig2 = signManifest(manifest2, privateKey);
+            const sig1 = signManifest(manifest1, sharedKeyPair.privateKey);
+            const sig2 = signManifest(manifest2, sharedKeyPair.privateKey);
 
             return sig1 !== sig2;
           }
@@ -307,12 +305,11 @@ describe('RSA Manifest Generation', () => {
           fc.nat(999),
           (files, major, minor, patch) => {
             const version = `${major}.${minor}.${patch}`;
-            const { privateKey } = generateRsaKeyPair();
 
             const manifest: UnsignedManifest = { version, files };
 
-            const sig1 = signManifest(manifest, privateKey);
-            const sig2 = signManifest(manifest, privateKey);
+            const sig1 = signManifest(manifest, sharedKeyPair.privateKey);
+            const sig2 = signManifest(manifest, sharedKeyPair.privateKey);
 
             return sig1 === sig2;
           }
@@ -336,12 +333,11 @@ describe('RSA Manifest Generation', () => {
           fc.nat(999),
           (originalFiles, major, minor, patch) => {
             const version = `${major}.${minor}.${patch}`;
-            const { publicKey, privateKey } = generateRsaKeyPair();
 
             const originalManifest: UnsignedManifest = { version, files: originalFiles };
-            const signature = signManifest(originalManifest, privateKey);
+            const signature = signManifest(originalManifest, sharedKeyPair.privateKey);
 
-            if (!verifySignature(originalManifest, signature, publicKey)) return false;
+            if (!verifySignature(originalManifest, signature, sharedKeyPair.publicKey)) return false;
 
             if (originalFiles.length === 0) return true;
 
@@ -354,7 +350,7 @@ describe('RSA Manifest Generation', () => {
 
             const modifiedManifest: UnsignedManifest = { version, files: modifiedFiles };
 
-            return !verifySignature(modifiedManifest, signature, publicKey);
+            return !verifySignature(modifiedManifest, signature, sharedKeyPair.publicKey);
           }
         ),
         { numRuns: 30 }
@@ -389,7 +385,6 @@ describe('RSA Manifest Generation', () => {
         fc.property(
           fc.array(fc.string({ minLength: 3, maxLength: 50 }).filter((s) => !/[/\\]/.test(s)), { minLength: 1, maxLength: 5 }),
           (filenames) => {
-            const { privateKey } = generateRsaKeyPair();
             const tempDir = fs.mkdtempSync(path.join(__dirname, 'test-'));
 
             try {
@@ -404,7 +399,7 @@ describe('RSA Manifest Generation', () => {
               });
 
               const manifest: UnsignedManifest = { version: '1.0.0', files };
-              const signature = signManifest(manifest, privateKey);
+              const signature = signManifest(manifest, sharedKeyPair.privateKey);
               const signed: SignedManifestFile = { ...manifest, signature };
 
               let urlsMatch = signed.files.length === filenames.length;
@@ -437,14 +432,13 @@ describe('RSA Manifest Generation', () => {
           fc.nat(999),
           (major, minor, patch) => {
             const version = `${major}.${minor}.${patch}`;
-            const { privateKey } = generateRsaKeyPair();
 
             const manifest: UnsignedManifest = {
               version,
               files: [{ url: 'test.zip', sha256: 'a'.repeat(64) }],
             };
 
-            const signature = signManifest(manifest, privateKey);
+            const signature = signManifest(manifest, sharedKeyPair.privateKey);
 
             try {
               Buffer.from(signature, 'base64');

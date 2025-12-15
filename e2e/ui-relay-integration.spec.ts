@@ -379,6 +379,7 @@ test.describe('UI Relay Integration', () => {
     // This test would require the backend to simulate concurrent edits
     // For now, we test that conflict modal structure exists
     await waitForAppReady(page);
+    await ensureIdentityExists(page);
     await navigateToRelayConfig(page);
 
     // The conflict modal should exist in DOM (but hidden)
