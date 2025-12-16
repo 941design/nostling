@@ -45,9 +45,12 @@ async function selectTheme(page: Page, themeId: string): Promise<void> {
   // Wait for theme panel to open
   await page.waitForSelector('[data-testid="theme-selection-panel"]', { timeout: 5000 });
 
-  // Get the current theme from ThemeInfo
+  // Get reference to the theme panel for scoped locators
+  const themePanel = page.locator('[data-testid="theme-selection-panel"]');
+
+  // Get the current theme from ThemeInfo (scoped to theme panel)
   const getDisplayedThemeName = async (): Promise<string> => {
-    const nameElement = page.locator('[data-testid="theme-info-name"]');
+    const nameElement = themePanel.locator('[data-testid="theme-info-name"]');
     return (await nameElement.textContent())?.toLowerCase() || '';
   };
 
@@ -66,8 +69,8 @@ async function selectTheme(page: Page, themeId: string): Promise<void> {
     if (currentThemeName === themeId.toLowerCase()) {
       break;
     }
-    // Click next to cycle through themes
-    await page.locator('[data-testid="theme-carousel-next"]').click();
+    // Click next to cycle through themes (scoped to theme panel)
+    await themePanel.locator('[data-testid="theme-carousel-next"]').click();
     await page.waitForTimeout(100);
     attempts++;
   }
@@ -76,8 +79,8 @@ async function selectTheme(page: Page, themeId: string): Promise<void> {
     throw new Error(`Could not navigate to theme: ${themeId}`);
   }
 
-  // Click Apply button
-  await page.locator('[data-testid="theme-panel-ok"]').click();
+  // Click Apply button (scoped to theme panel)
+  await themePanel.locator('[data-testid="theme-panel-ok"]').click();
 
   // Wait for panel to close and theme to be applied
   await page.waitForSelector('[data-testid="theme-selection-panel"]', { state: 'hidden', timeout: 5000 });
@@ -265,16 +268,19 @@ test.describe('Theme Components', () => {
     await page.locator('[data-testid="theme-panel-trigger"]').click();
     await page.waitForSelector('[data-testid="theme-selection-panel"]', { timeout: 5000 });
 
-    // Get the displayed theme name - should be forest
-    const themeNameElement = page.locator('[data-testid="theme-info-name"]');
+    // Get reference to theme panel for scoped locators
+    const themePanel = page.locator('[data-testid="theme-selection-panel"]');
+
+    // Get the displayed theme name - should be forest (scoped to theme panel)
+    const themeNameElement = themePanel.locator('[data-testid="theme-info-name"]');
     await expect(themeNameElement).toContainText('Forest');
 
-    // The current badge should be visible when viewing the current theme
-    const currentBadge = page.locator('[data-testid="theme-info-current-badge"]');
+    // The current badge should be visible when viewing the current theme (scoped to theme panel)
+    const currentBadge = themePanel.locator('[data-testid="theme-info-current-badge"]');
     await expect(currentBadge).toBeVisible();
 
-    // Cancel to close the panel
-    await page.locator('[data-testid="theme-panel-cancel"]').click();
+    // Cancel to close the panel (scoped to theme panel)
+    await themePanel.locator('[data-testid="theme-panel-cancel"]').click();
   });
 
   test('should apply light theme correctly', async ({ page }) => {

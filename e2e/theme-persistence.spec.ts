@@ -2,10 +2,8 @@
  * Theme Persistence E2E Test
  *
  * Verifies that theme selection is persisted to database and
- * properly returned when listing identities.
- *
- * Bug: Theme is updated in database (log confirms) but not returned
- * by listIdentities() because the SQL query doesn't select the theme column.
+ * properly returned when listing identities, and that it persists
+ * across page reloads.
  */
 
 import { test, expect } from './fixtures';
@@ -61,40 +59,60 @@ test.describe('Theme Persistence', () => {
 
     // Open hamburger menu
     await page.locator('button[aria-label="Open menu"]').click();
+    await page.waitForTimeout(100);
 
-    // Click on Theme selector trigger
-    await page.locator('[data-testid="theme-selector-trigger"]').click();
+    // Click on Theme panel trigger to open ThemeSelectionPanel
+    await page.locator('[data-testid="theme-panel-trigger"]').click();
 
-    // Select the 'amber' theme
-    await page.locator('[data-testid="theme-option-amber"]').click();
+    // Verify ThemeSelectionPanel is open
+    const panel = page.locator('[data-testid="theme-selection-panel"]');
+    await expect(panel).toBeVisible();
 
-    // Wait for theme to be applied (DOM update)
+    // Get current theme name
+    const themeInfo = panel.locator('[data-testid="theme-info-name"]');
+    await expect(themeInfo).toBeVisible();
+    const initialThemeName = await themeInfo.textContent();
+
+    // Navigate to a different theme (click next)
+    const nextButton = panel.locator('[data-testid="theme-carousel-next"]');
+    await nextButton.click();
+    await page.waitForTimeout(100);
+
+    // Get the new theme name (should be different from initial)
+    const selectedThemeName = await themeInfo.textContent();
+    expect(selectedThemeName).not.toBe(initialThemeName);
+
+    // Click OK to apply the theme
+    await panel.locator('[data-testid="theme-panel-ok"]').click();
+
+    // Panel should close after applying
+    await expect(panel).not.toBeVisible();
+
+    // Wait for theme to be applied
     await page.waitForTimeout(500);
-
-    // Re-open menu to verify theme shows as selected
-    await page.locator('button[aria-label="Open menu"]').click();
-    await page.locator('[data-testid="theme-selector-trigger"]').click();
-
-    // The amber option should now have the checkmark
-    const amberCheckmark = page.locator('[data-testid="theme-swatch-checkmark-amber"]');
-    await expect(amberCheckmark).toBeVisible();
-
-    // Close menu
-    await page.keyboard.press('Escape');
 
     // Reload the page to verify persistence across sessions
     await page.reload();
     await waitForAppReady(page);
 
-    // Select the identity again (it should auto-select first)
+    // Wait for identity to auto-select
     await page.waitForTimeout(500);
 
-    // Open menu and check theme is still amber
+    // Open theme panel again
     await page.locator('button[aria-label="Open menu"]').click();
-    await page.locator('[data-testid="theme-selector-trigger"]').click();
+    await page.waitForTimeout(100);
+    await page.locator('[data-testid="theme-panel-trigger"]').click();
 
-    // The amber checkmark should still be visible (theme was persisted)
-    // THIS WILL FAIL due to the bug - theme is not returned from listIdentities
-    await expect(amberCheckmark).toBeVisible();
+    // Verify panel is open and shows the selected theme as current
+    const panelAfterReload = page.locator('[data-testid="theme-selection-panel"]');
+    await expect(panelAfterReload).toBeVisible();
+
+    // Check that the "current" badge is showing (theme was persisted)
+    const currentBadge = panelAfterReload.locator('[data-testid="theme-info-current-badge"]');
+    await expect(currentBadge).toBeVisible();
+
+    // Verify it's still the same theme we selected (persisted correctly)
+    const themeNameAfterReload = await panelAfterReload.locator('[data-testid="theme-info-name"]').textContent();
+    expect(themeNameAfterReload).toBe(selectedThemeName);
   });
 });

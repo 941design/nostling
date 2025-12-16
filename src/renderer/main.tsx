@@ -40,7 +40,7 @@ import { RelayTable } from './components/RelayTable';
 import { RelayConflictModal } from './components/RelayConflictModal';
 import { ThemeSelectionPanel, ThemeVariableSliders, ThemeInfo } from './components/ThemeSelectionPanel';
 import { SubPanel } from './components/SubPanel';
-import { createThemeSystem, getThemeIdForIdentity } from './themes/useTheme';
+import { createThemeSystem, getThemeIdForIdentity, getSemanticColors } from './themes/useTheme';
 import { ThemeGenerator, type ThemeGeneratorInput } from './themes/generator';
 import type { ThemeSemanticColors } from './themes/useTheme';
 import { ThemeProvider, ColorProvider, useThemeColors } from './themes/ThemeContext';
@@ -1785,12 +1785,22 @@ function App({ onThemeChange }: AppProps) {
     [nostling.identities, selectedIdentityId]
   );
 
-  // Update theme when selected identity changes
+  // Track previous identity ID to detect actual identity switches (not just object reference changes)
+  const previousIdentityIdRef = useRef<string | null>(null);
+
+  // Update theme when selected identity changes (by ID, not object reference)
+  // This prevents clearing custom colors when identity is refreshed from DB
   useEffect(() => {
+    // Only update theme if identity ID actually changed (user switched identities)
+    if (selectedIdentityId === previousIdentityIdRef.current) {
+      return;
+    }
+    previousIdentityIdRef.current = selectedIdentityId;
+
     const themeId = getThemeIdForIdentity(selectedIdentity);
     setCurrentThemeId(themeId);
     onThemeChange(themeId, null); // Propagate to Root for ChakraProvider, no custom colors
-  }, [selectedIdentity, onThemeChange]);
+  }, [selectedIdentity, selectedIdentityId, onThemeChange]);
 
   // Theme change handler - persists to database
   const handleThemeChange = async (themeId: ThemeId) => {
@@ -2340,20 +2350,18 @@ function Root() {
     setCustomColors(newCustomColors ?? null);
   }, []);
 
-  // Use ColorProvider for custom themes, ThemeProvider for built-in themes
-  const themeProvider = customColors ? (
-    <ColorProvider colors={customColors}>
-      <App onThemeChange={handleThemeChange} />
-    </ColorProvider>
-  ) : (
-    <ThemeProvider themeId={themeId}>
-      <App onThemeChange={handleThemeChange} />
-    </ThemeProvider>
+  // Compute effective colors: custom colors if set, otherwise derive from theme
+  // Using ColorProvider always prevents App remount when switching between custom/preset themes
+  const effectiveColors = useMemo(
+    () => customColors ?? getSemanticColors(themeId),
+    [customColors, themeId]
   );
 
   return (
     <ChakraProvider value={system}>
-      {themeProvider}
+      <ColorProvider colors={effectiveColors}>
+        <App onThemeChange={handleThemeChange} />
+      </ColorProvider>
     </ChakraProvider>
   );
 }
