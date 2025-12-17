@@ -526,6 +526,8 @@ app.on('ready', async () => {
       onRelayStatusChange: (callback) => {
         getNostlingService().onRelayStatusChange(callback);
       },
+      getPrivateAuthoredProfile: (identityId) => getNostlingService().getPrivateAuthoredProfile(identityId),
+      updatePrivateProfile: (request) => getNostlingService().updatePrivateProfile(request),
       onProfileUpdated: (callback) => {
         getNostlingService().onProfileUpdated(callback);
       },

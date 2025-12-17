@@ -909,6 +909,60 @@ export class NostlingService {
   }
 
   /**
+   * Get the private authored profile for an identity.
+   * Returns the profile record if it exists, null otherwise.
+   */
+  async getPrivateAuthoredProfile(identityId: string): Promise<any> {
+    // Query nostr_profiles table for source='private_authored' and owner_pubkey matching identity
+    const identities = await this.listIdentities();
+    const identity = identities.find(id => id.id === identityId);
+    if (!identity) {
+      throw new Error(`Identity not found: ${identityId}`);
+    }
+
+    const ownerPubkey = npubToHex(identity.npub);
+    const stmt = this.database.prepare(`
+      SELECT id, owner_pubkey, source, content_json, event_id, valid_signature, created_at, updated_at
+      FROM nostr_profiles
+      WHERE owner_pubkey = ? AND source = 'private_authored'
+    `);
+    stmt.bind([ownerPubkey]);
+
+    if (stmt.step()) {
+      const row = stmt.getAsObject();
+      stmt.free();
+      return {
+        id: row.id,
+        ownerPubkey: row.owner_pubkey,
+        source: row.source,
+        content: JSON.parse(row.content_json as string),
+        eventId: row.event_id,
+        validSignature: Boolean(row.valid_signature),
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      };
+    }
+
+    stmt.free();
+    return null;
+  }
+
+  /**
+   * Update the private profile for an identity and send to all contacts.
+   * Uses the profile-service-integration module for the actual implementation.
+   */
+  async updatePrivateProfile(request: { identityId: string; content: any }): Promise<any> {
+    // Import and delegate to profile-service-integration module
+    const { updatePrivateProfile } = await import('./profile-service-integration');
+    return updatePrivateProfile(
+      { identityId: request.identityId, content: request.content },
+      this.database,
+      this.secretStore,
+      this.relayPool!
+    );
+  }
+
+  /**
    * Register a callback to be notified when profile data is updated.
    * This is called when public profile discovery finds new/updated profiles.
    */

@@ -9,6 +9,7 @@ A desktop messaging application built on the Nostr protocol with secure auto-upd
 - **Contact whitelist** - Only receive messages from known contacts
 - **QR code contact management** - Scan QR codes via camera to add contacts or display identity npub as scannable QR code
 - **Private profile sharing** - Share profile information privately with contacts via NIP-59 encrypted messages
+- **Identity profile editor** - Edit identity profiles with live preview and staged updates
 - **Relay connectivity** - WebSocket connections to Nostr relays with auto-reconnection
 - **Relay management** - Compact table with drag-and-drop reordering, per-relay read/write policies, and live connection status
 - **Offline support** - Queue messages when offline, publish when connectivity restored
@@ -87,6 +88,28 @@ Share your profile information privately with contacts using NIP-59 encrypted me
 4. No data is published to public relays by this app
 
 **Note:** This app never publishes kind:0 public profile events. Your private profile is shared only with contacts you explicitly add via NIP-59 encrypted messages.
+
+### Identity Profile Editor
+
+Edit your identity's profile information with live preview and staged updates.
+
+**How it works:**
+- Access the editor from the hamburger menu (three horizontal lines) by clicking "Edit Identity Profile"
+- Edit 8 profile fields: Label, Name, About, Picture URL, Banner URL, Website, NIP-05, Lightning Address
+- Changes are staged immediately as you type (Apply button enables when changes detected)
+- Live image preview for Picture and Banner URL fields
+- Click Apply to save changes or Cancel to discard
+- Press Escape to close the panel
+- Profile updates automatically sent to all contacts via encrypted messages
+
+**To edit your profile:**
+1. Click the hamburger menu in the top-right
+2. Click "Edit Identity Profile"
+3. Modify any profile fields
+4. Click Apply to save or Cancel to discard
+5. Your updated profile is automatically shared with all contacts
+
+**Note:** The panel locks during save operations to prevent data conflicts.
 
 ### QR Code Contact Management
 
@@ -270,6 +293,8 @@ Format: JSON Lines with `level`, `message`, and `timestamp` fields.
 - **SHA-256 hash verification** on downloaded artifacts
 - **Version validation** prevents downgrade attacks
 - **HTTPS-only** update delivery in production
+- **Secure secret storage** with OS keychain integration (macOS/Linux)
+- **Strict error handling** for decryption failures with no plaintext fallback
 
 For RSA key setup, see [docs/rsa-key-setup.md](docs/rsa-key-setup.md).
 

@@ -39,6 +39,7 @@ import { useNostlingState } from './nostling/state';
 import { RelayTable } from './components/RelayTable';
 import { RelayConflictModal } from './components/RelayConflictModal';
 import { ThemeSelectionPanel, ThemeVariableSliders, ThemeInfo } from './components/ThemeSelectionPanel';
+import { IdentitiesPanel } from './components/IdentitiesPanel';
 import { SubPanel } from './components/SubPanel';
 import { createThemeSystem, getThemeIdForIdentity, getSemanticColors } from './themes/useTheme';
 import { ThemeGenerator, type ThemeGeneratorInput } from './themes/generator';
@@ -96,6 +97,12 @@ const TrashIcon = () => (
 const PencilIcon = () => (
   <svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor">
     <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1.003 1.003 0 000-1.42l-2.34-2.34a1.003 1.003 0 00-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z" />
+  </svg>
+);
+
+const PersonIcon = () => (
+  <svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor">
+    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
   </svg>
 );
 
@@ -255,9 +262,10 @@ interface HeaderProps {
   onThemeChange: (themeId: ThemeId) => Promise<void>;
   identityId: string | null;
   onShowThemeSelection: () => void;
+  onShowIdentities: () => void;
 }
 
-function Header({ onShowAbout, onShowRelayConfig, currentTheme, onThemeChange, identityId, onShowThemeSelection }: HeaderProps) {
+function Header({ onShowAbout, onShowRelayConfig, currentTheme, onThemeChange, identityId, onShowThemeSelection, onShowIdentities }: HeaderProps) {
   const colors = useThemeColors();
   return (
     <Box
@@ -323,6 +331,21 @@ function Header({ onShowAbout, onShowRelayConfig, currentTheme, onThemeChange, i
                 >
                   <HStack gap="2">
                     <Text color={colors.text} fontSize="sm">Select Theme</Text>
+                  </HStack>
+                </Menu.Item>
+                <Menu.Separator borderColor={colors.borderSubtle} />
+                <Menu.Item
+                  value="identities"
+                  onClick={onShowIdentities}
+                  data-testid="identities-panel-trigger"
+                  px="3"
+                  py="2"
+                  cursor="pointer"
+                  _hover={{ bg: colors.surfaceBgSubtle }}
+                >
+                  <HStack gap="2">
+                    <PersonIcon />
+                    <Text color={colors.text}>Identities</Text>
                   </HStack>
                 </Menu.Item>
                 <Menu.Separator borderColor={colors.borderSubtle} />
@@ -568,6 +591,7 @@ function IdentityList({
   onRename,
   unreadCounts,
   newlyArrived,
+  disabled,
 }: {
   identities: NostlingIdentity[];
   selectedId: string | null;
@@ -577,6 +601,7 @@ function IdentityList({
   onRename: (id: string, label: string) => Promise<void>;
   unreadCounts?: Record<string, number>;
   newlyArrived?: Set<string>;
+  disabled?: boolean;
 }) {
   const colors = useThemeColors();
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -670,8 +695,10 @@ function IdentityList({
               borderRadius="md"
               p="2"
               bg={selectedId === identity.id ? colors.surfaceBgSelected : 'transparent'}
-              _hover={{ borderColor: 'brand.400', cursor: 'pointer' }}
-              onClick={() => onSelect(identity.id)}
+              _hover={{ borderColor: disabled ? undefined : 'brand.400', cursor: disabled ? 'not-allowed' : 'pointer' }}
+              onClick={() => !disabled && onSelect(identity.id)}
+              opacity={disabled && selectedId !== identity.id ? 0.5 : 1}
+              pointerEvents={disabled && selectedId !== identity.id ? 'none' : undefined}
               data-testid={`identity-item-${identity.id}`}
               data-npub={identity.npub}
               className={`group ${animationClass}`}
@@ -1638,6 +1665,8 @@ function Sidebar({
   newlyArrivedIdentities,
   themeSliders,
   themeInfo,
+  isIdentitiesMode,
+  identitySelectionDisabled,
 }: {
   identities: NostlingIdentity[];
   contacts: Record<string, NostlingContact[]>;
@@ -1656,6 +1685,8 @@ function Sidebar({
   newlyArrivedIdentities?: Set<string>;
   themeSliders?: React.ReactNode;
   themeInfo?: { theme: ThemeMetadata; isCurrentTheme: boolean } | null;
+  isIdentitiesMode?: boolean;
+  identitySelectionDisabled?: boolean;
 }) {
   const colors = useThemeColors();
   const currentContacts = selectedIdentityId ? contacts[selectedIdentityId] || [] : [];
@@ -1689,6 +1720,19 @@ function Sidebar({
             )}
             {themeSliders}
           </>
+        ) : isIdentitiesMode ? (
+          // Identities mode: show identity list only (contacts hidden)
+          <IdentityList
+            identities={identities}
+            selectedId={selectedIdentityId}
+            onSelect={onSelectIdentity}
+            onOpenCreate={onOpenIdentityModal}
+            onShowQr={setQrDisplayIdentity}
+            onRename={onRenameIdentity}
+            unreadCounts={identityUnreadCounts}
+            newlyArrived={newlyArrivedIdentities}
+            disabled={identitySelectionDisabled}
+          />
         ) : (
           // Normal mode: show identity and contact lists
           <>
@@ -1738,7 +1782,7 @@ function Sidebar({
   );
 }
 
-type AppView = 'chat' | 'relay-config' | 'about' | 'themeSelection';
+type AppView = 'chat' | 'relay-config' | 'about' | 'themeSelection' | 'identities';
 
 interface AppProps {
   onThemeChange: (themeId: ThemeId, customColors?: ThemeSemanticColors | null) => void;
@@ -1762,12 +1806,15 @@ function App({ onThemeChange }: AppProps) {
 
   // Preview typography state (only applied to ThemePreview, not the whole app)
   const [previewTypography, setPreviewTypography] = useState<{
-    fonts?: { body: string; heading: string; mono: string };
+    fonts?: { body?: string; heading?: string; mono?: string };
     fontSizes?: Record<string, string>;
   } | null>(null);
 
   // Staged theme for sidebar display (tracks the theme being previewed in carousel)
   const [stagedThemeId, setStagedThemeId] = useState<ThemeId | null>(null);
+
+  // Track dirty state from IdentitiesPanel (has unsaved changes)
+  const [identitiesPanelDirty, setIdentitiesPanelDirty] = useState(false);
 
   // Track last selected contact per identity to restore when switching back
   const lastContactPerIdentityRef = useRef<Record<string, string>>({});
@@ -1905,6 +1952,11 @@ function App({ onThemeChange }: AppProps) {
   const handleSelectIdentity = (newIdentityId: string) => {
     if (newIdentityId === selectedIdentityId) return;
 
+    // Block identity switching if in identities mode with unsaved changes
+    if (currentView === 'identities' && identitiesPanelDirty) {
+      return; // Silently block - visual feedback provided by Sidebar
+    }
+
     // Get contacts for the target identity
     const targetContacts = nostling.contacts[newIdentityId] || [];
 
@@ -2030,6 +2082,10 @@ function App({ onThemeChange }: AppProps) {
     setCurrentView('themeSelection');
   };
 
+  const handleShowIdentities = () => {
+    setCurrentView('identities');
+  };
+
   const handleReturnToChat = () => {
     setCurrentView('chat');
     setThemeCustomColors(null); // Clear custom colors when leaving theme selection
@@ -2049,7 +2105,7 @@ function App({ onThemeChange }: AppProps) {
       setThemeCustomColors(semanticColors);
 
       // Store typography for preview only (NOT applied globally until Apply is clicked)
-      if (resolved.typography) {
+      if (resolved.typography?.fonts && resolved.typography?.fontSizes) {
         setPreviewTypography({
           fonts: resolved.typography.fonts,
           fontSizes: resolved.typography.fontSizes,
@@ -2070,7 +2126,7 @@ function App({ onThemeChange }: AppProps) {
   }, []);
 
   useEffect(() => {
-    if (currentView !== 'about' && currentView !== 'themeSelection') return;
+    if (currentView !== 'about' && currentView !== 'themeSelection' && currentView !== 'identities') return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -2186,6 +2242,7 @@ function App({ onThemeChange }: AppProps) {
         onThemeChange={handleThemeChange}
         identityId={selectedIdentityId}
         onShowThemeSelection={handleShowThemeSelection}
+        onShowIdentities={handleShowIdentities}
       />
       <Flex flex="1" overflow="hidden">
         <Sidebar
@@ -2226,6 +2283,8 @@ function App({ onThemeChange }: AppProps) {
                 }
               : null
           }
+          isIdentitiesMode={currentView === 'identities'}
+          identitySelectionDisabled={identitiesPanelDirty}
         />
         <Flex as="main" direction="column" flex="1" overflow="hidden" borderWidth="1px" borderColor={colors.border} borderRadius="md" bg={colors.surfaceBgSubtle}>
           {currentView === 'chat' ? (
@@ -2281,6 +2340,13 @@ function App({ onThemeChange }: AppProps) {
               customColors={themeCustomColors}
               previewTypography={previewTypography}
               onStagedThemeChange={handleStagedThemeChange}
+            />
+          ) : currentView === 'identities' ? (
+            <IdentitiesPanel
+              selectedIdentityId={selectedIdentityId}
+              onSelectIdentity={handleSelectIdentity}
+              onCancel={handleReturnToChat}
+              onDirtyChange={setIdentitiesPanelDirty}
             />
           ) : (
             <AboutView

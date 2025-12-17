@@ -110,6 +110,10 @@ export function useNostlingState() {
     setScopedLoading('identities', null, true);
     try {
       const result = await window.api.nostling!.identities.list();
+      if ('success' in result && result.success === false) {
+        recordError('Load identities failed', result.error || 'Unknown error');
+        return;
+      }
       setIdentities(result);
       setLastSync(new Date().toISOString());
       setLastError(null);
@@ -164,6 +168,10 @@ export function useNostlingState() {
 
       try {
         const identity = await window.api.nostling!.identities.create(request);
+        if ('success' in identity && identity.success === false) {
+          recordError('Create identity failed', identity.error || 'Unknown error');
+          return null;
+        }
         setIdentities((current) => [...current, identity]);
         setLastSync(new Date().toISOString());
         return identity;

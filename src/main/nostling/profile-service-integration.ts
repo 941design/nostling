@@ -104,9 +104,9 @@ export async function updatePrivateProfile(
   // 1. Validate content
   validateProfileContent(request.content);
 
-  // 2. Query identity pubkey
+  // 2. Query identity pubkey and secret_ref
   const identityStmt = database.prepare(
-    'SELECT npub FROM nostr_identities WHERE id = ? LIMIT 1'
+    'SELECT npub, secret_ref FROM nostr_identities WHERE id = ? LIMIT 1'
   );
   identityStmt.bind([request.identityId]);
   const hasIdentity = identityStmt.step();
@@ -114,11 +114,12 @@ export async function updatePrivateProfile(
     identityStmt.free();
     throw new Error('Identity not found');
   }
-  const identityNpub = identityStmt.getAsObject().npub as string;
+  const identityRow = identityStmt.getAsObject();
+  const identityNpub = identityRow.npub as string;
+  const secretRef = identityRow.secret_ref as string;
   identityStmt.free();
 
   // 3. Load identity secret and derive keypair
-  const secretRef = `identity-${request.identityId}`;
   let nsec: string | null;
   try {
     nsec = await secretStore.getSecret(secretRef);
@@ -262,9 +263,9 @@ export async function sendPrivateProfileOnAddContact(
   const contactId = hasContact ? contactStmt.getAsObject().id as string : 'unknown';
   contactStmt.free();
 
-  // 1. Query identity pubkey
+  // 1. Query identity pubkey and secret_ref
   const identityStmt = database.prepare(
-    'SELECT npub FROM nostr_identities WHERE id = ? LIMIT 1'
+    'SELECT npub, secret_ref FROM nostr_identities WHERE id = ? LIMIT 1'
   );
   identityStmt.bind([identityId]);
   const hasIdentity = identityStmt.step();
@@ -273,10 +274,10 @@ export async function sendPrivateProfileOnAddContact(
     throw new Error('Identity not found');
   }
   const identityObj = identityStmt.getAsObject();
+  const secretRef = identityObj.secret_ref as string;
   identityStmt.free();
 
   // 2. Load keypair
-  const secretRef = `identity-${identityId}`;
   let nsec: string | null;
   try {
     nsec = await secretStore.getSecret(secretRef);

@@ -174,6 +174,12 @@ const api: RendererApi = {
         ipcRenderer.on('nostling:profile-updated', listener);
         return () => ipcRenderer.removeListener('nostling:profile-updated', listener);
       },
+      async getPrivateAuthored(identityId: string) {
+        return ipcRenderer.invoke('nostling:profiles:get-private-authored', identityId);
+      },
+      async updatePrivate(request: { identityId: string; content: any }) {
+        return ipcRenderer.invoke('nostling:profiles:update-private', request);
+      },
     },
   },
 };

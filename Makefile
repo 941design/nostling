@@ -17,11 +17,32 @@ install: ## Install dependencies
 run-prod: ## Run app in production mode (uses system userData)
 	npm run dev
 
-run-dev: dev-relay-start ## Run app in dev mode with local nostr relay
+run-dev: dev-relay-start sign-dev-electron ## Run app in dev mode with local nostr relay
 	@mkdir -p /tmp/nostling-dev-data
 	NOSTLING_DATA_DIR=/tmp/nostling-dev-data \
 	NOSTLING_DEV_RELAY=ws://localhost:8080 \
 	npm run dev
+
+sign-dev-electron: ## Sign Electron binary for stable keychain access in dev mode (macOS only)
+	@if [ "$$(uname)" = "Darwin" ]; then \
+		ELECTRON_PATH="./node_modules/electron/dist/Electron.app"; \
+		if [ ! -d "$$ELECTRON_PATH" ]; then \
+			echo "Electron binary not found at $$ELECTRON_PATH"; \
+			echo "Run 'make install' first to install dependencies"; \
+			exit 1; \
+		fi; \
+		if security find-certificate -c "Nostling Dev Signing" >/dev/null 2>&1; then \
+			echo "Signing Electron.app with 'Nostling Dev Signing' certificate..."; \
+			codesign --force --deep --sign "Nostling Dev Signing" "$$ELECTRON_PATH"; \
+			echo "Electron.app signed successfully"; \
+		else \
+			echo "Warning: 'Nostling Dev Signing' certificate not found"; \
+			echo "Skipping Electron signing. Secret storage may be unstable in dev mode."; \
+			echo "See docs/development.md for certificate creation instructions."; \
+		fi; \
+	else \
+		echo "Skipping Electron signing (not macOS)"; \
+	fi
 
 # Dev Relay Management
 dev-relay-start: ## Start local nostr relay for development

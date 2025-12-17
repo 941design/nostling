@@ -16,6 +16,17 @@ import {
   SendNostrMessageRequest,
   UpdateState,
 } from '../../shared/types';
+import { SecretDecryptionError, SecureStorageUnavailableError } from '../nostling/secret-store';
+
+/**
+ * Structured error response for secret storage failures
+ * Allows renderer to distinguish error types and handle appropriately
+ */
+type ErrorResponse = {
+  success: false;
+  error: 'SECRET_DECRYPTION_FAILED' | 'SECURE_STORAGE_UNAVAILABLE';
+  message: string;
+};
 
 interface NostlingIpcDependencies {
   listIdentities: () => Promise<any>;
@@ -39,6 +50,8 @@ interface NostlingIpcDependencies {
   reloadRelaysForIdentity: (identityId: string) => Promise<any>;
   getRelayStatus: () => Promise<Record<string, string>>;
   onRelayStatusChange: (callback: (url: string, status: string) => void) => void;
+  getPrivateAuthoredProfile: (identityId: string) => Promise<any>;
+  updatePrivateProfile: (request: { identityId: string; content: any }) => Promise<any>;
   onProfileUpdated: (callback: (identityId: string) => void) => void;
 }
 
@@ -151,11 +164,99 @@ export function registerHandlers(dependencies: {
 
   // Nostling domain: identities, contacts, messages, relay config
   if (dependencies.nostling) {
+    /**
+     * IMPLEMENTATION CONTRACT: IPC Error Handling for Secret Storage
+     *
+     * Inputs:
+     *   - IPC request from renderer (CreateIdentityRequest, or identity list request)
+     *
+     * Outputs:
+     *   - Success: { success: true, data: <result> }
+     *     OR direct result (for backward compatibility with existing handlers)
+     *   - Error: { success: false, error: string, message: string }
+     *
+     * Invariants:
+     *   - MUST catch SecretDecryptionError and SecureStorageUnavailableError
+     *   - MUST return structured error responses for renderer to handle
+     *   - MUST NOT allow errors to propagate to Electron IPC (renderer crashes)
+     *   - MUST preserve error messages for user display
+     *
+     * Properties:
+     *   - Type-specific responses: different error codes for different error types
+     *   - User-actionable: error messages explain recovery steps
+     *   - Graceful degradation: renderer can handle errors without crashing
+     *
+     * Algorithm:
+     *   For nostling:identities:create:
+     *     1. Wrap dependencies.nostling.createIdentity(request) in try-catch
+     *     2. If SecureStorageUnavailableError caught:
+     *        → return { success: false, error: 'SECURE_STORAGE_UNAVAILABLE', message: error.message }
+     *     3. If SecretDecryptionError caught:
+     *        → return { success: false, error: 'SECRET_DECRYPTION_FAILED', message: error.message }
+     *     4. If other error caught:
+     *        → return { success: false, error: 'UNKNOWN_ERROR', message: error.message }
+     *     5. If success:
+     *        → return result directly (backward compatibility)
+     *
+     *   For nostling:identities:list:
+     *     1. Wrap dependencies.nostling.listIdentities() in try-catch
+     *     2. Same error handling as create (decryption can fail during list)
+     *     3. If success: return result directly
+     *
+     * Error codes:
+     *   - SECURE_STORAGE_UNAVAILABLE: Cannot store new secrets (no keychain, Linux basic_text)
+     *   - SECRET_DECRYPTION_FAILED: Cannot decrypt existing secret (keychain lost)
+     *   - UNKNOWN_ERROR: Other unexpected errors
+     *
+     * Backward compatibility:
+     *   - Successful results returned directly (not wrapped in { success: true, data })
+     *   - Only errors use structured response format
+     *   - Renderer checks for { success: false } to detect errors
+     */
     // Identities
-    ipcMain.handle('nostling:identities:list', async () => dependencies.nostling!.listIdentities());
-    ipcMain.handle('nostling:identities:create', async (_, request: CreateIdentityRequest) =>
-      dependencies.nostling!.createIdentity(request)
-    );
+    ipcMain.handle('nostling:identities:list', async () => {
+      try {
+        return await dependencies.nostling!.listIdentities();
+      } catch (error) {
+        if (error instanceof SecretDecryptionError) {
+          return {
+            success: false,
+            error: 'SECRET_DECRYPTION_FAILED',
+            message: error.message,
+          } as ErrorResponse;
+        }
+        if (error instanceof SecureStorageUnavailableError) {
+          return {
+            success: false,
+            error: 'SECURE_STORAGE_UNAVAILABLE',
+            message: error.message,
+          } as ErrorResponse;
+        }
+        throw error;
+      }
+    });
+
+    ipcMain.handle('nostling:identities:create', async (_, request: CreateIdentityRequest) => {
+      try {
+        return await dependencies.nostling!.createIdentity(request);
+      } catch (error) {
+        if (error instanceof SecretDecryptionError) {
+          return {
+            success: false,
+            error: 'SECRET_DECRYPTION_FAILED',
+            message: error.message,
+          } as ErrorResponse;
+        }
+        if (error instanceof SecureStorageUnavailableError) {
+          return {
+            success: false,
+            error: 'SECURE_STORAGE_UNAVAILABLE',
+            message: error.message,
+          } as ErrorResponse;
+        }
+        throw error;
+      }
+    });
     ipcMain.handle('nostling:identities:remove', async (_, identityId: string) =>
       dependencies.nostling!.removeIdentity(identityId)
     );
@@ -221,6 +322,13 @@ export function registerHandlers(dependencies: {
         event.sender.send('nostling:relay-status-changed', url, status);
       });
     });
+    // Profiles
+    ipcMain.handle('nostling:profiles:get-private-authored', async (_, identityId: string) =>
+      dependencies.nostling!.getPrivateAuthoredProfile(identityId)
+    );
+    ipcMain.handle('nostling:profiles:update-private', async (_, request: { identityId: string; content: any }) =>
+      dependencies.nostling!.updatePrivateProfile({ identityId: request.identityId, content: request.content })
+    );
     ipcMain.on('nostling:profiles:onUpdated', (event) => {
       dependencies.nostling!.onProfileUpdated((identityId: string) => {
         event.sender.send('nostling:profile-updated', identityId);

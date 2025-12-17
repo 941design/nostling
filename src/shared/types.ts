@@ -251,5 +251,7 @@ export interface NostlingApi {
   };
   profiles: {
     onUpdated(callback: (identityId: string) => void): () => void;
+    getPrivateAuthored(identityId: string): Promise<any>; // Returns ProfileRecord | null
+    updatePrivate(request: { identityId: string; content: any }): Promise<any>; // Returns UpdatePrivateProfileResult
   };
 }

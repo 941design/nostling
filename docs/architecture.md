@@ -66,6 +66,7 @@ The React application that users interact with. Runs in a sandboxed Chromium env
 **Key features:**
 - Themed status messages using JSON-based configuration with runtime validation
 - Memoized message selection for performance optimization
+- View mode system: chat view (default) and identities view (profile editor panel)
 
 ## Directory Structure
 
@@ -102,6 +103,9 @@ src/
 │   │   │   ├── ThemePreview.tsx  # Live theme preview
 │   │   │   ├── ThemeFilters.tsx  # Brightness/color filters
 │   │   │   └── ThemeInfo.tsx     # Theme metadata display
+│   │   ├── IdentitiesPanel/      # Identity profile editor
+│   │   │   ├── IdentitiesPanel.tsx  # Panel container with state
+│   │   │   └── ProfileEditor.tsx # 8-field profile form
 │   │   ├── QrCodeScanner.tsx     # Camera-based QR scanning
 │   │   └── QrCodeDisplay.tsx     # QR code display modal
 │   ├── themes/     # Theme system
@@ -222,6 +226,35 @@ release/            # After packaging
 - Version validation (no downgrades)
 - HTTPS-only in production
 - Error messages sanitized in production
+
+### Secret Storage
+
+The application uses OS-provided secure storage for identity secrets (private keys).
+
+**Storage Mechanisms:**
+
+- **Production mode**: Uses Electron's `safeStorage` API backed by OS keychain
+  - macOS: Keychain Services
+  - Linux: libsecret (Secret Service API)
+- **Dev mode**: Detected via `NOSTLING_DATA_DIR` environment variable
+  - Uses base64 encoding without encryption
+  - Prevents session-specific encryption key conflicts during development
+
+**Error Handling:**
+
+- **SecretDecryptionError**: Thrown when decryption fails (corrupted data, wrong key)
+- **SecureStorageUnavailableError**: Thrown when OS keychain unavailable
+- Errors propagated through IPC with structured error types
+- UI displays clear error messages with recovery guidance
+- No plaintext fallback in production mode
+
+**Error Propagation Flow:**
+
+1. Secret storage layer (`secret-store.ts`) throws typed errors
+2. Service layer (`service.ts`) catches and re-throws with context
+3. IPC handlers (`handlers.ts`) serialize errors to structured format
+4. Renderer (`IdentitiesPanel.tsx`) receives and displays error messages
+5. User sees actionable error (e.g., "Failed to decrypt secret - keychain access denied")
 
 ### Key Management
 
@@ -810,3 +843,232 @@ last_seen_event_id TEXT
 - **Display precedence**: Clear hierarchy (alias > private > public > npub)
 - **Zero regressions**: All implementations preserve existing test suite
 - **Comprehensive testing**: 121 tests (109 unit + 12 integration)
+
+## Identity Profile Editor Panel
+
+The application provides a full-featured profile editing interface for identities, allowing users to edit all profile fields with live preview and staged updates.
+
+### Architecture
+
+**View Mode System:**
+- Application supports two view modes: `chat` (default) and `identities` (profile editor)
+- View mode stored in `AppView` state: `{ view: 'chat' | 'identities' }`
+- View switching controlled by menu actions and panel close operations
+- Main content pane swaps between ConversationPane and IdentitiesPanel based on view mode
+
+**Sidebar Content Swap Pattern:**
+- Normal chat view: hamburger menu visible in sidebar header
+- Identities panel open: Cancel and Apply buttons replace hamburger menu
+- State tracked via `isIdentitiesMode` boolean derived from `appView.view === 'identities'`
+- Sidebar header content swap implemented in Sidebar.tsx
+
+**Panel Components:**
+
+1. **IdentitiesPanel.tsx**: Panel container
+   - Manages profile state loading and saving
+   - Tracks dirty state (changes detected)
+   - Coordinates Apply/Cancel actions
+   - Integrates with private profile broadcast system
+   - Handles save operation locking to prevent conflicts
+
+2. **ProfileEditor.tsx**: Form component
+   - 8 profile fields: Label, Name, About, Picture URL, Banner URL, Website, NIP-05, Lightning Address (lud16)
+   - Staged editing: onChange handlers immediately update staged state
+   - Live image preview for Picture and Banner URL fields
+   - Error handling for invalid/broken image URLs
+   - Automatic fallback when image fails to load
+   - Text input for single-line fields (Label, Name, Picture, Banner, Website, NIP-05, lud16)
+   - Textarea for multiline field (About)
+
+### Integration Points
+
+**Menu Integration:**
+- Hamburger menu includes "Edit Identity Profile" menu item
+- Menu item triggers view mode change: `setAppView({ view: 'identities' })`
+- Menu item disabled when no identity selected
+- Menu rendered with `data-testid="identities-panel-trigger"` for testing
+
+**Profile Service Integration:**
+- Panel loads current profile via IPC: `identities.getIdentityProfile(identityId)`
+- Panel saves updates via IPC: `identities.updateIdentityProfile(identityId, profile)`
+- Save operation triggers automatic broadcast to all contacts
+- Broadcast uses existing private profile sharing infrastructure (NIP-59)
+
+**View Mode Control:**
+- Open panel: `setAppView({ view: 'identities' })`
+- Close panel (Cancel/Escape): `setAppView({ view: 'chat' })`
+- Close panel (Apply): save profile, then `setAppView({ view: 'chat' })`
+- Main pane render logic: `appView.view === 'identities' ? <IdentitiesPanel /> : <ConversationPane />`
+
+### User Workflows
+
+**Opening Panel:**
+1. User has identity selected
+2. User clicks hamburger menu
+3. User clicks "Edit Identity Profile"
+4. View switches to identities mode
+5. IdentitiesPanel replaces conversation pane
+6. Sidebar header shows Cancel/Apply buttons
+
+**Editing Profile:**
+1. Panel loads current profile from database
+2. ProfileEditor displays all 8 fields with current values
+3. User edits any field (name, about, picture URL, etc.)
+4. Changes staged immediately (dirty state tracked)
+5. Apply button enables when changes detected
+6. Live preview shows picture/banner images as URLs typed
+
+**Saving Changes:**
+1. User clicks Apply button
+2. Panel locks (buttons disabled, escape key blocked)
+3. Profile saved to database via IPC
+4. Profile broadcast to all contacts via NIP-59
+5. View switches back to chat mode
+6. Sidebar returns to normal state (hamburger menu visible)
+
+**Canceling Changes:**
+1. User clicks Cancel button or presses Escape
+2. Staged changes discarded
+3. View switches back to chat mode
+4. No profile update or broadcast
+
+**Escape Key Behavior:**
+- Escape closes panel when not saving (same as Cancel)
+- Escape blocked during save operation (prevent data conflicts)
+- Implemented via `onKeyDown` handler checking `isSaving` state
+
+### State Management
+
+**Panel State:**
+- `currentProfile`: Profile loaded from database
+- `stagedProfile`: Profile with user's edits
+- `isDirty`: Boolean, true when stagedProfile differs from currentProfile
+- `isSaving`: Boolean, true during save operation
+- `isLoading`: Boolean, true while fetching profile
+
+**Dirty Detection:**
+- Compare stagedProfile to currentProfile on every field change
+- Enable Apply button only when isDirty === true
+- Disable Apply button when clean (no changes)
+
+**Save Operation Locking:**
+- Set `isSaving = true` when Apply clicked
+- Disable Cancel and Apply buttons during save
+- Block Escape key during save
+- Set `isSaving = false` after save completes (success or error)
+
+### Profile Fields
+
+**8 Editable Fields:**
+
+1. **Label** (internal name, not shared in profile metadata)
+   - Single-line text input
+   - Used for identity identification in UI
+   - Not included in shared profile events
+
+2. **Name** (display name)
+   - Single-line text input
+   - Shared via private profile to contacts
+   - Display name precedence: alias > private profile name > public profile name > npub
+
+3. **About** (biography)
+   - Multiline textarea
+   - Supports multiple lines and blank lines
+   - Shared via private profile
+
+4. **Picture** (profile picture URL)
+   - Single-line text input
+   - Live preview: image displayed when URL valid
+   - Preview error handling: hide preview on broken/invalid URL
+   - Shared via private profile
+   - URL sanitized before display (XSS protection)
+
+5. **Banner** (banner image URL)
+   - Single-line text input
+   - Live preview with same behavior as Picture
+   - Shared via private profile
+
+6. **Website** (personal website URL)
+   - Single-line text input
+   - Shared via private profile
+
+7. **NIP-05** (Nostr address verification)
+   - Single-line text input
+   - Format: user@domain.com
+   - Shared via private profile
+
+8. **Lightning Address (lud16)** (Lightning payment address)
+   - Single-line text input
+   - Format: address@domain.com
+   - Shared via private profile
+
+### Live Preview Implementation
+
+**Picture Preview:**
+- Rendered as `<img>` element when Picture URL field non-empty
+- `data-testid="profile-editor-picture-preview"` for testing
+- `onError` handler hides preview on load failure
+- Preview hidden by default until valid URL provided
+
+**Banner Preview:**
+- Same implementation pattern as Picture preview
+- `data-testid="profile-editor-banner-preview"`
+- Independent state from Picture preview
+
+**Preview Lifecycle:**
+1. User types URL into Picture/Banner field
+2. onChange handler updates stagedProfile
+3. React re-renders preview with new URL
+4. Browser attempts image load
+5. On success: image displays
+6. On failure: onError hides preview element
+
+### Error Handling
+
+**Profile Load Errors:**
+- Display error message in panel
+- Keep panel open, allow user to retry
+- Log error to console
+
+**Profile Save Errors:**
+- Display error message to user
+- Unlock panel (set isSaving = false)
+- Keep staged changes (allow user to retry)
+- Log error details
+
+**Image Preview Errors:**
+- Hide preview element (no error message to user)
+- Field remains editable
+- User can correct URL and preview will retry
+
+### Testing
+
+**E2E Integration Tests (14 tests):**
+- Menu access and panel opening
+- All 8 fields present and editable
+- Apply button enable/disable based on dirty state
+- Apply saves changes and returns to chat view
+- Cancel discards changes and returns to chat view
+- Escape key closes panel
+- Save operation locking (buttons disabled, escape blocked)
+- Image preview display for valid URLs
+- Profile persistence across panel close/reopen
+- Empty profile handling
+- Loading state display
+- Multiline text in About field
+
+**Test Coverage:**
+- Total test suite: 1435 tests
+- All tests passing
+- Zero regressions detected
+
+### Design Principles
+
+- **Staging pattern**: Changes tracked immediately, explicit Apply required to save
+- **Save locking**: Prevent conflicts during async save operations
+- **View mode isolation**: Clear separation between chat view and identities view
+- **Sidebar content swap**: Context-aware UI (hamburger menu vs Cancel/Apply)
+- **Live preview**: Immediate visual feedback for image URLs
+- **Graceful degradation**: Image preview errors don't block editing
+- **Integration with existing infrastructure**: Uses private profile sharing system for broadcast
+- **Zero regressions**: All existing tests continue passing

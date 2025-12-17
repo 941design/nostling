@@ -7,7 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- **Secret Storage Hardening**: Enhanced security for identity secret management
+  - Removed plaintext fallback for decryption failures - strict enforcement of OS keychain encryption
+  - Structured error propagation from storage layer through IPC to UI with `SecretDecryptionError` and `SecureStorageUnavailableError` types
+  - Graceful error handling in UI with clear user feedback when secrets cannot be loaded
+  - Dev mode detection via `NOSTLING_DATA_DIR` continues to use plaintext encoding (development only)
+  - Production mode enforces OS keychain (`safeStorage`) for all secret operations
+  - Property-based integration tests: 32 tests covering error propagation, type safety, and recovery procedures
+  - Total test suite: 1467 tests, all passing with zero regressions
+
 ### Added
+- **Identity Profile Editor Panel**: Full-featured profile editing interface with live preview
+  - Accessible from hamburger menu via "Edit Identity Profile" menu item
+  - Edit 8 profile fields: Label (internal), Name, About, Picture URL, Banner URL, Website, NIP-05, Lightning Address (lud16)
+  - Staging pattern: changes tracked immediately, Apply button enables when dirty
+  - Live image preview for Picture and Banner URL fields with error handling
+  - Apply/Cancel buttons with save operation locking to prevent conflicts
+  - Escape key closes panel (except during save operations)
+  - Profile updates automatically broadcast to all contacts via encrypted messages
+  - View mode: replaces conversation pane with full-width panel (identities mode)
+  - Sidebar content swap: hamburger menu replaced by Cancel/Apply buttons when panel open
+  - Property-based integration tests: 14 E2E tests covering menu access, field editing, apply/cancel, persistence, and escape handling
+  - Total test suite: 1435 tests, all passing with zero regressions
 - **Profile Avatars with Status Badges**: Visual profile representation with status indicators
   - Avatar component displays profile pictures or letter circles based on display name
   - Status badge overlay shows profile type: shield check (private), shield warning (public), shield off (none)
@@ -43,6 +65,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Total test suite: 920 tests, all passing with zero regressions
 
 ### Fixed
+- **Identity Secret Loading in Dev Mode**: Fixed secret persistence across app restarts when running with `NOSTLING_DATA_DIR` environment variable
+  - Root cause: Electron's `safeStorage` API uses session-specific encryption keys that change between app restarts
+  - Previously, secrets encrypted with one session's key could not be decrypted after restart, causing "Failed to load identity secret" errors
+  - Fix: Detect dev mode via `NOSTLING_DATA_DIR` environment variable and skip `safeStorage` encryption, using plaintext base64 encoding instead
+  - Production mode unchanged: continues to use OS keychain via `safeStorage` for secure secret storage
+  - Added regression test: `e2e/bug-identity-secret-dev-mode.spec.ts` to prevent reintroduction
+  - **MIGRATION**: If you have existing encrypted secrets in dev mode, run `make dev-relay-clean` to reset dev environment, then recreate identities
+  - Bug report: `bug-reports/identity-secret-loading-dev-mode-report.md`
 - Fixed duplicate event ingestion in Nostling conversations (message deduplication)
   - Events with the same event_id can now be ingested only once per conversation (identity_id + contact_id pair)
   - Same event_id can appear in different conversations (per-conversation deduplication, not global)

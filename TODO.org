@@ -1,5 +1,6 @@
 * TODO
 
++ cache profile images
 + use a config file format that can be commented
 + when hovering over icons, show purpose in footer
 + sidebar width adjustable
@@ -71,7 +72,7 @@
 
 ** Release
 
-+ do NOT allow release if tests fail!!
++ do NOT allow release if tests or lint fail!!
 + compress git history
 + compress migrations into one initial migration
 + remove old versions
@@ -153,3 +154,41 @@
 + fake groups with custom message
 + add member (adding a member creates new id (deterministically?), and starts new chat)
 + @ mentions
+
+** Identity Migration
+
+  What is Electron safeStorage?
+
+  https://www.electronjs.org/docs/latest/api/safe-storage provides OS-native encryption where the encryption key is managed by the OS, not
+   the app:
+
+  | OS      | Backend                 | Key Storage          | Protection Scope                         |
+  |---------|-------------------------|----------------------|------------------------------------------|
+  | macOS   | Keychain Access         | System Keychain      | Per-app (code signature enforced)        |
+  | Windows | DPAPI                   | User credentials     | Per-user (not per-app)                   |
+  | Linux   | kwallet/gnome-libsecret | Desktop secret store | Varies by DE; may fall back to plaintext |
+
+  Critical insight: The encryption key is tied to the app's identity in the OS. On macOS, if the app is reinstalled, the keychain entry
+  may become orphaned/inaccessible because the new app instance gets a new keychain entry.
+
+> is my understanding correct that dev mode does not have access to the OS keychain, because the app was not installed from bundle? 
+
+⏺ Not quite. Dev mode does have access to the keychain - the issue is that the access is unstable across restarts.
+
+  Here's what happens:
+
+  | Scenario          | App Identity (from Keychain's view)          | Keychain Entry                      |
+  |-------------------|----------------------------------------------|-------------------------------------|
+  | Production bundle | Signed app with stable code signature        | Persistent, same entry every launch |
+  | Dev mode          | Unsigned Electron binary / varying signature | May get new entry each session      |
+
+  The Dev Mode Problem
+
+  Session 1: electron . → Keychain creates entry "Electron Safe Storage" with key A
+             → encrypt(nsec) with key A → store
+
+  Session 2: electron . → Keychain creates NEW entry with key B (or can't find entry A)
+             → decrypt with key B → FAILS
+             → fallback to UTF-8 decode → garbage
+
+  

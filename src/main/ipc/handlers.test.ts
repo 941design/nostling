@@ -23,7 +23,9 @@ import {
   NostlingRelayConfig,
   NostlingRelayEndpoint,
   RelayConfigConflict,
+  CreateIdentityRequest,
 } from '../../shared/types';
+import { SecretDecryptionError, SecureStorageUnavailableError } from '../nostling/secret-store';
 
 // Mock electron before importing handlers
 jest.mock('electron', () => ({
@@ -875,8 +877,8 @@ describe('registerHandlers', () => {
       const nostlingDeps = createNostlingDependencies();
       registerHandlers({ ...deps, nostling: nostlingDeps });
 
-      // Base handlers plus 20 nostling channels (including retryFailedMessages, rename flows, 4 relay handlers, updateTheme, and 2 unread handlers)
-      expect(handlers.size).toBe(33);
+      // Base handlers plus nostling channels (including retryFailedMessages, rename flows, relay handlers, updateTheme, unread handlers, and profile handlers)
+      expect(handlers.size).toBe(35);
       expect(handlers.has('nostling:identities:list')).toBe(true);
       expect(handlers.has('nostling:contacts:add')).toBe(true);
       expect(handlers.has('nostling:messages:send')).toBe(true);
@@ -898,6 +900,167 @@ describe('registerHandlers', () => {
       const relays: NostlingRelayEndpoint[] = [{ url: 'wss://relay.test', read: true, write: true, order: 0 }];
       await handlers.get('nostling:relays:set')!(null, 'test-identity', relays);
       expect(nostlingDeps.setRelaysForIdentity).toHaveBeenCalledWith('test-identity', relays);
+    });
+  });
+
+  describe('IPC Error Propagation - Secret Storage Security (R5)', () => {
+    describe('nostling:identities:create error handling', () => {
+      it('uses SECURE_STORAGE_UNAVAILABLE error code for SecureStorageUnavailableError', async () => {
+        const testError = new SecureStorageUnavailableError('Keychain unavailable');
+        const nostlingDeps: any = createNostlingDependencies();
+        nostlingDeps.createIdentity = jest.fn<() => Promise<any>>().mockRejectedValue(testError);
+
+        handlers.clear();
+        registerHandlers({ ...createMockDependencies() as any, nostling: nostlingDeps });
+
+        const handler = handlers.get('nostling:identities:create');
+        const request: CreateIdentityRequest = { npub: 'test-npub', secretRef: 'ref-1', label: 'Test' };
+        const result = await handler!(null, request);
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe('SECURE_STORAGE_UNAVAILABLE');
+        expect(result.message).toBe('Keychain unavailable');
+      });
+    });
+
+    describe('nostling:identities:list error handling', () => {
+      it('uses SECRET_DECRYPTION_FAILED error code for SecretDecryptionError', async () => {
+        const testError = new SecretDecryptionError('Keychain lost');
+        const nostlingDeps: any = createNostlingDependencies();
+        nostlingDeps.listIdentities = jest.fn<() => Promise<any>>().mockRejectedValue(testError);
+
+        handlers.clear();
+        registerHandlers({ ...createMockDependencies() as any, nostling: nostlingDeps });
+
+        const handler = handlers.get('nostling:identities:list');
+        const result = await handler!();
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe('SECRET_DECRYPTION_FAILED');
+        expect(result.message).toBe('Keychain lost');
+      });
+    });
+
+    describe('Backward compatibility - success responses unchanged', () => {
+      it('returns identity directly on success (not wrapped)', async () => {
+        const exampleIdentity: NostlingIdentity = {
+          id: 'id-1',
+          npub: 'npub1',
+          secretRef: 'ref1',
+          label: 'Primary',
+          createdAt: new Date().toISOString(),
+        };
+
+        const nostlingDeps: any = createNostlingDependencies();
+        nostlingDeps.createIdentity = jest.fn<() => Promise<any>>().mockResolvedValue(exampleIdentity);
+
+        handlers.clear();
+        registerHandlers({ ...createMockDependencies() as any, nostling: nostlingDeps });
+
+        const handler = handlers.get('nostling:identities:create');
+        const request: CreateIdentityRequest = { npub: 'test-npub', secretRef: 'ref-1', label: 'Test' };
+        const result = await handler!(null, request);
+
+        expect(result).toEqual(exampleIdentity);
+        expect(result.id).toBe('id-1');
+        expect(result.npub).toBe('npub1');
+        expect((result as any).success).toBeUndefined();
+      });
+
+      it('returns identities array directly on successful list (not wrapped)', async () => {
+        const exampleIdentities: NostlingIdentity[] = [
+          {
+            id: 'id-1',
+            npub: 'npub1',
+            secretRef: 'ref1',
+            label: 'Primary',
+            createdAt: new Date().toISOString(),
+          },
+          {
+            id: 'id-2',
+            npub: 'npub2',
+            secretRef: 'ref2',
+            label: 'Secondary',
+            createdAt: new Date().toISOString(),
+          },
+        ];
+
+        const nostlingDeps: any = createNostlingDependencies();
+        nostlingDeps.listIdentities = jest.fn<() => Promise<any>>().mockResolvedValue(exampleIdentities);
+
+        handlers.clear();
+        registerHandlers({ ...createMockDependencies() as any, nostling: nostlingDeps });
+
+        const handler = handlers.get('nostling:identities:list');
+        const result = await handler!();
+
+        expect(result).toEqual(exampleIdentities);
+        expect(Array.isArray(result)).toBe(true);
+        expect(result).toHaveLength(2);
+      });
+    });
+
+    describe('Example-based tests: Critical error scenarios', () => {
+      it('Example: SecureStorageUnavailableError with detailed message', async () => {
+        const testError = new SecureStorageUnavailableError(
+          'Linux secure storage backend is "basic_text" (plaintext). Cannot store secrets securely.'
+        );
+        const nostlingDeps: any = createNostlingDependencies();
+        nostlingDeps.createIdentity = jest.fn<() => Promise<any>>().mockRejectedValue(testError);
+
+        handlers.clear();
+        registerHandlers({ ...createMockDependencies() as any, nostling: nostlingDeps });
+
+        const handler = handlers.get('nostling:identities:create');
+        const request: CreateIdentityRequest = { npub: 'test-npub', secretRef: 'ref-1', label: 'Test' };
+        const result = await handler!(null, request);
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe('SECURE_STORAGE_UNAVAILABLE');
+        expect(result.message).toContain('basic_text');
+      });
+
+      it('Example: SecretDecryptionError with recovery guidance', async () => {
+        const testError = new SecretDecryptionError(
+          'Failed to decrypt secret. This typically occurs when the system keychain was reset or the app was moved to a different machine. Please delete this identity and recreate it by re-entering your nsec.'
+        );
+        const nostlingDeps: any = createNostlingDependencies();
+        nostlingDeps.listIdentities = jest.fn<() => Promise<any>>().mockRejectedValue(testError);
+
+        handlers.clear();
+        registerHandlers({ ...createMockDependencies() as any, nostling: nostlingDeps });
+
+        const handler = handlers.get('nostling:identities:list');
+        const result = await handler!();
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe('SECRET_DECRYPTION_FAILED');
+        expect(result.message).toContain('nsec');
+      });
+
+      it('Example: Successful identity creation preserves exact data', async () => {
+        const exampleIdentity: NostlingIdentity = {
+          id: 'id-xyz-789',
+          npub: 'npub-example',
+          secretRef: 'nostr-secret:12345678',
+          label: 'My Identity',
+          createdAt: '2025-12-17T10:00:00Z',
+        };
+
+        const nostlingDeps: any = createNostlingDependencies();
+        nostlingDeps.createIdentity = jest.fn<() => Promise<any>>().mockResolvedValue(exampleIdentity);
+
+        handlers.clear();
+        registerHandlers({ ...createMockDependencies() as any, nostling: nostlingDeps });
+
+        const handler = handlers.get('nostling:identities:create');
+        const request: CreateIdentityRequest = { npub: 'test-npub', secretRef: 'ref-1', label: 'My Identity' };
+        const result = await handler!(null, request);
+
+        expect(result).toEqual(exampleIdentity);
+        expect(result.id).toBe('id-xyz-789');
+        expect(result.secretRef).toBe('nostr-secret:12345678');
+      });
     });
   });
 

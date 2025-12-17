@@ -20,7 +20,7 @@ import type { ThemeSemanticColors } from '../../themes/useTheme';
  * Preview typography from slider generation
  */
 export interface PreviewTypography {
-  fonts?: { body: string; heading: string; mono: string };
+  fonts?: { body?: string; heading?: string; mono?: string };
   fontSizes?: Record<string, string>;
 }
 
