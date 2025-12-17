@@ -948,6 +948,62 @@ export class NostlingService {
   }
 
   /**
+   * Get the full profile for a contact (private_received or public_discovered).
+   * Returns the profile content with all fields (about, banner, website, nip05, lud16, etc.)
+   * Priority: private_received > public_discovered
+   */
+  async getContactProfile(contactId: string): Promise<any> {
+    // First, find the contact to get their npub
+    const stmt = this.database.prepare(`
+      SELECT npub FROM nostr_contacts WHERE id = ?
+    `);
+    stmt.bind([contactId]);
+
+    if (!stmt.step()) {
+      stmt.free();
+      throw new Error(`Contact not found: ${contactId}`);
+    }
+
+    const contactRow = stmt.getAsObject();
+    stmt.free();
+
+    const contactNpub = contactRow.npub as string;
+    const contactPubkeyHex = npubToHex(contactNpub);
+
+    // Query for private_received first (higher priority)
+    const sources = ['private_received', 'public_discovered'];
+    for (const source of sources) {
+      const profileStmt = this.database.prepare(`
+        SELECT id, owner_pubkey, source, content_json, event_id, valid_signature, created_at, updated_at
+        FROM nostr_profiles
+        WHERE owner_pubkey = ? AND source = ?
+        ORDER BY updated_at DESC
+        LIMIT 1
+      `);
+      profileStmt.bind([contactPubkeyHex, source]);
+
+      if (profileStmt.step()) {
+        const row = profileStmt.getAsObject();
+        profileStmt.free();
+        return {
+          id: row.id,
+          ownerPubkey: row.owner_pubkey,
+          source: row.source,
+          content: JSON.parse(row.content_json as string),
+          eventId: row.event_id,
+          validSignature: Boolean(row.valid_signature),
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+        };
+      }
+      profileStmt.free();
+    }
+
+    // No profile found
+    return null;
+  }
+
+  /**
    * Update the private profile for an identity and send to all contacts.
    * Uses the profile-service-integration module for the actual implementation.
    */

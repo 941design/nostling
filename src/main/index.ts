@@ -34,6 +34,8 @@ import {
 import { getDatabase } from './database/connection';
 import { createSecretStore } from './nostling/secret-store';
 import { NostlingService } from './nostling/service';
+import { ImageCacheService } from './image-cache/image-cache-service';
+import { registerImageCacheHandlers } from './ipc/image-cache-handlers';
 
 let mainWindow: BrowserWindow | null = null;
 let config: AppConfig = loadConfig();
@@ -42,6 +44,7 @@ setLogLevel(config.logLevel);
 let updateState: UpdateState = { phase: 'idle' };
 let lastUpdateCheck: string | undefined;
 let nostlingService: NostlingService | null = null;
+let imageCacheService: ImageCacheService | null = null;
 let dbFlushTimer: ReturnType<typeof setInterval> | null = null;
 
 // Flush database to disk every 30 seconds for crash safety
@@ -477,6 +480,14 @@ app.on('ready', async () => {
   nostlingService = new NostlingService(database, secretStore, configDir);
   await nostlingService.initialize();
 
+  // Initialize image cache service
+  const cacheDir = path.join(configDir, 'image-cache');
+  imageCacheService = new ImageCacheService(cacheDir, 100 * 1024 * 1024, database);
+  await imageCacheService.initialize();
+
+  // Register image cache IPC handlers
+  registerImageCacheHandlers(imageCacheService);
+
   // Start message polling based on config
   const pollingMs = pollingIntervalToMilliseconds(config.messagePollingInterval || '10s');
   nostlingService.startPolling(pollingMs);
@@ -527,6 +538,7 @@ app.on('ready', async () => {
         getNostlingService().onRelayStatusChange(callback);
       },
       getPrivateAuthoredProfile: (identityId) => getNostlingService().getPrivateAuthoredProfile(identityId),
+      getContactProfile: (contactId) => getNostlingService().getContactProfile(contactId),
       updatePrivateProfile: (request) => getNostlingService().updatePrivateProfile(request),
       onProfileUpdated: (callback) => {
         getNostlingService().onProfileUpdated(callback);

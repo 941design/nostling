@@ -177,8 +177,22 @@ const api: RendererApi = {
       async getPrivateAuthored(identityId: string) {
         return ipcRenderer.invoke('nostling:profiles:get-private-authored', identityId);
       },
+      async getContactProfile(contactId: string) {
+        return ipcRenderer.invoke('nostling:profiles:get-contact-profile', contactId);
+      },
       async updatePrivate(request: { identityId: string; content: any }) {
         return ipcRenderer.invoke('nostling:profiles:update-private', request);
+      },
+    },
+    imageCache: {
+      async get(url: string) {
+        return ipcRenderer.invoke('nostling:image-cache:get', url);
+      },
+      async cache(url: string) {
+        return ipcRenderer.invoke('nostling:image-cache:cache', url);
+      },
+      async invalidate(url: string) {
+        return ipcRenderer.invoke('nostling:image-cache:invalidate', url);
       },
     },
   },

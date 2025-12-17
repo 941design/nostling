@@ -254,4 +254,9 @@ export interface NostlingApi {
     getPrivateAuthored(identityId: string): Promise<any>; // Returns ProfileRecord | null
     updatePrivate(request: { identityId: string; content: any }): Promise<any>; // Returns UpdatePrivateProfileResult
   };
+  imageCache: {
+    get(url: string): Promise<import('./image-cache-types').CachedImage | null>;
+    cache(url: string): Promise<import('./image-cache-types').CachedImage>;
+    invalidate(url: string): Promise<boolean>;
+  };
 }

@@ -566,6 +566,31 @@ describe('registerHandlers', () => {
         .mockResolvedValue(2),
       getUnreadCounts: jest.fn<(identityId: string) => Promise<Record<string, number>>>()
         .mockResolvedValue({ 'contact-1': 3 }),
+      retryFailedMessages: jest.fn<(identityId?: string) => Promise<any>>()
+        .mockResolvedValue({ retried: 0 }),
+      getPrivateAuthoredProfile: jest.fn<(identityId: string) => Promise<any>>()
+        .mockResolvedValue({
+          id: 'profile-1',
+          ownerPubkey: 'pubkey-hex',
+          source: 'private_authored',
+          content: { name: 'Test User', about: 'Bio' },
+        }),
+      getContactProfile: jest.fn<(contactId: string) => Promise<any>>()
+        .mockResolvedValue({
+          id: 'profile-2',
+          ownerPubkey: 'contact-pubkey-hex',
+          source: 'private_received',
+          content: { name: 'Contact', about: 'Contact bio', picture: 'https://example.com/pic.jpg' },
+        }),
+      updatePrivateProfile: jest.fn<(request: { identityId: string; content: any }) => Promise<any>>()
+        .mockResolvedValue({
+          id: 'profile-1',
+          ownerPubkey: 'pubkey-hex',
+          source: 'private_authored',
+          content: { name: 'Updated User', about: 'New bio' },
+        }),
+      onProfileUpdated: jest.fn<(callback: (identityId: string) => void) => void>()
+        .mockReturnValue(undefined),
     };
   }
 
@@ -877,8 +902,8 @@ describe('registerHandlers', () => {
       const nostlingDeps = createNostlingDependencies();
       registerHandlers({ ...deps, nostling: nostlingDeps });
 
-      // Base handlers plus nostling channels (including retryFailedMessages, rename flows, relay handlers, updateTheme, unread handlers, and profile handlers)
-      expect(handlers.size).toBe(35);
+      // Base handlers plus nostling channels (including retryFailedMessages, rename flows, relay handlers, updateTheme, unread handlers, and profile handlers including getContactProfile)
+      expect(handlers.size).toBe(36);
       expect(handlers.has('nostling:identities:list')).toBe(true);
       expect(handlers.has('nostling:contacts:add')).toBe(true);
       expect(handlers.has('nostling:messages:send')).toBe(true);

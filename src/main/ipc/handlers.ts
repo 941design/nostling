@@ -51,6 +51,7 @@ interface NostlingIpcDependencies {
   getRelayStatus: () => Promise<Record<string, string>>;
   onRelayStatusChange: (callback: (url: string, status: string) => void) => void;
   getPrivateAuthoredProfile: (identityId: string) => Promise<any>;
+  getContactProfile: (contactId: string) => Promise<any>;
   updatePrivateProfile: (request: { identityId: string; content: any }) => Promise<any>;
   onProfileUpdated: (callback: (identityId: string) => void) => void;
 }
@@ -325,6 +326,9 @@ export function registerHandlers(dependencies: {
     // Profiles
     ipcMain.handle('nostling:profiles:get-private-authored', async (_, identityId: string) =>
       dependencies.nostling!.getPrivateAuthoredProfile(identityId)
+    );
+    ipcMain.handle('nostling:profiles:get-contact-profile', async (_, contactId: string) =>
+      dependencies.nostling!.getContactProfile(contactId)
     );
     ipcMain.handle('nostling:profiles:update-private', async (_, request: { identityId: string; content: any }) =>
       dependencies.nostling!.updatePrivateProfile({ identityId: request.identityId, content: request.content })

@@ -9,6 +9,7 @@ A desktop messaging application built on the Nostr protocol with secure auto-upd
 - **Contact whitelist** - Only receive messages from known contacts
 - **QR code contact management** - Scan QR codes via camera to add contacts or display identity npub as scannable QR code
 - **Private profile sharing** - Share profile information privately with contacts via NIP-59 encrypted messages
+- **Contacts panel** - View full contact profiles with disk-cached images for offline access
 - **Identity profile editor** - Edit identity profiles with live preview and staged updates
 - **Relay connectivity** - WebSocket connections to Nostr relays with auto-reconnection
 - **Relay management** - Compact table with drag-and-drop reordering, per-relay read/write policies, and live connection status
@@ -110,6 +111,34 @@ Edit your identity's profile information with live preview and staged updates.
 5. Your updated profile is automatically shared with all contacts
 
 **Note:** The panel locks during save operations to prevent data conflicts.
+
+### Contacts Panel
+
+View complete contact profiles with offline-capable image caching.
+
+**How it works:**
+- Access the contacts panel from the hamburger menu by clicking "View Contact Profiles"
+- View all profile fields: Name, About, Picture, Banner, Website, NIP-05, Lightning Address
+- Banner displayed as header background image (social media style)
+- Profile picture overlaid on banner with fallback to letter circle
+- Sidebar shows contact list filtered by selected identity
+- All profile images and banners cached to disk for offline access
+- Cache automatically manages storage with 100MB limit using LRU eviction
+- Images only re-fetched when URLs change
+
+**To view contact profiles:**
+1. Click the hamburger menu in the top-right
+2. Click "View Contact Profiles"
+3. Select a contact from the sidebar to view their full profile
+4. Press Escape or click Cancel to return to chat view
+
+**Cache behavior:**
+- Images stored in your application data directory with secure permissions
+- Cached images available offline for fast loading
+- Cache automatically evicts least recently used images when approaching size limit
+- All image URLs protected against XSS attacks through sanitization
+
+**Note:** Contact profiles are read-only. You can only edit your own identity profile.
 
 ### QR Code Contact Management
 
@@ -278,6 +307,7 @@ Files:
 - `config.json` - Application configuration
 - `nostling.db` - SQLite database for application state
 - `identities/<id>/relays.json` - Per-identity relay configurations with read/write policies
+- `image-cache/` - Cached profile images and banners with 100MB LRU limit
 
 ## Log Files
 

@@ -18,6 +18,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Total test suite: 1467 tests, all passing with zero regressions
 
 ### Added
+- **Contacts Panel with Disk-Cached Images**: View full contact profiles with offline-capable image caching
+  - Accessible from hamburger menu via "View Contact Profiles" menu item
+  - Display all profile fields: Name, About, Picture, Banner, Website, NIP-05, Lightning Address (lud16)
+  - Banner displayed as header background image (social media style)
+  - Profile picture overlaid on banner with fallback to letter circle
+  - Sidebar shows contact list filtered by selected identity
+  - Contact selection with visual highlighting (border and background)
+  - Disk-based image cache with LRU eviction (100MB limit) for offline access
+  - Cache location: Electron userData directory with 0o700/0o600 permissions
+  - SHA-256 URL hashing for cache keys with metadata tracking
+  - Only re-fetches images when URL changes (compares cached URL with current)
+  - Integration with existing XSS protection via url-sanitizer.ts
+  - IPC API namespace: `window.api.nostling.imageCache.*` (getCachedImage, cacheImage, invalidateCache)
+  - Read-only profiles: contacts cannot edit other contacts' information
+  - Graceful offline degradation: shows cached images or fallbacks when network unavailable
+  - Property-based tests: 268 unit tests covering all components
+  - Integration tests: 5 tests verifying IPC channel correctness and cache flow
+  - Total test suite: 1740 tests, all passing with zero regressions
+  - Components: ImageCacheService, CacheDatabase, ImageFetcher, CachedImage, ContactsPanel
 - **Identity Profile Editor Panel**: Full-featured profile editing interface with live preview
   - Accessible from hamburger menu via "Edit Identity Profile" menu item
   - Edit 8 profile fields: Label (internal), Name, About, Picture URL, Banner URL, Website, NIP-05, Lightning Address (lud16)

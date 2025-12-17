@@ -61,7 +61,8 @@ interface AvatarProps {
  *     - Deterministic: same input always produces same output
  *     - Non-empty: displayName.length > 0 implies result.length === 1
  */
-function extractLetter(displayName: string): string {
+function extractLetter(displayName: string | undefined | null): string {
+  if (!displayName) return '?';
   const trimmed = displayName.trim();
   if (trimmed.length === 0) return '?';
   return trimmed[0].toUpperCase();

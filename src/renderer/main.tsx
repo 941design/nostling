@@ -40,6 +40,7 @@ import { RelayTable } from './components/RelayTable';
 import { RelayConflictModal } from './components/RelayConflictModal';
 import { ThemeSelectionPanel, ThemeVariableSliders, ThemeInfo } from './components/ThemeSelectionPanel';
 import { IdentitiesPanel } from './components/IdentitiesPanel';
+import { ContactsPanel } from './components/ContactsPanel/ContactsPanel';
 import { SubPanel } from './components/SubPanel';
 import { createThemeSystem, getThemeIdForIdentity, getSemanticColors } from './themes/useTheme';
 import { ThemeGenerator, type ThemeGeneratorInput } from './themes/generator';
@@ -263,9 +264,10 @@ interface HeaderProps {
   identityId: string | null;
   onShowThemeSelection: () => void;
   onShowIdentities: () => void;
+  onShowContacts: () => void;
 }
 
-function Header({ onShowAbout, onShowRelayConfig, currentTheme, onThemeChange, identityId, onShowThemeSelection, onShowIdentities }: HeaderProps) {
+function Header({ onShowAbout, onShowRelayConfig, currentTheme, onThemeChange, identityId, onShowThemeSelection, onShowIdentities, onShowContacts }: HeaderProps) {
   const colors = useThemeColors();
   return (
     <Box
@@ -346,6 +348,21 @@ function Header({ onShowAbout, onShowRelayConfig, currentTheme, onThemeChange, i
                   <HStack gap="2">
                     <PersonIcon />
                     <Text color={colors.text}>Identities</Text>
+                  </HStack>
+                </Menu.Item>
+                <Menu.Item
+                  value="contacts"
+                  onClick={onShowContacts}
+                  disabled={!identityId}
+                  data-testid="contacts-panel-trigger"
+                  px="3"
+                  py="2"
+                  cursor={identityId ? 'pointer' : 'not-allowed'}
+                  _hover={identityId ? { bg: colors.surfaceBgSubtle } : undefined}
+                >
+                  <HStack gap="2">
+                    <PersonIcon />
+                    <Text color={colors.text}>View Contact Profiles</Text>
                   </HStack>
                 </Menu.Item>
                 <Menu.Separator borderColor={colors.borderSubtle} />
@@ -1666,6 +1683,7 @@ function Sidebar({
   themeSliders,
   themeInfo,
   isIdentitiesMode,
+  isContactsMode,
   identitySelectionDisabled,
 }: {
   identities: NostlingIdentity[];
@@ -1686,6 +1704,7 @@ function Sidebar({
   themeSliders?: React.ReactNode;
   themeInfo?: { theme: ThemeMetadata; isCurrentTheme: boolean } | null;
   isIdentitiesMode?: boolean;
+  isContactsMode?: boolean;
   identitySelectionDisabled?: boolean;
 }) {
   const colors = useThemeColors();
@@ -1733,6 +1752,33 @@ function Sidebar({
             newlyArrived={newlyArrivedIdentities}
             disabled={identitySelectionDisabled}
           />
+        ) : isContactsMode ? (
+          // Contacts mode: show identity list for selection and contact list for contacts view
+          <>
+            <IdentityList
+              identities={identities}
+              selectedId={selectedIdentityId}
+              onSelect={onSelectIdentity}
+              onOpenCreate={onOpenIdentityModal}
+              onShowQr={setQrDisplayIdentity}
+              onRename={onRenameIdentity}
+              unreadCounts={identityUnreadCounts}
+              newlyArrived={newlyArrivedIdentities}
+            />
+            <Separator borderColor={colors.borderSubtle} />
+            <ContactList
+              contacts={currentContacts}
+              selectedId={selectedContactId}
+              onSelect={onSelectContact}
+              onOpenAdd={onOpenContactModal}
+              disabled={identities.length === 0}
+              onRequestDelete={onRequestDeleteContact}
+              onRename={onRenameContact}
+              onShowQr={setQrDisplayContact}
+              unreadCounts={unreadCounts}
+              newlyArrived={newlyArrived}
+            />
+          </>
         ) : (
           // Normal mode: show identity and contact lists
           <>
@@ -1782,7 +1828,7 @@ function Sidebar({
   );
 }
 
-type AppView = 'chat' | 'relay-config' | 'about' | 'themeSelection' | 'identities';
+type AppView = 'chat' | 'relay-config' | 'about' | 'themeSelection' | 'identities' | 'contacts';
 
 interface AppProps {
   onThemeChange: (themeId: ThemeId, customColors?: ThemeSemanticColors | null) => void;
@@ -2086,6 +2132,10 @@ function App({ onThemeChange }: AppProps) {
     setCurrentView('identities');
   };
 
+  const handleShowContacts = () => {
+    setCurrentView('contacts');
+  };
+
   const handleReturnToChat = () => {
     setCurrentView('chat');
     setThemeCustomColors(null); // Clear custom colors when leaving theme selection
@@ -2126,7 +2176,7 @@ function App({ onThemeChange }: AppProps) {
   }, []);
 
   useEffect(() => {
-    if (currentView !== 'about' && currentView !== 'themeSelection' && currentView !== 'identities') return;
+    if (currentView !== 'about' && currentView !== 'themeSelection' && currentView !== 'identities' && currentView !== 'contacts') return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -2243,6 +2293,7 @@ function App({ onThemeChange }: AppProps) {
         identityId={selectedIdentityId}
         onShowThemeSelection={handleShowThemeSelection}
         onShowIdentities={handleShowIdentities}
+        onShowContacts={handleShowContacts}
       />
       <Flex flex="1" overflow="hidden">
         <Sidebar
@@ -2284,6 +2335,7 @@ function App({ onThemeChange }: AppProps) {
               : null
           }
           isIdentitiesMode={currentView === 'identities'}
+          isContactsMode={currentView === 'contacts'}
           identitySelectionDisabled={identitiesPanelDirty}
         />
         <Flex as="main" direction="column" flex="1" overflow="hidden" borderWidth="1px" borderColor={colors.border} borderRadius="md" bg={colors.surfaceBgSubtle}>
@@ -2348,6 +2400,17 @@ function App({ onThemeChange }: AppProps) {
               onCancel={handleReturnToChat}
               onDirtyChange={setIdentitiesPanelDirty}
             />
+          ) : currentView === 'contacts' ? (
+            selectedContactId && selectedIdentityId ? (
+              <ContactsPanel
+                selectedContact={(nostling.contacts[selectedIdentityId] || []).find(c => c.id === selectedContactId)!}
+                onClose={handleReturnToChat}
+              />
+            ) : (
+              <Box p="4" color={colors.textSubtle}>
+                Select a contact to view profile
+              </Box>
+            )
           ) : (
             <AboutView
               onReturn={handleReturnToChat}

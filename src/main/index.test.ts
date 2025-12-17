@@ -117,6 +117,16 @@ jest.mock('./nostling/secret-store', () => ({
   })),
 }));
 
+jest.mock('./image-cache/image-cache-service', () => ({
+  ImageCacheService: jest.fn().mockImplementation(() => ({
+    initialize: jest.fn(() => Promise.resolve()),
+  })),
+}));
+
+jest.mock('./ipc/image-cache-handlers', () => ({
+  registerImageCacheHandlers: jest.fn(),
+}));
+
 jest.mock('./nostling/service', () => ({
   NostlingService: jest.fn().mockImplementation(() => ({
     initialize: jest.fn(() => Promise.resolve()),
