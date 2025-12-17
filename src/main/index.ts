@@ -3,6 +3,14 @@ import { initializePaths, getUserDataPath } from './paths';
 initializePaths();
 
 import { app, BrowserWindow, Menu } from 'electron';
+
+// On Linux in CI/test environment, configure password store to use gnome-libsecret
+// This must be called BEFORE app.whenReady() to take effect
+// Note: Command-line flags like --password-store don't work reliably when Playwright
+// launches Electron with its loader injection. app.commandLine.appendSwitch is the fix.
+if (process.platform === 'linux' && (process.env.CI || process.env.NODE_ENV === 'test')) {
+  app.commandLine.appendSwitch('password-store', 'gnome-libsecret');
+}
 import path from 'path';
 import { autoUpdater } from 'electron-updater';
 import { AppConfig, AppStatus, UpdateState, UpdatePhase, DownloadProgress } from '../shared/types';
@@ -36,7 +44,6 @@ import { createSecretStore } from './nostling/secret-store';
 import { NostlingService } from './nostling/service';
 import { ImageCacheService } from './image-cache/image-cache-service';
 import { registerImageCacheHandlers } from './ipc/image-cache-handlers';
-
 let mainWindow: BrowserWindow | null = null;
 let config: AppConfig = loadConfig();
 setLogLevel(config.logLevel);

@@ -139,7 +139,7 @@ export async function returnFromAbout(page: Page): Promise<void> {
  */
 export async function ensureIdentityExists(page: Page, label = 'Test Identity'): Promise<void> {
   // Check if any identity exists in the sidebar
-  const identityItems = page.locator('.identity-item, [data-testid="identity-item"]');
+  const identityItems = page.locator('[data-testid^="identity-item-"]');
   const count = await identityItems.count();
 
   if (count > 0) {
@@ -149,6 +149,8 @@ export async function ensureIdentityExists(page: Page, label = 'Test Identity'):
   }
 
   // No identity exists, create one
+  // The + button has opacity:0 by default, need to hover the parent first to reveal it
+  await page.locator('[data-testid="identity-list"]').hover();
   // Click the + button to open identity modal
   await page.locator('button[aria-label="Create identity"]').click();
 
@@ -163,4 +165,12 @@ export async function ensureIdentityExists(page: Page, label = 'Test Identity'):
 
   // Wait for modal to close and identity to be created
   await page.waitForSelector('text=Create or Import Identity', { state: 'hidden', timeout: 5000 });
+
+  // Wait for identity item to appear in sidebar
+  await page.waitForSelector('[data-testid^="identity-item-"]', { timeout: 5000 });
+
+  // After identity creation, click on it to select it
+  // Need to re-query since the identity was just created
+  const newIdentity = page.locator('[data-testid^="identity-item-"]').first();
+  await newIdentity.click();
 }

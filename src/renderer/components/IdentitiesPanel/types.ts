@@ -5,6 +5,7 @@
  */
 
 import type { ProfileContent } from '../../../shared/profile-types';
+import type { NostlingIdentity } from '../../../shared/types';
 
 /**
  * Extended profile data including label field
@@ -58,6 +59,11 @@ export interface IdentitiesPanelProps {
    * Currently selected identity ID for editing
    */
   selectedIdentityId: string | null;
+
+  /**
+   * List of identities (passed from parent to share state)
+   */
+  identities: NostlingIdentity[];
 
   /**
    * Callback when user selects different identity

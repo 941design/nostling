@@ -18,27 +18,41 @@ export const test = base.extend<ElectronFixtures>({
     );
     fs.mkdirSync(testDataDir, { recursive: true });
 
-    const launchArgs = [path.join(__dirname, '../dist/main/index.js')];
+    // Build launch args - Electron flags must come BEFORE the main entry script
+    const launchArgs: string[] = [];
 
     // Add flags for Linux CI to handle headless environment
-    if (process.env.CI && process.platform === 'linux') {
+    // These MUST be added before the main entry point
+    const isLinuxCI = process.env.CI && process.platform === 'linux';
+
+    if (isLinuxCI) {
       launchArgs.push(
         '--no-sandbox',              // Avoid chrome-sandbox permission issues
         '--disable-gpu',             // Disable GPU hardware acceleration in headless mode
-        '--disable-dev-shm-usage'    // Use /tmp instead of /dev/shm in containerized environments
+        '--disable-dev-shm-usage',   // Use /tmp instead of /dev/shm in containerized environments
+        '--password-store=gnome-libsecret'  // Use gnome-keyring for secure storage
       );
+    }
+
+    // Main entry script must come AFTER all flags
+    launchArgs.push(path.join(__dirname, '../dist/main/index.js'));
+
+    // Prepare environment variables
+    const launchEnv: Record<string, string> = {
+      ...process.env as Record<string, string>,
+      NODE_ENV: 'test',
+      ELECTRON_DISABLE_SECURITY_WARNINGS: 'true',
+      // Use isolated data directory for this test
+      NOSTLING_DATA_DIR: testDataDir,
+    };
+
+    if (process.env.NOSTLING_DEV_RELAY) {
+      launchEnv.NOSTLING_DEV_RELAY = process.env.NOSTLING_DEV_RELAY;
     }
 
     const electronApp = await electron.launch({
       args: launchArgs,
-      env: {
-        ...process.env,
-        NODE_ENV: 'test',
-        ELECTRON_DISABLE_SECURITY_WARNINGS: 'true',
-        // Use isolated data directory for this test
-        NOSTLING_DATA_DIR: testDataDir,
-        ...(process.env.NOSTLING_DEV_RELAY && { NOSTLING_DEV_RELAY: process.env.NOSTLING_DEV_RELAY }),
-      },
+      env: launchEnv,
     });
 
     await use(electronApp);

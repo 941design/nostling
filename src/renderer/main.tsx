@@ -2396,6 +2396,7 @@ function App({ onThemeChange }: AppProps) {
           ) : currentView === 'identities' ? (
             <IdentitiesPanel
               selectedIdentityId={selectedIdentityId}
+              identities={nostling.identities}
               onSelectIdentity={handleSelectIdentity}
               onCancel={handleReturnToChat}
               onDirtyChange={setIdentitiesPanelDirty}

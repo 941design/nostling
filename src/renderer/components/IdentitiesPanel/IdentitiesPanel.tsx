@@ -120,16 +120,15 @@ import { Box } from '@chakra-ui/react';
 import type { IdentitiesPanelProps, IdentityProfileData } from './types';
 import { SubPanel } from '../SubPanel';
 import { ProfileEditor } from './ProfileEditor';
-import { useNostlingState } from '../../nostling/state';
 
 export function IdentitiesPanel({
   selectedIdentityId,
+  identities,
   onSelectIdentity,
   onCancel,
   onDirtyChange,
 }: IdentitiesPanelProps): React.ReactElement {
   const panelRef = useRef<HTMLDivElement>(null);
-  const { identities } = useNostlingState();
 
   const [originalProfile, setOriginalProfile] = useState<IdentityProfileData | null>(null);
   const [stagedProfile, setStagedProfile] = useState<IdentityProfileData | null>(null);

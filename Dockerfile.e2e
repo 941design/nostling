@@ -40,12 +40,22 @@ RUN apt-get update && apt-get install -y \
     fonts-liberation \
     libappindicator3-1 \
     xdg-utils \
+    # gnome-keyring for Electron safeStorage (secure secret storage)
+    gnome-keyring \
+    dbus-x11 \
+    libcap2-bin \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js 20.x
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
+
+# Remove CAP_IPC_LOCK capability from gnome-keyring-daemon
+# This allows it to run in Docker without --cap-add ipc_lock
+# It will use insecure memory, which is fine for tests
+# See: https://bugzilla.mozilla.org/show_bug.cgi?id=1507012
+RUN setcap -r /usr/bin/gnome-keyring-daemon 2>/dev/null || true
 
 # Set working directory
 WORKDIR /app
@@ -72,6 +82,7 @@ ENV NODE_ENV=test
 
 # Create a startup script for better output visibility
 # Supports TEST_FILE env var for running a single test file
+# Properly initializes gnome-keyring for Electron safeStorage using dbus-run-session
 RUN echo '#!/bin/bash\n\
 set -e\n\
 echo ""\n\
@@ -92,11 +103,45 @@ XVFB_PID=$!\n\
 export DISPLAY=:99\n\
 sleep 2\n\
 echo ""\n\
-if [ -n "$TEST_FILE" ]; then\n\
-  npx playwright test "$TEST_FILE"\n\
-else\n\
-  npm run test:e2e\n\
-fi\n\
+echo "Setting up gnome-keyring for Electron safeStorage..."\n\
+# Create runtime and keyring directories\n\
+mkdir -p /run/user/0\n\
+chmod 700 /run/user/0\n\
+export XDG_RUNTIME_DIR=/run/user/0\n\
+mkdir -p /root/.local/share/keyrings\n\
+echo ""\n\
+# Run tests inside dbus-run-session which provides a proper D-Bus session\n\
+# gnome-keyring-daemon -r -d --unlock: replace, daemonize, and unlock with empty password\n\
+# The entire test suite runs inside this D-Bus session context\n\
+echo "Starting D-Bus session and gnome-keyring..."\n\
+dbus-run-session -- bash -c '\''\n\
+  echo "D-Bus session: $DBUS_SESSION_BUS_ADDRESS"\n\
+  export DBUS_SESSION_BUS_ADDRESS\n\
+  # Step 1: Start daemon with -r -d --unlock to create control socket and set env vars\n\
+  eval $(echo "" | gnome-keyring-daemon -r -d --unlock --components=secrets)\n\
+  export GNOME_KEYRING_CONTROL SSH_AUTH_SOCK\n\
+  echo "Step 1 - Daemon started: GNOME_KEYRING_CONTROL=$GNOME_KEYRING_CONTROL"\n\
+  # Step 2: Register D-Bus services (--start connects to existing daemon via control socket)\n\
+  gnome-keyring-daemon --start --components=secrets 2>&1 || echo "Note: --start returned non-zero (may be ok)"\n\
+  echo "Step 2 - D-Bus registration attempted"\n\
+  echo "Keyring pid: $(pgrep gnome-keyring)"\n\
+  # Verify Secret Service is registered\n\
+  echo "D-Bus services:"\n\
+  dbus-send --session --dest=org.freedesktop.DBus --type=method_call --print-reply /org/freedesktop/DBus org.freedesktop.DBus.ListNames 2>&1 | grep -E "secrets|Secret|keyring" || echo "Warning: No secret-related services found"\n\
+  # Environment check\n\
+  echo "Environment: DBUS=$DBUS_SESSION_BUS_ADDRESS, KEYRING=$GNOME_KEYRING_CONTROL"\n\
+  echo ""\n\
+  # Test Electron safeStorage before running tests\n\
+  echo "Testing Electron safeStorage..."\n\
+  ./node_modules/.bin/electron --no-sandbox --disable-gpu --password-store=gnome-libsecret ./scripts/check-safe-storage.js 2>&1 || echo "safeStorage check failed"\n\
+  echo ""\n\
+  # Run the tests\n\
+  if [ -n "$TEST_FILE" ]; then\n\
+    npx playwright test "$TEST_FILE"\n\
+  else\n\
+    npm run test:e2e\n\
+  fi\n\
+'\''\n\
 TEST_EXIT=$?\n\
 echo ""\n\
 kill $XVFB_PID 2>/dev/null || true\n\

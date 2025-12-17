@@ -150,7 +150,9 @@ class LocalSecretStore implements NostlingSecretStore {
    *   - ✗ Log warnings and continue with insecure storage
    */
   private encode(secret: string): string {
-    if (!safeStorage.isEncryptionAvailable()) {
+    const isAvailable = safeStorage.isEncryptionAvailable();
+
+    if (!isAvailable) {
       throw new SecureStorageUnavailableError(
         'Secure storage is not available. Your system does not have a secure keychain configured. ' +
           'Consider using an external secrets manager like gopass, or set up a system keychain ' +
