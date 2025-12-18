@@ -1,24 +1,15 @@
 * TODO
 
-+ avatar next to each message
-
 + username vs. display name
-+ cache profile images -> doc
 + consolidate documentation
-+ use a config file format that can be commented
++ use a config file format that can be commented (MUST be migrated backwards compatible!!!)
 + on network connection loss during download, resume
 + bug: download status does not update in a timely manner
-+ view and edit profiles
-  + send profile info as wrapped NIP-59 kind:0 event
-  + create unit test to test fan out to all contacts in one wrapped event
 + developer mode where messages can be inspected on double click (modal overlay); requires --dev flag
 + amethyst sent this: `[//]: # (nip18)`
   + examine what message type that was
-+ in header indicate what the main area currently displays: chat with ..., settings, about, etc.
-+ clickable links
 + html/markdown messages
 + backup
-+ is the sidebar width conceptually part of a theme? if so, store it in SQLite DB
 + forbid to add self as contact
 + consider direct link via ipv6
   + status?
@@ -147,6 +138,9 @@
 
 ** [#C]
 
++ is the sidebar width conceptually part of a theme? if so, store it in SQLite DB
++ consider moving sub-header title into header
++ avatar next to each message (where?)
 + navigate to profile view via three dots(?) and/or double click(?)
 + when navigating to about/relay/config/any menu item, deactivate contact. clicking on contact returns to chat
 + highlight/error log if messages are not kind 4

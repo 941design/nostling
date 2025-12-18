@@ -1183,6 +1183,12 @@ The application provides a read-only contacts panel for viewing full contact pro
 - If URLs differ, invalidates old cache entry and fetches new image
 - Ensures cached images always match current URLs
 
+**Known Limitation — No HTTP Revalidation:**
+- Cache uses URL as the sole cache key (no ETag/Last-Modified validation)
+- If remote content changes at the same URL, cached version persists until LRU eviction
+- No TTL-based expiration; images remain cached indefinitely within size limits
+- Workaround: users can manually clear cache or wait for LRU eviction
+
 ### File Structure
 
 **Cache Directory:**
