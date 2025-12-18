@@ -1,8 +1,5 @@
 * TODO
 
-+ omit welcome message
-
-+ show visual indication on copy to clipboard
 + make sidebar width adjustable
 + allow pasting/scanning public key hex as well
 + avatar next to each message

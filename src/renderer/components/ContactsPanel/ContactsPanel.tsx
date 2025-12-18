@@ -6,7 +6,7 @@
  * Fetches full profile data from the database via IPC.
  */
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Box, Text, Link, VStack, HStack, IconButton, Spinner, Input, Heading } from '@chakra-ui/react';
 import { SubPanel } from '../SubPanel';
 import { CachedImage } from '../CachedImage';
@@ -16,15 +16,8 @@ import { NostlingContact } from '../../../shared/types';
 import { ProfileContent } from '../../../shared/profile-types';
 import { QrCodeIcon } from '../qr-icons';
 import { getPreferredDisplayName } from '../../utils/sidebar';
-import { HoverInfoProvider, useHoverInfoProps } from '../HoverInfo';
-
-// Copy icon for the contact profile
-const CopyIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-  </svg>
-);
+import { HoverInfoProvider, useHoverInfoProps, useHoverInfo } from '../HoverInfo';
+import { CopyButton } from '../CopyButton';
 
 // Pencil icon for editing
 const PencilIcon = () => (
@@ -150,7 +143,17 @@ function ContactsPanelInner({ selectedContact, onClose, onShowQr, onRemove, onRe
   // Get hover info props for action buttons
   const removeHoverProps = useHoverInfoProps('Remove this contact from your list');
   const returnHoverProps = useHoverInfoProps('Return to conversation view');
+  const { showInfo, hideInfo } = useHoverInfo();
   const colors = useThemeColors();
+
+  // Handler for copy message that works with the HoverInfo context
+  const handleCopyMessage = useCallback((message: string | null) => {
+    if (message) {
+      showInfo(message);
+    } else {
+      hideInfo();
+    }
+  }, [showInfo, hideInfo]);
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -564,17 +567,17 @@ function ContactsPanelInner({ selectedContact, onClose, onShowQr, onRemove, onRe
                     </Box>
                   )}
                   <Box as="span" display="inline" {...useHoverInfoProps('Copy public key to clipboard')}>
-                    <IconButton
+                    <CopyButton
                       size="xs"
                       variant="ghost"
                       aria-label="Copy npub"
-                      onClick={() => navigator.clipboard.writeText(selectedContact.npub)}
+                      textToCopy={selectedContact.npub}
                       color={colors.textSubtle}
                       _hover={{ color: colors.textMuted }}
                       data-testid="contacts-panel-copy-npub"
-                    >
-                      <CopyIcon />
-                    </IconButton>
+                      copyMessage="npub copied to clipboard"
+                      onCopyMessage={handleCopyMessage}
+                    />
                   </Box>
                 </HStack>
               </Text>

@@ -55,6 +55,7 @@ import { QrCodeDisplayModal } from './components/QrCodeDisplayModal';
 import { CameraIcon, QrCodeIcon } from './components/qr-icons';
 import { AvatarWithBadge } from './components/AvatarWithBadge';
 import { getPreferredDisplayName } from './utils/sidebar';
+import { CopyButton } from './components/CopyButton';
 
 // Simple refresh icon component
 const RefreshIcon = () => (
@@ -619,6 +620,7 @@ function IdentityList({
   unreadCounts,
   newlyArrived,
   disabled,
+  onCopyMessage,
 }: {
   identities: NostlingIdentity[];
   selectedId: string | null;
@@ -629,6 +631,7 @@ function IdentityList({
   unreadCounts?: Record<string, number>;
   newlyArrived?: Set<string>;
   disabled?: boolean;
+  onCopyMessage?: (message: string | null) => void;
 }) {
   const colors = useThemeColors();
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -831,20 +834,17 @@ function IdentityList({
                     >
                       <QrCodeIcon />
                     </IconButton>
-                    <IconButton
+                    <CopyButton
                       size="xs"
                       variant="ghost"
                       aria-label="Copy npub"
                       title="Copy npub to clipboard"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigator.clipboard.writeText(identity.npub);
-                      }}
+                      textToCopy={identity.npub}
                       color={colors.textSubtle}
                       _hover={{ color: colors.textMuted }}
-                    >
-                      <CopyIcon />
-                    </IconButton>
+                      copyMessage="npub copied to clipboard"
+                      onCopyMessage={onCopyMessage}
+                    />
                     <IconButton
                       size="xs"
                       variant="ghost"
@@ -1623,6 +1623,7 @@ function Sidebar({
   isIdentitiesMode,
   isContactsMode,
   identitySelectionDisabled,
+  onCopyMessage,
 }: {
   identities: NostlingIdentity[];
   contacts: Record<string, NostlingContact[]>;
@@ -1645,6 +1646,7 @@ function Sidebar({
   isIdentitiesMode?: boolean;
   isContactsMode?: boolean;
   identitySelectionDisabled?: boolean;
+  onCopyMessage?: (message: string | null) => void;
 }) {
   const colors = useThemeColors();
   const currentContacts = selectedIdentityId ? contacts[selectedIdentityId] || [] : [];
@@ -1690,6 +1692,7 @@ function Sidebar({
             unreadCounts={identityUnreadCounts}
             newlyArrived={newlyArrivedIdentities}
             disabled={identitySelectionDisabled}
+            onCopyMessage={onCopyMessage}
           />
         ) : isContactsMode ? (
           // Contacts mode: show identity list for selection and contact list for contacts view
@@ -1703,6 +1706,7 @@ function Sidebar({
               onRename={onRenameIdentity}
               unreadCounts={identityUnreadCounts}
               newlyArrived={newlyArrivedIdentities}
+              onCopyMessage={onCopyMessage}
             />
             <Separator borderColor={colors.borderSubtle} />
             <ContactList
@@ -1729,6 +1733,7 @@ function Sidebar({
               onRename={onRenameIdentity}
               unreadCounts={identityUnreadCounts}
               newlyArrived={newlyArrivedIdentities}
+              onCopyMessage={onCopyMessage}
             />
             <Separator borderColor={colors.borderSubtle} />
             <ContactList
@@ -2285,6 +2290,7 @@ function App({ onThemeChange }: AppProps) {
           isIdentitiesMode={currentView === 'identities'}
           isContactsMode={currentView === 'contacts'}
           identitySelectionDisabled={identitiesPanelDirty}
+          onCopyMessage={setMessageHoverInfo}
         />
         <Flex as="main" direction="column" flex="1" overflow="hidden" borderWidth="1px" borderColor={colors.border} borderRadius="md" bg={colors.surfaceBgSubtle}>
           {currentView === 'chat' ? (
