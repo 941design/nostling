@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Emoji Picker**: Integrated emoji insertion with accessibility and layout resilience
+  - 26 emojis displayed in a 4×7 grid layout accessible from message input field
+  - Emoji button positioned in bottom-right corner of textarea using relative units (rem)
+  - Click emoji to insert at cursor position, preserving surrounding text
+  - WCAG Level A accessibility compliance with proper ARIA roles and labels
+  - Full keyboard navigation: Arrow keys move focus, Enter/Space selects emoji
+  - Screen reader support with descriptive aria-label for each emoji
+  - Layout resilient positioning prevents overlap with text input
+  - Theme-aware colors adapt to active theme via useThemeColors() hook
+  - Menu pattern with Portal positioning for proper z-index layering
+  - Automatic menu close on emoji selection or outside click
+  - Property-based integration tests: 30 tests covering insertion logic, cursor positioning, keyboard navigation, and accessibility
+  - Total test suite: 1801 tests, all passing with zero regressions
+
 ### Security
 - **Secret Storage Hardening**: Enhanced security for identity secret management
   - Removed plaintext fallback for decryption failures - strict enforcement of OS keychain encryption

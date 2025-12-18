@@ -106,6 +106,11 @@ src/
 │   │   ├── IdentitiesPanel/      # Identity profile editor
 │   │   │   ├── IdentitiesPanel.tsx  # Panel container with state
 │   │   │   └── ProfileEditor.tsx # 8-field profile form
+│   │   ├── EmojiPicker/          # Emoji insertion with accessibility
+│   │   │   ├── EmojiPicker.tsx   # Menu-based emoji grid
+│   │   │   ├── EmojiButton.tsx   # Trigger button component
+│   │   │   ├── useEmojiInsertion.ts # Cursor insertion logic
+│   │   │   └── types.ts          # Emoji set and type definitions
 │   │   ├── QrCodeScanner.tsx     # Camera-based QR scanning
 │   │   └── QrCodeDisplay.tsx     # QR code display modal
 │   ├── themes/     # Theme system
@@ -1349,4 +1354,127 @@ queue.add(() => {
 - **Performance**: LRU caching with bounded disk usage
 - **Concurrency safety**: Serialized operations prevent race conditions
 - **Integration with existing patterns**: Uses Avatar, SubPanel, url-sanitizer, profile enhancement
+- **Zero regressions**: All existing tests continue passing
+
+## Emoji Picker
+
+The emoji picker provides an integrated, accessible way to insert emojis into messages. The component prioritizes accessibility and layout resilience, ensuring compatibility with keyboard navigation, screen readers, and responsive layouts.
+
+### Architecture
+
+**Component Structure:**
+
+1. **EmojiPicker** (`src/renderer/components/EmojiPicker/EmojiPicker.tsx`):
+   - Menu-based dropdown with Portal positioning for proper z-index layering
+   - 4×7 grid layout displaying 26 emojis from ALL_EMOJIS constant
+   - Keyboard navigation with arrow keys (Right/Left/Up/Down)
+   - Enter or Space key to select focused emoji
+   - Automatic menu close on selection or outside click
+
+2. **EmojiButton** (`src/renderer/components/EmojiPicker/EmojiButton.tsx`):
+   - Trigger button displaying emoji icon (😀)
+   - Positioned in bottom-right corner of textarea using relative units (rem)
+   - Theme-aware colors via useThemeColors() hook
+
+3. **useEmojiInsertion** (`src/renderer/components/EmojiPicker/useEmojiInsertion.ts`):
+   - Custom hook managing emoji insertion logic
+   - Inserts emoji at current cursor position
+   - Preserves surrounding text and advances cursor
+   - Handles edge cases (empty input, cursor at start/end)
+
+### Integration Points
+
+**Message Input Integration:**
+- Emoji button overlaid on textarea in ConversationPane
+- Positioned using absolute positioning with pointer-events coordination
+- Outer wrapper: `pointerEvents: none` (allows clicks to pass through to textarea)
+- Inner button: `pointerEvents: auto` (button remains clickable)
+- Button only rendered when identity and contact are selected
+
+**Theme Integration:**
+- All colors sourced from useThemeColors() hook
+- Menu background, borders, hover states adapt to active theme
+- Consistent with existing themed components
+
+### Accessibility
+
+**WCAG Level A Compliance:**
+- Grid has `role="grid"` with `aria-label="Emoji picker grid"`
+- Each emoji button has `role="gridcell"` with descriptive `aria-label="Insert emoji [emoji]"`
+- Keyboard navigation fully functional (arrow keys, Enter, Space)
+- Screen reader support via ARIA labels
+- Focus management with visual focus indicators
+
+**Keyboard Navigation:**
+- Arrow Right: Move focus to next emoji (bounds at grid edge)
+- Arrow Left: Move focus to previous emoji (bounds at grid edge)
+- Arrow Down: Move focus down one row (4 emojis)
+- Arrow Up: Move focus up one row (4 emojis)
+- Enter or Space: Select focused emoji and close menu
+- Tab: Navigate to emoji button from outside
+- Focus state indicated with outline and background color
+
+### Layout Resilience
+
+**Positioning Strategy:**
+- Button positioned using rem units (0.5rem from bottom-right)
+- Avoids fixed pixel positioning for better scaling across viewport sizes
+- Menu uses Portal rendering to prevent z-index conflicts
+- Grid layout uses CSS Grid with responsive gap spacing
+
+**Pointer Events Coordination:**
+- Outer Box wrapper allows clicks to pass through to textarea
+- Inner emoji button remains clickable via `pointerEvents: auto`
+- Prevents blocking text input interactions
+- Button always within textarea bounds
+
+### User Workflow
+
+1. User composes message in textarea with cursor at insertion point
+2. User clicks emoji button (😀) in bottom-right corner
+3. Emoji picker menu opens displaying 26 emojis in grid
+4. User navigates with mouse click or keyboard (arrow keys)
+5. User selects emoji (click or Enter/Space)
+6. Emoji inserted at cursor position, cursor advances
+7. Menu closes automatically
+8. User continues composing message
+
+### Emoji Set
+
+**26 Emojis across mixed categories:**
+- Reactions: 😀 😂 😊 😢 😍 🥰 😎 🤔
+- Gestures: 👍 👋 🙏 ✌️ 👏 💪
+- Symbols: ❤️ ✨ 🔥 💯 ✅ ❌
+- Objects: 🎉 💡 📌 🔔 📝 ✉️
+
+**Storage format:**
+- Emojis stored as standard Unicode characters in message content
+- No custom encoding or special handling
+- Compatible with NostlingMessage interface (content: string)
+- Renders in MessageBubble with existing whiteSpace="pre-wrap" styling
+
+### Testing
+
+**Property-Based Integration Tests:**
+- 30 tests covering insertion logic, cursor positioning, keyboard navigation, and accessibility
+- Fast-check generators for arbitrary text and cursor positions
+- Coverage includes:
+  - Text integrity (before/after cursor preserved)
+  - Cursor position advancement
+  - Sequential emoji insertion
+  - Edge cases (empty text, start/end positions)
+  - Keyboard navigation bounds checking
+  - ARIA role verification
+  - Button positioning properties
+
+**Total test suite:** 1801 tests, all passing with zero regressions
+
+### Design Principles
+
+- **Accessibility-first**: WCAG Level A compliant with full keyboard and screen reader support
+- **Layout resilience**: Uses relative units and pointer-events coordination
+- **Theme-aware**: Colors adapt to active theme via useThemeColors()
+- **Non-intrusive**: Lightweight menu pattern that doesn't interrupt composition flow
+- **Text integrity**: Emoji insertion preserves surrounding content and cursor position
+- **Integration with existing patterns**: Uses Chakra Menu, Portal, theme hooks
 - **Zero regressions**: All existing tests continue passing

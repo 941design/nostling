@@ -11,6 +11,7 @@ A desktop messaging application built on the Nostr protocol with secure auto-upd
 - **Private profile sharing** - Share profile information privately with contacts via NIP-59 encrypted messages
 - **Contacts panel** - View full contact profiles with disk-cached images for offline access
 - **Identity profile editor** - Edit identity profiles with live preview and staged updates
+- **Emoji picker** - Insert emojis into messages with WCAG Level A accessibility, keyboard navigation, and screen reader support
 - **Relay connectivity** - WebSocket connections to Nostr relays with auto-reconnection
 - **Relay management** - Compact table with drag-and-drop reordering, per-relay read/write policies, and live connection status
 - **Offline support** - Queue messages when offline, publish when connectivity restored
@@ -162,6 +163,31 @@ Add contacts by scanning QR codes or share your identity's npub as a scannable Q
 - Performance optimized with 20fps frame rate limiting
 - Automatic camera cleanup and resource management
 - Database constraint prevents duplicate contacts
+
+### Emoji Picker
+
+Insert emojis into messages using an integrated emoji picker with full keyboard and screen reader support.
+
+**To insert an emoji:**
+1. Click the emoji button (😀) in the bottom-right corner of the message input field
+2. Browse the 26 available emojis displayed in a 4×7 grid
+3. Click an emoji to insert it at the current cursor position
+4. The emoji is inserted and the cursor moves to after the inserted emoji
+
+**Keyboard navigation:**
+- Arrow keys move focus between emojis (Right/Left for horizontal, Up/Down for vertical)
+- Enter or Space to select the focused emoji
+- Tab to navigate to the emoji button
+- Click outside the picker to close without selecting
+
+**Accessibility features:**
+- WCAG Level A compliant with proper ARIA roles and labels
+- Full keyboard navigation support
+- Screen reader announces each emoji with descriptive labels
+- Layout resilient positioning using relative units
+- Theme-aware colors that adapt to selected theme
+
+**Available emojis:** 😀 😂 😊 😢 😍 🥰 😎 🤔 👍 👋 🙏 ✌️ 👏 💪 ❤️ ✨ 🔥 💯 ✅ ❌ 🎉 💡 📌 🔔 📝 ✉️
 
 ## Quick Start
 

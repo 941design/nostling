@@ -42,6 +42,7 @@ import { ThemeSelectionPanel, ThemeVariableSliders, ThemeInfo } from './componen
 import { IdentitiesPanel } from './components/IdentitiesPanel';
 import { ContactsPanel } from './components/ContactsPanel/ContactsPanel';
 import { SubPanel } from './components/SubPanel';
+import { EmojiPicker, useEmojiInsertion } from './components/EmojiPicker';
 import { createThemeSystem, getThemeIdForIdentity, getSemanticColors } from './themes/useTheme';
 import { ThemeGenerator, type ThemeGeneratorInput } from './themes/generator';
 import type { ThemeSemanticColors } from './themes/useTheme';
@@ -1196,6 +1197,7 @@ function ConversationPane({
   const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
+  const { insertEmoji, textareaRef } = useEmojiInsertion(draft, setDraft);
 
   const canSend = Boolean(identity && contact && draft.trim().length > 0 && !isSending);
 
@@ -1291,17 +1293,31 @@ function ConversationPane({
 
       <Separator borderColor={colors.border} />
       <Box p="4" bg={colors.surfaceBg}>
-        <Textarea
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Type a message... (Enter to send, Shift+Enter for new line)"
-          resize="vertical"
-          minH="100px"
-          color={colors.text}
-          borderColor={colors.borderSubtle}
-          _placeholder={{ color: colors.textSubtle }}
-        />
+        <Box position="relative">
+          <Textarea
+            ref={textareaRef}
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Type a message... (Enter to send, Shift+Enter for new line)"
+            resize="vertical"
+            minH="100px"
+            color={colors.text}
+            borderColor={colors.borderSubtle}
+            _placeholder={{ color: colors.textSubtle }}
+          />
+          <Box
+            position="absolute"
+            bottom="0.5rem"
+            right="0.5rem"
+            zIndex={1}
+            pointerEvents="none"
+          >
+            <Box pointerEvents="auto">
+              <EmojiPicker onEmojiSelect={insertEmoji} />
+            </Box>
+          </Box>
+        </Box>
         {sendError && (
           <Text color="red.300" fontSize="sm" mt="2">
             {sendError}

@@ -1,47 +1,48 @@
 * TODO
 
-+ cache profile images
-+ use a config file format that can be commented
-+ when hovering over icons, show purpose in footer
-+ sidebar width adjustable
-+ profile view in main panel (three dots)
++ Emojis in messages :: test
++ clickable hyperlinks :: test
 + avatar next to each message
++ navigate to profile view via three dots(?) and/or double click(?)
++ cache profile images -> doc
++ consolidate documentation
++ use a config file format that can be commented
++ make sidebar width adjustable
++ on network connection loss during download, resume
++ bug: download status does not update in a timely manner
 + view and edit profiles
   + send profile info as wrapped NIP-59 kind:0 event
   + create unit test to test fan out to all contacts in one wrapped event
++ developer mode where messages can be inspected on double click (modal overlay); requires --dev flag
++ amethyst sent this: `[//]: # (nip18)`
+  + examine what message type that was
++ in header indicate what the main area currently displays: chat with ..., settings, about, etc.
++ clickable links
++ html/markdown messages
++ backup
++ consider direct link via ipv6
+  + status?
 
-** [#A]
-
-+ amethyst: `[//]: # (nip18)`
-  + developer mode
-    + message meta data
-+ fetch profile name and picture if available
-  + if no profile is available, show alias together with abbreviated npub
-  + exchange profiles wrapped in kind:4 messages
-
-** Profiles
-
-+ new main panel
-
+** TODO [#A] BUG :: uncaught regression when trying to scan a new contact
 ** TODO [#A] Themes
 
++ save custom themes
 + one dark one light each
 + banner image
-+ fonts
++ more fonts
 + theme generator
   + background
   + avatar
   + banner
   + reuse color theme
 + each color theme should provide dark and light variant
-+ preview in main panel
 + cancel/undo/revert/save
 + fonts
   + heading?
   + footer/info
   + contact/identities (headers)
   + messages self/other
-+ fade in and out when switching themes
++ transition when switching themes
 + background colors: 7
   + main panel
   + message cards (2)
@@ -53,8 +54,23 @@
   + matching text colors
   + matching label colors
 + card corner radius
-  
-** TODO [#A] Emojis
+
+⏺ There are 10 background colors in the theme system:
+
+  Layout backgrounds (5):
+  1. appBg - Main application shell
+  2. surfaceBg - Cards, panels, header, footer
+  3. surfaceBgSubtle - Subtle surfaces (hover states)
+  4. surfaceBgSelected - Selected items
+  5. menuBg - Dropdown menus
+
+  Component backgrounds (5):
+  6. buttonPrimaryBg - Primary buttons
+  7. buttonSecondaryBg - Secondary buttons
+  8. buttonDangerBg - Danger buttons
+  9. inputBg - Input fields
+  10. ownBubbleBg - User's outgoing message bubbles
+
 ** Build
 
 + disallow pushing tags on branches other than master
@@ -72,24 +88,28 @@
 
 ** Release
 
-+ do NOT allow release if tests or lint fail!!
-+ compress git history
++ do NOT allow release if test, test-e2e, or lint fails
++ compress git history befor version release
 + compress migrations into one initial migration
 + remove old versions
 + tidy up repo
+  + find obsolete classes/functions
+  + remove code smells
+  + reorganize package layout
+  + remove excess comments
+  + consolidate tests
 + tidy up ~/Library/Application Support/nostling/
-
-** TODO [#A] BUG :: uncaught regression when trying to scan a new contact
-** [#B]
-
-+ use a local nostr relay for testing to reduce load on servers
-+ unhighlight unseen messages if a contact is active.
+  + there may be unnecessary files
 
 ** About
 
++ about/docs/rationale
+  + rationale :: Talk to your friends, and your friends only.
+  + about :: Nostling is an easy to use, privacy focussed chat client. It uses the nostr protocol to create identies and transmit messages. On Nostr you don't need email nor registration on any platform. Create your online identies without permission.
+  + docs :: private vs. public profile, mnemonic backup (portability), private vs. public key, exchanging npubs
+  + technical details :: NIP-59
 + list available versions
-+ release notes
-+ docs
++ release notes of latest version
 + repo
 + version
 + status
@@ -114,25 +134,23 @@
 
 ** Features
 
-+ clickable links
-+ html/markdown messages
-+ search
-+ threads
-+ integrate LLM as plugin
-+ zaps
-+ slash commands, e.g. for payments, avatar generation, etc.
-+ in header indicate what the main area currently displays: chat with ..., settings, about, etc.
-+ TEST :: what happens if two contacts share an alias?
-+ rename identities -> profiles
++ scrollable contact list
 + indicate whether a public profile exists
 + indicate whether a contact is online
-+ scrollable contact list
 + calendar integration/display, ical
++ add bell icon or desktop feedback when messages arrive
++ allow removing identites
++ search in messages
++ threads
++ mcp interface plugin
+  + paid LLM on nostr
++ zaps
++ slash commands, e.g. for payments, avatar generation, etc.
++ TEST :: what happens if two contacts share an alias?
++ rename identities -> profiles
 + hide/delete messages -> "x hidden messages" expand to modal
 + keyboard navigation with arrows and TAB
 + mark new messages as they arrive in main panel (when first displayed, and in visible screen)
-+ add bell icon or desktop feedback when messages arrive
-+ allow removing identites
 + menu
   + identities ?
     + add/remove
@@ -143,8 +161,8 @@
 + contact online status?
   + only practical if listening to all messages sent by a contact. (last seen ... ago)
 + languages (dynamic or pre-generated?)
-+ send on enter/shift enter
-+ consider direct link via ipv6
++ settings
+  + send on enter/shift enter
 + video calls
 + spell checker
 + automatic language conversion
