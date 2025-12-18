@@ -15,6 +15,9 @@ playwright-report
 .git
 .github
 *.log
+scripts/run-e2e-parallel.sh
+scripts/generate-manifest.ts
+scripts/generate-manifest.test.ts
 
 # OS files
 .DS_Store

@@ -2,8 +2,6 @@
 
 + banner and avatar uploads
 
-+ profile editing
-
 + developer mode where messages can be inspected on double click (modal overlay); requires --dev flag
   + highlight/error log if messages are not kind 4
 + allow removing identites
