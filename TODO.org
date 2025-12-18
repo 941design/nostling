@@ -1,12 +1,13 @@
 * TODO
 
-+ username vs. display name
 + omit welcome message
+
 + show visual indication on copy to clipboard
-+ indicate whether a public profile exists lock symbol
 + make sidebar width adjustable
 + allow pasting/scanning public key hex as well
 + avatar next to each message
+
++ username vs. display name
 + cache profile images -> doc
 + consolidate documentation
 + use a config file format that can be commented

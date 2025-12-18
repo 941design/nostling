@@ -73,18 +73,12 @@ describe('NostlingService', () => {
     expect(identities[0].npub).toBe('npub1');
   });
 
-  it('queues a welcome message for new contacts and flushes when online', async () => {
+  it('does not send an automatic welcome message when adding a contact', async () => {
     const identity = await service.createIdentity({ label: 'Sender', nsec: 'secret', npub: 'npub1' });
     const contact = await service.addContact({ identityId: identity.id, npub: 'npub2' });
 
-    let messages = await service.listMessages(identity.id, contact.id);
-    expect(messages).toHaveLength(1);
-    expect(messages[0].status).toBe('queued');
-    expect(messages[0].direction).toBe('outgoing');
-
-    await service.setOnline(true);
-    messages = await service.listMessages(identity.id, contact.id);
-    expect(messages[0].status).toBe('sent');
+    const messages = await service.listMessages(identity.id, contact.id);
+    expect(messages).toHaveLength(0);
   });
 
   it('updates identity labels inline and persists them', async () => {
@@ -181,6 +175,9 @@ describe('NostlingService', () => {
   it('exposes the outgoing queue with status helpers', async () => {
     const identity = await service.createIdentity({ label: 'Sender', nsec: 'secret', npub: 'npub1' });
     const contact = await service.addContact({ identityId: identity.id, npub: 'npub2' });
+
+    // Send a message to populate the queue
+    await service.sendMessage({ identityId: identity.id, contactId: contact.id, plaintext: 'hello' });
 
     let queue = await service.getOutgoingQueue(identity.id);
     expect(queue).toHaveLength(1);

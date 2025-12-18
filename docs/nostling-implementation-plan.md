@@ -35,7 +35,7 @@ This document lists the exact tasks required to start implementing the Nostr cli
 5. **Main-process nostling services**
    - Build a nostr service in the main process responsible for:
      - Managing identities and contacts (create/import, remove, pending/connected transitions).
-     - Handling the handshake flow (welcome message send/receive, mutual connection detection).
+     - Handling mutual connection detection (pending → connected on message receipt).
      - Managing a message queue with offline support and relay publish/subscribe filters (kind 4 only).
      - Enforcing whitelist filtering and discarding unknown senders with logging hooks.
    - Integrate with existing logging and persistence layers.
@@ -75,10 +75,10 @@ This document lists the exact tasks required to start implementing the Nostr cli
 
 12. **Testing and validation**
     - Add unit tests for new services (secret store, nostr service, database migrations) and renderer components where feasible.
-    - Include basic integration/IPC tests to confirm handshake/queue logic and whitelist enforcement.
+    - Include basic integration/IPC tests to confirm connection flow, queue logic, and whitelist enforcement.
     - **Status:** In Progress
     - **Progress:**
-      - Service unit tests implemented (`src/main/nostling/service.test.ts`) covering identity creation, welcome message queueing, pending→connected transitions, whitelist enforcement, decryption failure handling, and relay filter generation.
+      - Service unit tests implemented (`src/main/nostling/service.test.ts`) covering identity creation, pending→connected transitions, whitelist enforcement, decryption failure handling, and relay filter generation.
     - **Gaps:**
       - No UI/component tests for sidebar, messaging pane, or modals.
       - No integration/E2E tests for full flow (identity → contact → message).

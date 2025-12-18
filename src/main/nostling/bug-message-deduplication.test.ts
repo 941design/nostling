@@ -94,10 +94,8 @@ describe('Bug: Message Deduplication on Restart', () => {
     expect(message1).not.toBeNull();
 
     let messages = await service.listMessages(identity.id, contact.id);
-    // Filter out welcome message (queued outgoing message)
-    const incomingMessages = messages.filter(m => m.direction === 'incoming');
-    expect(incomingMessages).toHaveLength(1);
-    expect(incomingMessages[0].eventId).toBe('evt-abc123');
+    expect(messages).toHaveLength(1);
+    expect(messages[0].eventId).toBe('evt-abc123');
 
     // Export database state (simulating persistence)
     const dbExport = database.export();

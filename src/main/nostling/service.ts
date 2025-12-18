@@ -94,15 +94,10 @@ export interface NostlingServiceOptions {
    * Defaults to false to reflect offline-first behavior until explicitly set online.
    */
   online?: boolean;
-  /**
-   * Optional override for the welcome message body used during handshake.
-   */
-  welcomeMessage?: string;
 }
 
 export class NostlingService {
   private online: boolean;
-  private readonly welcomeMessage: string;
   private relayPool: RelayPool | null = null;
   private subscriptions: Map<string, { close: () => void }> = new Map();
   private profileDiscoveryCleanups: Map<string, () => void> = new Map();
@@ -114,7 +109,6 @@ export class NostlingService {
 
   constructor(private readonly database: Database, private readonly secretStore: NostlingSecretStore, configDir: string, options: NostlingServiceOptions = {}) {
     this.online = Boolean(options.online);
-    this.welcomeMessage = options.welcomeMessage || 'nostling:welcome';
     this.relayConfigManager = new RelayConfigManager(configDir);
   }
 
@@ -313,15 +307,6 @@ export class NostlingService {
       );
 
       log('info', `Added nostling contact ${id} for identity ${request.identityId}`);
-
-      // Kick off handshake by sending welcome message
-      await this.enqueueOutgoingMessage({
-        identityId: request.identityId,
-        contactId: id,
-        senderNpub: this.getIdentityNpub(request.identityId),
-        recipientNpub: request.npub,
-        plaintext: this.welcomeMessage,
-      });
 
       // Trigger public profile discovery for the new contact
       // Await completion so the returned contact has profile name populated

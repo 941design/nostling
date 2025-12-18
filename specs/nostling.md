@@ -25,7 +25,7 @@ The design is implementation-agnostic aside from Nostr protocol requirements.
 
 ### Success Metrics
 - Can reliably create/import identities.
-- Mutual connection handshake works without false positives.
+- Mutual connection flow works without false positives.
 - No message from unknown npubs is ever shown to the user.
 - DMs send/receive reliably even under intermittent connectivity.
 - Message history resyncs consistently.
@@ -64,18 +64,18 @@ The design is implementation-agnostic aside from Nostr protocol requirements.
   - Contacts may be removed; removal deletes their message history.
   - Removed contacts must be re-added (re-import npub) to reconnect.
 
-### Connection Model & Handshake
-- A scanning B’s npub produces:
-  - A new contact in A’s sidebar marked `pending`.
-  - A sends a **welcome DM** (kind 4) to B's npub.
-- B sees nothing until B scans A’s npub.
+### Connection Model
+- A scanning B's npub produces:
+  - A new contact in A's sidebar marked `pending`.
+  - A may now send messages to B.
+- B sees nothing until B scans A's npub.
 - When B scans A:
-  - B retrieves the welcome message from A.
-  - B is now `pending` with A and can respond with its own welcome/DM.
-- When A receives B’s message:
-  - Both contacts become `connected`.
-  - UI updates by changing pending indicator and optionally highlighting the contact name.
-- No “decline” or “block”; the system is strictly whitelist-only.
+  - B creates A as a `pending` contact.
+  - B may retrieve any prior messages from A and can respond.
+- When either party receives a message from a `pending` contact:
+  - That contact becomes `connected`.
+  - UI updates by changing pending indicator.
+- No "decline" or "block"; the system is strictly whitelist-only.
 
 ### DM Messaging (Kind 4 Only)
 - Only Nostr kind 4 events are published or subscribed to.
@@ -236,8 +236,8 @@ The design is implementation-agnostic aside from Nostr protocol requirements.
 ### Contact Management
 - Scanning/pasting npub creates pending contact.
 - Pending contact shows indicator.
-- When second party scans first party, welcome message is retrieved.
-- Mutual messaging transitions both sides to connected state.
+- When second party scans first party, any prior messages are retrieved.
+- Receiving a message from a pending contact transitions them to connected state.
 
 ### Messaging
 - Sending offline queues messages with `queued` status.
@@ -274,9 +274,8 @@ The design is implementation-agnostic aside from Nostr protocol requirements.
    - Pending state logic
    - Local aliases
 
-3. **Handshake & DM Basics**
-   - Welcome message flow
-   - Mutual connection detection
+3. **Connection & DM Basics**
+   - Mutual connection detection (pending → connected on message receipt)
    - Conversation rendering
 
 4. **Messaging Engine**

@@ -1183,7 +1183,7 @@ function ConversationPane({
       <Box ref={listRef} px="4" pt="4" pb="2" flex="1" overflowY="auto" className="conversation-messages">
         {messages.length === 0 && (
           <Text color={colors.textSubtle} fontSize="sm">
-            No messages yet. Send a welcome message to start the handshake.
+            No messages yet. Send a message to start the conversation.
           </Text>
         )}
         {(() => {

@@ -8,7 +8,7 @@ The Nostling MVP has complete UI scaffolding and data persistence but lacks actu
 - Enable actual NIP-04 encrypted messaging between users
 - Connect to Nostr relays for publishing and subscribing to events
 - Derive keypairs from nsec for proper identity management
-- Poll relays for incoming messages to complete the handshake flow
+- Poll relays for incoming messages to complete the connection flow
 
 **References:**
 - Parent spec: `specs/nostling.md`
