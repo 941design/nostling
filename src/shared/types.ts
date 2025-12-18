@@ -89,6 +89,7 @@ export interface ConfigApi {
 
 export interface SystemApi {
   getStatus(): Promise<AppStatus>;
+  openExternal(url: string): Promise<void>;
 }
 
 // Persistence Layer: Application state types

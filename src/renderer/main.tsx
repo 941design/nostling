@@ -43,6 +43,7 @@ import { IdentitiesPanel } from './components/IdentitiesPanel';
 import { ContactsPanel } from './components/ContactsPanel/ContactsPanel';
 import { SubPanel } from './components/SubPanel';
 import { EmojiPicker, useEmojiInsertion } from './components/EmojiPicker';
+import { parseMessageContent } from './utils/linkify';
 import { createThemeSystem, getThemeIdForIdentity, getSemanticColors } from './themes/useTheme';
 import { ThemeGenerator, type ThemeGeneratorInput } from './themes/generator';
 import type { ThemeSemanticColors } from './themes/useTheme';
@@ -1137,6 +1138,40 @@ function DateSeparator({ date }: { date: string }) {
   );
 }
 
+function MessageContent({ content, textColor }: { content: string; textColor: string }) {
+  const segments = useMemo(() => parseMessageContent(content), [content]);
+
+  const handleLinkClick = useCallback((e: React.MouseEvent, url: string) => {
+    e.preventDefault();
+    window.api.system.openExternal(url).catch((err) => {
+      console.error('[MessageContent] Failed to open URL:', err);
+    });
+  }, []);
+
+  return (
+    <Text color={textColor} whiteSpace="pre-wrap" fontFamily="body">
+      {segments.map((segment, index) => {
+        if (segment.type === 'link') {
+          return (
+            <Text
+              as="span"
+              key={index}
+              color="blue.400"
+              textDecoration="underline"
+              cursor="pointer"
+              _hover={{ color: 'blue.300' }}
+              onClick={(e) => handleLinkClick(e, segment.url)}
+            >
+              {segment.displayText}
+            </Text>
+          );
+        }
+        return <Fragment key={index}>{segment.content}</Fragment>;
+      })}
+    </Text>
+  );
+}
+
 function MessageBubble({
   message,
   isOwn,
@@ -1169,9 +1204,10 @@ function MessageBubble({
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
       >
-        <Text color={isOwn ? colors.ownBubbleText : colors.text} whiteSpace="pre-wrap" fontFamily="body">
-          {message.content}
-        </Text>
+        <MessageContent
+          content={message.content}
+          textColor={isOwn ? colors.ownBubbleText : colors.text}
+        />
       </Box>
     </HStack>
   );

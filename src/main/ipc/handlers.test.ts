@@ -595,13 +595,13 @@ describe('registerHandlers', () => {
   }
 
   describe('Property: Completeness - all handlers registered', () => {
-    it('should register 13 IPC handlers (10 new + 3 legacy)', () => {
+    it('should register 14 IPC handlers (11 new + 3 legacy)', () => {
       const deps = createMockDependencies();
       registerHandlers(deps);
-      // 10 new handlers: system:get-status, updates:check, updates:download, updates:restart,
+      // 11 new handlers: system:get-status, system:open-external, updates:check, updates:download, updates:restart,
       //                  config:get, config:set, state:get, state:set, state:delete, state:get-all
       // 3 legacy handlers: status:get, update:check, update:restart
-      expect(handlers.size).toBe(13);
+      expect(handlers.size).toBe(14);
     });
 
     it('should register all required channel names', () => {
@@ -633,7 +633,7 @@ describe('registerHandlers', () => {
       const updatesChannels = allChannels.filter((ch) => ch.startsWith('updates:'));
       const configChannels = allChannels.filter((ch) => ch.startsWith('config:'));
 
-      expect(systemChannels).toEqual(['system:get-status']);
+      expect(systemChannels).toEqual(['system:get-status', 'system:open-external']);
       expect(updatesChannels).toContain('updates:check');
       expect(updatesChannels).toContain('updates:download');
       expect(updatesChannels).toContain('updates:restart');
@@ -800,14 +800,14 @@ describe('registerHandlers', () => {
       const deps2 = createMockDependencies();
 
       registerHandlers(deps1);
-      // Updated to reflect 13 handlers (10 new + 3 legacy)
-      expect(mockIpcMain.handle).toHaveBeenCalledTimes(13);
+      // Updated to reflect 14 handlers (11 new + 3 legacy)
+      expect(mockIpcMain.handle).toHaveBeenCalledTimes(14);
 
       handlers.clear();
       registerHandlers(deps2);
-      expect(mockIpcMain.handle).toHaveBeenCalledTimes(26);
+      expect(mockIpcMain.handle).toHaveBeenCalledTimes(28);
 
-      expect(handlers.size).toBe(13);
+      expect(handlers.size).toBe(14);
     });
   });
 
@@ -848,9 +848,10 @@ describe('registerHandlers', () => {
       const deps = createMockDependencies();
       registerHandlers(deps);
 
-      // Updated to reflect 13 handlers (10 new + 3 legacy)
-      expect(handlers.size).toBe(13);
+      // Updated to reflect 14 handlers (11 new + 3 legacy)
+      expect(handlers.size).toBe(14);
       expect(handlers.has('system:get-status')).toBe(true);
+      expect(handlers.has('system:open-external')).toBe(true);
       expect(handlers.has('updates:check')).toBe(true);
       expect(handlers.has('updates:download')).toBe(true);
       expect(handlers.has('updates:restart')).toBe(true);
@@ -902,8 +903,8 @@ describe('registerHandlers', () => {
       const nostlingDeps = createNostlingDependencies();
       registerHandlers({ ...deps, nostling: nostlingDeps });
 
-      // Base handlers plus nostling channels (including retryFailedMessages, rename flows, relay handlers, updateTheme, unread handlers, and profile handlers including getContactProfile)
-      expect(handlers.size).toBe(36);
+      // Base handlers (14) plus nostling channels (including retryFailedMessages, rename flows, relay handlers, updateTheme, unread handlers, and profile handlers including getContactProfile)
+      expect(handlers.size).toBe(37);
       expect(handlers.has('nostling:identities:list')).toBe(true);
       expect(handlers.has('nostling:contacts:add')).toBe(true);
       expect(handlers.has('nostling:messages:send')).toBe(true);

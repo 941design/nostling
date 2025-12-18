@@ -1,7 +1,6 @@
 * TODO
 
-+ Emojis in messages :: test
-+ clickable hyperlinks :: test
++ allow pasting/scanning public key hex as well
 + avatar next to each message
 + navigate to profile view via three dots(?) and/or double click(?)
 + cache profile images -> doc
@@ -70,6 +69,38 @@
   8. buttonDangerBg - Danger buttons
   9. inputBg - Input fields
   10. ownBubbleBg - User's outgoing message bubbles
+
+** TODO [#B] remove legacy handlers
+
+⏺ Legacy handlers are backward-compatibility aliases for older IPC channel names that were used before the codebase was refactored to use
+  a domain-based naming convention.
+
+  Looking at src/main/ipc/handlers.ts:351-370:
+
+  // BUG FIX: Legacy IPC handlers for backward compatibility
+  // Root cause: E2E tests using old API channel names (status:get, update:check, update:restart)
+  ipcMain.handle('status:get', async () => {
+    return dependencies.getStatus();
+  });
+
+  ipcMain.handle('update:check', async () => {
+    return dependencies.checkForUpdates();
+  });
+
+  ipcMain.handle('update:restart', async () => {
+    return dependencies.restartToUpdate();
+  });
+
+  These 3 legacy handlers map to the same functionality as their newer counterparts:
+
+  | Legacy Channel | New Channel       | Function                |
+  |----------------|-------------------|-------------------------|
+  | status:get     | system:get-status | Get app status          |
+  | update:check   | updates:check     | Check for updates       |
+  | update:restart | updates:restart   | Restart to apply update |
+
+  They exist because E2E tests (or possibly older code) were still using the old channel names. Rather than break those tests, the
+  handlers were kept for backward compatibility during a transition period.
 
 ** Build
 

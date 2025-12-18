@@ -5,7 +5,7 @@
  * Replaces flat API structure with nested domains: updates, config, system.
  */
 
-import { ipcMain, BrowserWindow } from 'electron';
+import { ipcMain, BrowserWindow, shell } from 'electron';
 import {
   AddContactRequest,
   AppConfig,
@@ -122,6 +122,21 @@ export function registerHandlers(dependencies: {
   // System domain: status queries
   ipcMain.handle('system:get-status', async () => {
     return dependencies.getStatus();
+  });
+
+  // System domain: open external URL in default browser
+  ipcMain.handle('system:open-external', async (_, url: string) => {
+    // Validate URL scheme - only allow http and https
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        throw new Error(`Blocked URL with unsafe scheme: ${parsed.protocol}`);
+      }
+      await shell.openExternal(url);
+    } catch (error) {
+      console.error('[ipc] Failed to open external URL:', error);
+      throw error;
+    }
   });
 
   // Updates domain: check, download, and restart

@@ -65,6 +65,9 @@ const api: RendererApi = {
     async getStatus() {
       return ipcRenderer.invoke('system:get-status') as Promise<AppStatus>;
     },
+    async openExternal(url: string) {
+      return ipcRenderer.invoke('system:open-external', url) as Promise<void>;
+    },
   },
   state: {
     async get(key: string) {
