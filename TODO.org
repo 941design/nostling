@@ -1,18 +1,22 @@
 * TODO
 
-+ username vs. display name
++ forbid to add self as contact
++ profile editing
+
++ developer mode where messages can be inspected on double click (modal overlay); requires --dev flag
+  + highlight/error log if messages are not kind 4
+
 + consolidate documentation
 + use a config file format that can be commented (MUST be migrated backwards compatible!!!)
 + on network connection loss during download, resume
 + bug: download status does not update in a timely manner
-+ developer mode where messages can be inspected on double click (modal overlay); requires --dev flag
 + amethyst sent this: `[//]: # (nip18)`
   + examine what message type that was
 + html/markdown messages
 + backup
-+ forbid to add self as contact
 + consider direct link via ipv6
   + status?
++ add nostling icon
 
 ** TODO [#A] Themes
 
@@ -138,19 +142,19 @@
 
 ** [#C]
 
++ username vs. display name
 + is the sidebar width conceptually part of a theme? if so, store it in SQLite DB
 + consider moving sub-header title into header
-+ avatar next to each message (where?)
++ avatar next to each message (where? top, left?, own avatar as well)
 + navigate to profile view via three dots(?) and/or double click(?)
 + when navigating to about/relay/config/any menu item, deactivate contact. clicking on contact returns to chat
-+ highlight/error log if messages are not kind 4
 + settings:
   + send with enter, line break with shift-enter
-+ add nostling icon
 + informative messages in footer should time out and disappear
   + consider swapping footer for info region that appears only on demand
   + consider a small, cute svg animation in footer (only an ostrich neck)
-+ generate custom welcome messages in a given language (using llm?)
++ translations (via llm?)
++ generate custom system welcome messages once connection is established
   + the savanna is ours to conquer
   + looking forward to
   + welcome to my flock

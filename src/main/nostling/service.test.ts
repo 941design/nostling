@@ -376,4 +376,22 @@ describe('NostlingService', () => {
     expect(messagesForB.some((m) => m.content === 'Hello Bob!')).toBe(true);
     expect(messagesForA.some((m) => m.content === 'Hello Alice!')).toBe(true);
   });
+
+  it('rejects adding self as contact', async () => {
+    /**
+     * Bug fix: Prevent adding self as contact
+     *
+     * Users should not be able to add their own npub as a contact.
+     * This would create confusing behavior (messaging yourself).
+     */
+    const identity = await service.createIdentity({ label: 'Self Test', nsec: 'secret', npub: 'npub-self' });
+
+    await expect(service.addContact({ identityId: identity.id, npub: 'npub-self' })).rejects.toThrow(
+      'Cannot add yourself as a contact'
+    );
+
+    // Verify no contact was created
+    const contacts = await service.listContacts(identity.id);
+    expect(contacts).toHaveLength(0);
+  });
 });

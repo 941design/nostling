@@ -283,6 +283,12 @@ export class NostlingService {
     return this.withErrorLogging('add contact', async () => {
       this.assertIdentityExists(request.identityId);
 
+      // Prevent adding self as contact
+      const identityNpub = this.getIdentityNpub(request.identityId);
+      if (request.npub === identityNpub) {
+        throw new Error('Cannot add yourself as a contact');
+      }
+
       // Check for existing contact with same identity_id and npub
       const existingStmt = this.database.prepare(
         'SELECT id FROM nostr_contacts WHERE identity_id = ? AND npub = ? AND deleted_at IS NULL'
