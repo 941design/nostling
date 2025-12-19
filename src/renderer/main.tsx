@@ -148,6 +148,13 @@ const InfoIcon = () => (
   </svg>
 );
 
+// Warning icon for deprecated protocol (kind:4)
+const WarningIcon = () => (
+  <svg viewBox="0 0 24 24" width="0.85em" height="0.85em" fill="currentColor">
+    <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z" />
+  </svg>
+);
+
 const initialUpdateState: UpdateState = { phase: 'idle' };
 
 function useStatus() {
@@ -907,6 +914,18 @@ function MessageBubble({
           content={message.content}
           textColor={isOwn ? colors.ownBubbleText : colors.text}
         />
+        {message.kind === 4 && (
+          <Box
+            position="absolute"
+            bottom="2px"
+            left="6px"
+            color="orange.400"
+            title="NIP-04 (deprecated protocol)"
+            data-testid="kind4-warning"
+          >
+            <WarningIcon />
+          </Box>
+        )}
       </Box>
     </HStack>
   );
