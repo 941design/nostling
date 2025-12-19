@@ -54,10 +54,14 @@ const originalLog = console.log;
 const originalWarn = console.warn;
 const originalError = console.error;
 
+// Regex to match application log entries (colored format: "HH:MM:SS.mmm LEVEL message")
+// The ANSI escape codes (\x1b[...) are part of the colored output
+const APP_LOG_PATTERN = /^\x1b\[2m\d{2}:\d{2}:\d{2}\.\d{3}/;
+
 console.log = (...args: unknown[]) => {
   const message = args[0];
-  // Suppress application log entries during tests (they use console.log for log output)
-  if (typeof message === 'string' && message.match(/^\[\d{4}-\d{2}-\d{2}T/)) {
+  // Suppress application log entries during tests (colored format with timestamp)
+  if (typeof message === 'string' && APP_LOG_PATTERN.test(message)) {
     return;
   }
   originalLog.apply(console, args);
@@ -65,6 +69,10 @@ console.log = (...args: unknown[]) => {
 
 console.warn = (...args: unknown[]) => {
   const message = args[0];
+  // Suppress application log entries during tests (colored format with timestamp)
+  if (typeof message === 'string' && APP_LOG_PATTERN.test(message)) {
+    return;
+  }
   if (typeof message === 'string' && message.startsWith('[url-sanitizer]')) {
     return; // Suppress url-sanitizer warnings during tests
   }
@@ -73,8 +81,9 @@ console.warn = (...args: unknown[]) => {
 
 console.error = (...args: unknown[]) => {
   const message = args[0];
-  if (typeof message === 'string' && message.startsWith('Failed to write log')) {
-    return; // Suppress logger errors in tests (Electron app not available)
+  // Suppress application log entries during tests (colored format with timestamp)
+  if (typeof message === 'string' && APP_LOG_PATTERN.test(message)) {
+    return;
   }
   originalError.apply(console, args);
 };

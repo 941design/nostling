@@ -14,13 +14,14 @@ clean: ## Remove build artifacts and dependencies
 install: ## Install dependencies
 	npm install
 
-run-prod: ## Run app in production mode (uses system userData)
-	npm run dev
+run-prod: ## Run app in production mode (uses system userData, log level: debug unless NOSTLING_LOG_LEVEL set)
+	NOSTLING_LOG_LEVEL=$${NOSTLING_LOG_LEVEL:-debug} npm run dev
 
-run-dev: dev-relay-start sign-dev-electron ## Run app in dev mode with local nostr relay
+run-dev: dev-relay-start sign-dev-electron ## Run app in dev mode with local nostr relay (log level: debug unless NOSTLING_LOG_LEVEL set)
 	@mkdir -p /tmp/nostling-dev-data
 	NOSTLING_DATA_DIR=/tmp/nostling-dev-data \
 	NOSTLING_DEV_RELAY=ws://localhost:8080 \
+	NOSTLING_LOG_LEVEL=$${NOSTLING_LOG_LEVEL:-debug} \
 	npm run dev
 
 sign-dev-electron: ## Sign Electron binary for stable keychain access in dev mode (macOS only)

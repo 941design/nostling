@@ -17,6 +17,7 @@ import {
   UpdateState,
 } from '../../shared/types';
 import { SecretDecryptionError, SecureStorageUnavailableError } from '../nostling/secret-store';
+import { log } from '../logging';
 
 /**
  * Structured error response for secret storage failures
@@ -135,7 +136,7 @@ export function registerHandlers(dependencies: {
       }
       await shell.openExternal(url);
     } catch (error) {
-      console.error('[ipc] Failed to open external URL:', error);
+      log('error', `[ipc] Failed to open external URL: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   });

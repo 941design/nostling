@@ -11,6 +11,7 @@
 import { generateSecretKey, getPublicKey, finalizeEvent } from 'nostr-tools/pure';
 import * as nip19 from 'nostr-tools/nip19';
 import * as nip04 from 'nostr-tools/nip04';
+import { log } from '../logging';
 
 // ============================================================================
 // Type Definitions
@@ -337,7 +338,7 @@ export async function decryptMessage(
   try {
     return nip04.decrypt(recipientSecretKey, senderPubkeyHex, ciphertext);
   } catch (error) {
-    console.warn(`Failed to decrypt message from sender ${senderPubkeyHex}:`, error instanceof Error ? error.message : 'unknown error');
+    log('warn', `Failed to decrypt message from sender ${senderPubkeyHex}: ${error instanceof Error ? error.message : 'unknown error'}`);
     return null;
   }
 }

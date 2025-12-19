@@ -100,7 +100,7 @@ export async function handleReceivedWrappedEvent(
   try {
     content = JSON.parse(rumor.content);
   } catch (error) {
-    console.error('Failed to parse profile content as JSON:', error instanceof Error ? error.message : 'unknown error');
+    log('error', `Failed to parse profile content as JSON: ${error instanceof Error ? error.message : 'unknown error'}`);
     return null;
   }
 

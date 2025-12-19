@@ -11,6 +11,7 @@ import { Database } from 'sql.js';
 import { DisplayNameResolution, ProfileRecord, ProfileContent } from '../../shared/profile-types';
 import * as nip19 from 'nostr-tools/nip19';
 import { npubToHex } from './crypto';
+import { log } from '../logging';
 
 // ============================================================================
 // STUB: resolveDisplayName
@@ -124,7 +125,7 @@ export function resolveDisplayName(
       }
     }
   } catch (error) {
-    console.warn(`Failed to query private profile for ${pubkey}:`, error instanceof Error ? error.message : 'unknown error');
+    log('warn', `Failed to query private profile for ${pubkey}: ${error instanceof Error ? error.message : 'unknown error'}`);
   }
 
   // 3. Query public profile (source='public_discovered')
@@ -163,7 +164,7 @@ export function resolveDisplayName(
       }
     }
   } catch (error) {
-    console.warn(`Failed to query public profile for ${pubkey}:`, error instanceof Error ? error.message : 'unknown error');
+    log('warn', `Failed to query public profile for ${pubkey}: ${error instanceof Error ? error.message : 'unknown error'}`);
   }
 
   // 4. Fallback to npub (shortened)
@@ -369,7 +370,7 @@ export function resolveDisplayNameForIdentity(
       }
     }
   } catch (error) {
-    console.warn(`Failed to query private authored profile for ${pubkey}:`, error instanceof Error ? error.message : 'unknown error');
+    log('warn', `Failed to query private authored profile for ${pubkey}: ${error instanceof Error ? error.message : 'unknown error'}`);
   }
 
   // Query public profile (source='public_discovered')
@@ -408,7 +409,7 @@ export function resolveDisplayNameForIdentity(
       }
     }
   } catch (error) {
-    console.warn(`Failed to query public profile for ${pubkey}:`, error instanceof Error ? error.message : 'unknown error');
+    log('warn', `Failed to query public profile for ${pubkey}: ${error instanceof Error ? error.message : 'unknown error'}`);
   }
 
   // Fallback to npub (shortened)
