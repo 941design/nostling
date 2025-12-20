@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **NIP-17/59 Direct Messaging Protocol Upgrade**: Modern encrypted messaging with enhanced privacy
+  - All new outgoing messages use NIP-17 encryption wrapped in NIP-59 gift wrap (kind:1059 events)
+  - Backward compatible: receives both NIP-17/59 (kind:1059/14) and legacy NIP-04 (kind:4) messages
+  - Relay subscriptions updated to include kind:1059 for receiving modern DMs
+  - Legacy NIP-04 messages preserved in database with deprecation indicators
+  - Non-deterministic encryption prevents pattern analysis
+  - Gift wrap structure hides sender/recipient metadata from relays
+  - Property-based tests: 50+ tests covering round-trip encryption, wrong-key handling, and protocol compliance
+  - Total test suite: 2097 tests, all passing with zero regressions
+  - Crypto module: `encryptNip17Message()` and `decryptNip17Message()` functions
+  - Service layer: updated message processing and subscription filters for dual-protocol support
+
 ### Fixed
 - **P2P Connection Resource Exhaustion (Severity 8)**: Batch simultaneous P2P connection attempts to prevent renderer event loop blocking
   - With 50+ contacts, parallel RTCPeerConnection creation blocked event loop

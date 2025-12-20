@@ -453,4 +453,84 @@ describe('NostlingService', () => {
     const messages = await service.listMessages(identity.id, contact.id);
     expect(messages[0].kind).toBeUndefined();
   });
+
+  it('persists and returns wasGiftWrapped for incoming messages', async () => {
+    /**
+     * Gift wrap tracking persistence
+     *
+     * The wasGiftWrapped flag should be stored in the database and returned
+     * when listing messages. This allows UI to show warnings for non-gift-wrapped
+     * messages.
+     */
+    const identity = await service.createIdentity({ label: 'Receiver', nsec: 'secret', npub: 'npub1' });
+    await service.addContact({ identityId: identity.id, npub: 'npub-sender', alias: 'Sender' });
+
+    // Ingest a gift-wrapped message (NIP-17)
+    const giftWrapped = await service.ingestIncomingMessage({
+      identityId: identity.id,
+      senderNpub: 'npub-sender',
+      recipientNpub: 'npub1',
+      content: 'Hello via NIP-17',
+      eventId: 'evt-wrapped',
+      kind: 14,
+      wasGiftWrapped: true,
+    });
+
+    expect(giftWrapped).not.toBeNull();
+    expect(giftWrapped?.wasGiftWrapped).toBe(true);
+
+    // Ingest a non-gift-wrapped message (NIP-04)
+    const notWrapped = await service.ingestIncomingMessage({
+      identityId: identity.id,
+      senderNpub: 'npub-sender',
+      recipientNpub: 'npub1',
+      content: 'Hello via NIP-04',
+      eventId: 'evt-plain',
+      kind: 4,
+      wasGiftWrapped: false,
+    });
+
+    expect(notWrapped).not.toBeNull();
+    expect(notWrapped?.wasGiftWrapped).toBe(false);
+
+    // Verify persistence via listMessages
+    const contact = (await service.listContacts(identity.id))[0];
+    const messages = await service.listMessages(identity.id, contact.id);
+    expect(messages).toHaveLength(2);
+
+    const wrapped = messages.find(m => m.eventId === 'evt-wrapped');
+    const plain = messages.find(m => m.eventId === 'evt-plain');
+
+    expect(wrapped?.wasGiftWrapped).toBe(true);
+    expect(plain?.wasGiftWrapped).toBe(false);
+  });
+
+  it('handles legacy messages without wasGiftWrapped (backwards compatibility)', async () => {
+    /**
+     * Backwards compatibility for legacy messages
+     *
+     * Messages ingested without wasGiftWrapped should have undefined value.
+     * This ensures existing messages in the database are handled correctly.
+     */
+    const identity = await service.createIdentity({ label: 'Legacy', nsec: 'secret', npub: 'npub-legacy' });
+    await service.addContact({ identityId: identity.id, npub: 'npub-old-sender', alias: 'Old Sender' });
+
+    // Ingest a message without specifying wasGiftWrapped (simulating legacy behavior)
+    const incoming = await service.ingestIncomingMessage({
+      identityId: identity.id,
+      senderNpub: 'npub-old-sender',
+      recipientNpub: 'npub-legacy',
+      content: 'Legacy message',
+      eventId: 'evt-legacy-wrap',
+      // No wasGiftWrapped specified
+    });
+
+    expect(incoming).not.toBeNull();
+    expect(incoming?.wasGiftWrapped).toBeUndefined();
+
+    // Verify persistence
+    const contact = (await service.listContacts(identity.id))[0];
+    const messages = await service.listMessages(identity.id, contact.id);
+    expect(messages[0].wasGiftWrapped).toBeUndefined();
+  });
 });

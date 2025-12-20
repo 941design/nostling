@@ -174,6 +174,7 @@ export interface NostlingMessage {
   direction: NostlingMessageDirection;
   isRead: boolean; // Whether the message has been read (always true for outgoing)
   kind?: number; // Nostr event kind (e.g., 4 for DM, 14 for NIP-17). Undefined for legacy messages.
+  wasGiftWrapped?: boolean; // Whether the message was received via NIP-59 gift wrap. Undefined for legacy messages.
 }
 
 export interface NostlingRelayEndpoint {

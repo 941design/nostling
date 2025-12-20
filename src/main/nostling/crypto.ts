@@ -11,6 +11,7 @@
 import { generateSecretKey, getPublicKey, finalizeEvent } from 'nostr-tools/pure';
 import * as nip19 from 'nostr-tools/nip19';
 import * as nip04 from 'nostr-tools/nip04';
+import * as nip17 from 'nostr-tools/nip17';
 import { log } from '../logging';
 
 // ============================================================================
@@ -405,6 +406,159 @@ export function buildKind4Event(
   };
 
   return finalizeEvent(eventTemplate, senderKeypair.secretKey) as NostrEvent;
+}
+
+// ============================================================================
+// CONTRACT: encryptNip17Message
+// ============================================================================
+
+/**
+ * Encrypts a plaintext message using NIP-17 and wraps in NIP-59 gift wrap
+ *
+ * CONTRACT:
+ *   Inputs:
+ *     - plaintext: string, message content to encrypt
+ *       Constraints: non-empty string
+ *     - senderSecretKey: Uint8Array, sender's secret key (32 bytes)
+ *     - recipientPubkeyHex: string, recipient's public key (64 hex characters)
+ *
+ *   Outputs:
+ *     - wrappedEvent: NostrEvent, NIP-59 gift wrap event (kind:1059)
+ *       Contains: encrypted kind:14 DM event inside
+ *
+ *   Invariants:
+ *     - Output event has kind: 1059 (NIP-59 gift wrap)
+ *     - Output event is signed and has valid id
+ *     - Inner content is a kind:14 private direct message (NIP-17)
+ *     - Recipient can unwrap and decrypt to recover plaintext
+ *
+ *   Properties:
+ *     - Round-trip: unwrapNip17Message(encryptNip17Message(m, senderSK, recipientPK), recipientSK) recovers plaintext m
+ *     - Non-deterministic: encrypting same message twice produces different events (random seal keys)
+ *     - Protocol compliance: follows NIP-17 and NIP-59 specifications exactly
+ *
+ *   Algorithm:
+ *     NIP-17/59 Encryption:
+ *     1. Create kind:14 event template:
+ *        - kind: 14
+ *        - content: plaintext message
+ *        - tags: [["p", recipientPubkeyHex]]
+ *        - created_at: current Unix timestamp
+ *     2. Use nostr-tools NIP-17 wrapEvent to encrypt and wrap:
+ *        - Encrypts kind:14 event as a "rumor" (unsigned inner event)
+ *        - Creates NIP-44 encrypted seal
+ *        - Wraps seal in NIP-59 gift wrap (kind:1059)
+ *     3. Return the outer kind:1059 event
+ *
+ *   Implementation Notes:
+ *     Use nostr-tools:
+ *     - Import { wrapEvent } from 'nostr-tools/nip17'
+ *     - Call wrapEvent(senderSecretKey, { publicKey: recipientPubkeyHex }, plaintext)
+ *     - Returns signed kind:1059 event ready for publishing
+ *
+ *   Error Conditions:
+ *     - Invalid recipient public key → throw Error "Invalid recipient public key"
+ *     - Empty plaintext → throw Error "Message content cannot be empty"
+ */
+export function encryptNip17Message(
+  plaintext: string,
+  senderSecretKey: Uint8Array,
+  recipientPubkeyHex: string
+): NostrEvent {
+  if (!plaintext || plaintext.length === 0) {
+    throw new Error('Message content cannot be empty');
+  }
+
+  if (!/^[0-9a-f]{64}$/.test(recipientPubkeyHex)) {
+    throw new Error('Invalid recipient public key');
+  }
+
+  return nip17.wrapEvent(senderSecretKey, { publicKey: recipientPubkeyHex }, plaintext) as NostrEvent;
+}
+
+// ============================================================================
+// CONTRACT: decryptNip17Message
+// ============================================================================
+
+/**
+ * Unwraps NIP-59 gift wrap and decrypts NIP-17 message content
+ *
+ * CONTRACT:
+ *   Inputs:
+ *     - wrappedEvent: NostrEvent, NIP-59 gift wrap event (kind:1059)
+ *       Constraints: valid NIP-59 structure with encrypted seal
+ *     - recipientSecretKey: Uint8Array, recipient's secret key (32 bytes)
+ *
+ *   Outputs:
+ *     - result: object containing:
+ *       * plaintext: string, decrypted message content
+ *       * senderPubkeyHex: string, sender's public key from inner event
+ *       * kind: number, inner event kind (should be 14 for DMs)
+ *       * eventId: string, ID of the inner rumor event
+ *       * timestamp: number, created_at from inner event (Unix timestamp)
+ *     - OR null if decryption fails
+ *
+ *   Invariants:
+ *     - If result is not null, plaintext is non-empty string
+ *     - If result is not null, senderPubkeyHex is 64-character hex string
+ *     - If result is not null, kind equals 14 for DMs
+ *     - Null return indicates decryption failure (wrong key or corrupted data)
+ *
+ *   Properties:
+ *     - Selective success: returns null for invalid/corrupted wraps, not errors
+ *     - Round-trip: decryptNip17Message(encryptNip17Message(m, senderSK, recipientPK), recipientSK).plaintext = m
+ *     - Authenticated: recovered senderPubkeyHex matches original sender
+ *
+ *   Algorithm:
+ *     NIP-17/59 Decryption:
+ *     1. Use nostr-tools NIP-17 unwrapEvent to decrypt:
+ *        - Unwraps kind:1059 gift wrap
+ *        - Decrypts NIP-44 seal
+ *        - Extracts inner rumor (kind:14 event)
+ *     2. Validate inner event is kind:14
+ *     3. Extract plaintext from rumor.content
+ *     4. Extract sender pubkey from rumor.pubkey
+ *     5. Return structured result object
+ *
+ *   Implementation Notes:
+ *     Use nostr-tools:
+ *     - Import { unwrapEvent } from 'nostr-tools/nip17'
+ *     - Call unwrapEvent(wrappedEvent, recipientSecretKey)
+ *     - Returns rumor object with { id, pubkey, created_at, kind, tags, content }
+ *     - Handle decryption errors by returning null
+ *
+ *   Error Conditions:
+ *     - Decryption failure (wrong key, corrupted data) → return null (do not throw)
+ *     - Inner event is not kind:14 → return null (may be other wrapped content)
+ */
+export async function decryptNip17Message(
+  wrappedEvent: NostrEvent,
+  recipientSecretKey: Uint8Array
+): Promise<{
+  plaintext: string;
+  senderPubkeyHex: string;
+  kind: number;
+  eventId: string;
+  timestamp: number;
+} | null> {
+  try {
+    const rumor = nip17.unwrapEvent(wrappedEvent, recipientSecretKey);
+
+    if (!rumor || rumor.kind !== 14) {
+      return null;
+    }
+
+    return {
+      plaintext: rumor.content,
+      senderPubkeyHex: rumor.pubkey,
+      kind: rumor.kind,
+      eventId: rumor.id,
+      timestamp: rumor.created_at
+    };
+  } catch (error) {
+    log('debug', `Failed to unwrap NIP-17 message: ${error instanceof Error ? error.message : 'unknown error'}`);
+    return null;
+  }
 }
 
 // ============================================================================

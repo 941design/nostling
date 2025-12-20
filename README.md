@@ -4,7 +4,7 @@ A desktop messaging application built on the Nostr protocol with secure auto-upd
 
 ## Features
 
-- **Nostr encrypted messaging** with NIP-04 encryption via nostr-tools
+- **Nostr encrypted messaging** with NIP-17/59 encryption (gift-wrapped private messages)
 - **Identity management** - Create/import identities from nsec keys
 - **Contact whitelist** - Only receive messages from known contacts
 - **QR code contact management** - Scan QR codes via camera to add contacts or display identity npub as scannable QR code
@@ -23,6 +23,21 @@ A desktop messaging application built on the Nostr protocol with secure auto-upd
 - **Cross-platform** support for macOS and Linux
 - **Dev mode testing** for validating updates before release
 - Built with Electron 30, React 18, and TypeScript
+
+### Direct Messaging Protocol
+
+All new outgoing direct messages use the modern NIP-17/59 protocol for enhanced privacy and security.
+
+**Protocol details:**
+- Outgoing messages encrypted with NIP-17 and wrapped in NIP-59 gift wrap (kind:1059 events)
+- Backward compatible: receives both NIP-17/59 (modern) and NIP-04 (legacy) messages
+- Legacy NIP-04 messages displayed with deprecation indicator
+- All new messages use the secure NIP-17/59 protocol exclusively
+
+**Privacy improvements over legacy NIP-04:**
+- Non-deterministic encryption prevents pattern analysis
+- Gift wrap structure hides metadata from relays
+- Modern cryptographic primitives for enhanced security
 
 ### Ostrich-Themed Status Messages
 

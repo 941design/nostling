@@ -23,6 +23,8 @@ import {
   encryptMessage,
   decryptMessage,
   buildKind4Event,
+  encryptNip17Message,
+  decryptNip17Message,
   npubToHex,
   hexToNpub,
   isValidNsec,
@@ -78,6 +80,7 @@ interface MessageRow {
   direction: NostlingMessageDirection;
   is_read: boolean;
   kind: number | null;
+  was_gift_wrapped: number | null; // SQLite stores boolean as 0/1
 }
 
 interface NostrKind4Filter extends Filter {
@@ -438,7 +441,7 @@ export class NostlingService {
 
   async listMessages(identityId: string, contactId: string): Promise<NostlingMessage[]> {
     const stmt = this.database.prepare(
-      'SELECT id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read, kind FROM nostr_messages WHERE identity_id = ? AND contact_id = ? ORDER BY timestamp ASC'
+      'SELECT id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read, kind, was_gift_wrapped FROM nostr_messages WHERE identity_id = ? AND contact_id = ? ORDER BY timestamp ASC'
     );
     stmt.bind([identityId, contactId]);
 
@@ -517,6 +520,7 @@ export class NostlingService {
     decryptionFailed?: boolean;
     errorDetail?: string;
     kind?: number;  // Nostr event kind (e.g., 4 for DM)
+    wasGiftWrapped?: boolean;  // Whether message was received via NIP-59 gift wrap
   }): Promise<NostlingMessage | null> {
     return this.withErrorLogging('ingest incoming message', async () => {
       if (options.decryptionFailed) {
@@ -551,7 +555,7 @@ export class NostlingService {
       const id = randomUUID();
 
       this.database.run(
-        'INSERT INTO nostr_messages (id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read, kind) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO nostr_messages (id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read, kind, was_gift_wrapped) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [
           id,
           options.identityId,
@@ -565,6 +569,7 @@ export class NostlingService {
           'incoming',
           0, // Incoming messages start as unread
           options.kind ?? null,
+          options.wasGiftWrapped === undefined ? null : options.wasGiftWrapped ? 1 : 0,
         ]
       );
 
@@ -588,6 +593,7 @@ export class NostlingService {
         direction: 'incoming',
         isRead: false,
         kind: options.kind,
+        wasGiftWrapped: options.wasGiftWrapped,
       };
     });
   }
@@ -599,10 +605,10 @@ export class NostlingService {
   async getOutgoingQueue(identityId?: string): Promise<NostlingMessage[]> {
     const stmt = identityId
       ? this.database.prepare(
-          "SELECT id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read, kind FROM nostr_messages WHERE direction = 'outgoing' AND status IN ('queued', 'sending') AND identity_id = ? ORDER BY timestamp ASC"
+          "SELECT id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read, kind, was_gift_wrapped FROM nostr_messages WHERE direction = 'outgoing' AND status IN ('queued', 'sending') AND identity_id = ? ORDER BY timestamp ASC"
         )
       : this.database.prepare(
-          "SELECT id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read, kind FROM nostr_messages WHERE direction = 'outgoing' AND status IN ('queued', 'sending') ORDER BY timestamp ASC"
+          "SELECT id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read, kind, was_gift_wrapped FROM nostr_messages WHERE direction = 'outgoing' AND status IN ('queued', 'sending') ORDER BY timestamp ASC"
         );
 
     if (identityId) {
@@ -644,7 +650,7 @@ export class NostlingService {
 
     // First, collect the IDs of messages to retry
     const selectStmt = this.database.prepare(
-      `SELECT id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read, kind FROM nostr_messages ${whereClause}`
+      `SELECT id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read, kind, was_gift_wrapped FROM nostr_messages ${whereClause}`
     );
 
     if (identityId) {
@@ -1196,7 +1202,7 @@ export class NostlingService {
       return;
     }
 
-    // Kind 4: Direct message
+    // Kind 4: Direct message (not gift wrapped)
     // Extract sender pubkey
     const senderPubkeyHex = event.pubkey;
     const senderNpub = hexToNpub(senderPubkeyHex);
@@ -1219,6 +1225,7 @@ export class NostlingService {
         timestamp: new Date(event.created_at * 1000).toISOString(),
         decryptionFailed: true,
         kind: event.kind,
+        wasGiftWrapped: false,
       });
       return;
     }
@@ -1232,6 +1239,7 @@ export class NostlingService {
       eventId: event.id,
       timestamp: new Date(event.created_at * 1000).toISOString(),
       kind: event.kind,
+      wasGiftWrapped: false,
     });
   }
 
@@ -1239,6 +1247,7 @@ export class NostlingService {
     const recipientSecretKey = await this.loadSecretKey(identityId);
 
     try {
+      // Try unwrapping as profile first (existing code)
       const profileRecord = await handleReceivedWrappedEvent(event, recipientSecretKey, this.database);
 
       if (profileRecord) {
@@ -1248,9 +1257,34 @@ export class NostlingService {
         for (const callback of this.profileUpdateCallbacks) {
           callback(identityId);
         }
+        return; // Profile handled, done
       }
-      // If profileRecord is null, the wrapped event wasn't a private profile (e.g., different kind)
-      // This is expected and not an error
+
+      // Profile unwrap returned null, try NIP-17 DM unwrap
+      const dmResult = await decryptNip17Message(event, recipientSecretKey);
+
+      if (dmResult && dmResult.kind === 14) {
+        // Successfully unwrapped a NIP-17 DM
+        const senderNpub = hexToNpub(dmResult.senderPubkeyHex);
+        const recipientNpub = this.getIdentityNpub(identityId);
+
+        await this.ingestIncomingMessage({
+          identityId,
+          senderNpub,
+          recipientNpub,
+          content: dmResult.plaintext,
+          eventId: dmResult.eventId,
+          timestamp: new Date(dmResult.timestamp * 1000).toISOString(),
+          kind: 14, // NIP-17 private DM
+          wasGiftWrapped: true,
+        });
+
+        log('info', `Received NIP-17 DM from ${dmResult.senderPubkeyHex.slice(0, 8)}...`);
+        return;
+      }
+
+      // Neither profile nor DM - may be other wrapped content
+      log('debug', `Gift wrap event ${event.id} contained neither profile nor DM`);
     } catch (error) {
       log('warn', `Failed to process gift wrap event ${event.id}: ${this.toErrorMessage(error)}`);
     }
@@ -1296,12 +1330,13 @@ export class NostlingService {
     const now = new Date().toISOString();
     const id = randomUUID();
     const status: NostlingMessageStatus = this.online ? 'sending' : 'queued';
-    const kind = 4; // NIP-04 encrypted direct message
+    const kind = 14; // NIP-17 private direct message (will be wrapped in kind:1059)
+    const wasGiftWrapped = true; // Outgoing messages always use NIP-59 gift wrap
 
     // Store plaintext for display; encryption happens at publish time
     // (The 'ciphertext' column actually stores displayable content)
     this.database.run(
-      'INSERT INTO nostr_messages (id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read, kind) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO nostr_messages (id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read, kind, was_gift_wrapped) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
         id,
         options.identityId,
@@ -1315,6 +1350,7 @@ export class NostlingService {
         'outgoing',
         1, // Outgoing messages are always "read"
         kind,
+        1, // wasGiftWrapped = true (SQLite uses 0/1 for boolean)
       ]
     );
 
@@ -1336,6 +1372,7 @@ export class NostlingService {
       direction: 'outgoing',
       isRead: true,
       kind,
+      wasGiftWrapped,
     };
   }
 
@@ -1353,15 +1390,8 @@ export class NostlingService {
           const senderPubkeyHex = npubToHex(message.senderNpub);
           const recipientPubkeyHex = npubToHex(message.recipientNpub);
 
-          const keypair: NostrKeypair = {
-            npub: message.senderNpub,
-            pubkeyHex: senderPubkeyHex,
-            secretKey: senderSecretKey
-          };
-
-          // Encrypt plaintext on-the-fly for relay publish
-          const ciphertext = await encryptMessage(message.content, senderSecretKey, recipientPubkeyHex);
-          const event = buildKind4Event(ciphertext, keypair, recipientPubkeyHex);
+          // Encrypt and wrap message using NIP-17/59
+          const event = encryptNip17Message(message.content, senderSecretKey, recipientPubkeyHex);
 
           // Publish to relays
           const results = await this.relayPool.publish(event);
@@ -1439,6 +1469,7 @@ export class NostlingService {
       direction: row.direction,
       isRead: Boolean(row.is_read),
       kind: row.kind ?? undefined,
+      wasGiftWrapped: row.was_gift_wrapped === null ? undefined : Boolean(row.was_gift_wrapped),
     };
   }
 
@@ -1502,7 +1533,7 @@ export class NostlingService {
 
   private getOutgoingMessageRow(messageId: string): MessageRow {
     const stmt = this.database.prepare(
-      "SELECT id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read, kind FROM nostr_messages WHERE id = ? AND direction = 'outgoing' LIMIT 1"
+      "SELECT id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read, kind, was_gift_wrapped FROM nostr_messages WHERE id = ? AND direction = 'outgoing' LIMIT 1"
     );
     stmt.bind([messageId]);
     const hasRow = stmt.step();

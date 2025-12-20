@@ -1,9 +1,5 @@
 * TODO
 
-+ use a config file format that can be commented (MUST be migrated backwards compatible!!!)
-  
-+ upgrade protocol to NIP-17
-
 + add desktop feedback when messages arrive and app is not focused/in background
 
 + out-of-band transmission (direct link via ipv6)
