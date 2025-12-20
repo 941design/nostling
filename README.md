@@ -215,19 +215,28 @@ npm run dev
 
 ### macOS
 
-This app is not notarized with Apple. On first launch, macOS will block it.
+This app is not notarized with Apple. On first launch, macOS will show **"Nostling is damaged and can't be opened"** or block it with a security warning. This is normal for unsigned apps.
+
+**Quick fix (recommended):**
+```bash
+xattr -cr /Applications/Nostling.app
+```
+
+**Full installation steps:**
 
 1. Download the `.dmg` from the [latest release](https://github.com/941design/nostling/releases/latest)
 2. Open the DMG and drag `Nostling.app` to **Applications**
-3. Try opening the app (it will fail with a warning)
-4. Go to **System Settings → Privacy & Security**
-5. Find the blocked app message and click **"Allow Anyway"**
-6. Open the app again and click **"Open"**
+3. Open Terminal and run: `xattr -cr /Applications/Nostling.app`
+4. Open the app normally
 
-**Alternative**: Right-click the app → **Open** → **Open**, or run:
-```bash
-xattr -rd com.apple.quarantine /Applications/Nostling.app
-```
+**Alternative (without Terminal):**
+
+1. Try opening the app (it will fail)
+2. Go to **System Settings → Privacy & Security**
+3. Find the blocked app message and click **"Open Anyway"**
+4. Open the app again and click **"Open"**
+
+Or: Right-click the app → **Open** → **Open**
 
 ### Linux
 

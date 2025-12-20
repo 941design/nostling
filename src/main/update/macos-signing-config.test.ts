@@ -1,21 +1,18 @@
 /**
  * Regression test: macOS code signing configuration
  *
- * Bug report: bug-reports/rejected-build-on-macos.md
- * Fixed: 2025-12-20
- * Root cause: CI builds unsigned macOS app without notarization, causing Gatekeeper rejection
+ * Bug report: bug-reports/macos-gatekeeper-warning-unsigned-app.md
+ * Fixed: 2025-12-08
+ * Root cause: electron-builder was signing with ad-hoc signatures, triggering Gatekeeper warnings
  *
- * Protection: Ensures package.json configures hardened runtime and entitlements for proper signing
- *
- * NOTE: This test supersedes previous "identity: null" requirement. Modern macOS requires
- * proper Developer ID signing + notarization, not ad-hoc signing.
+ * Protection: Ensures package.json always specifies identity: null to prevent ad-hoc signing
  */
 
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
 describe('macOS Code Signing Configuration', () => {
-  test('package.json build.mac must enable hardened runtime for notarization', () => {
+  test('package.json build.mac.identity must be null to prevent Gatekeeper warnings', () => {
     // Load package.json from project root
     const packageJsonPath = join(__dirname, '../../../package.json');
     const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
@@ -23,23 +20,17 @@ describe('macOS Code Signing Configuration', () => {
     // Verify electron-builder macOS configuration
     expect(packageJson.build).toBeDefined();
     expect(packageJson.build.mac).toBeDefined();
-    expect(packageJson.build.mac.hardenedRuntime).toBe(true);
+    expect(packageJson.build.mac.identity).toBe(null);
   });
 
-  test('package.json build.mac must specify entitlements for Electron', () => {
+  test('package.json build.mac.identity must be explicitly null (not undefined)', () => {
     const packageJsonPath = join(__dirname, '../../../package.json');
     const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
 
-    // CRITICAL: Entitlements required for Electron to run with hardened runtime
-    expect(packageJson.build.mac.entitlements).toBe('build/entitlements.mac.plist');
-    expect(packageJson.build.mac.entitlementsInherit).toBe('build/entitlements.mac.plist');
-  });
-
-  test('package.json build.mac must disable gatekeeper assessment during build', () => {
-    const packageJsonPath = join(__dirname, '../../../package.json');
-    const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
-
-    // gatekeeperAssess: false prevents build-time validation (CI may not have credentials)
-    expect(packageJson.build.mac.gatekeeperAssess).toBe(false);
+    // CRITICAL: Must be null, not undefined
+    // undefined allows electron-builder to use default ad-hoc signing
+    // null explicitly disables code signing
+    expect(packageJson.build.mac.identity).not.toBeUndefined();
+    expect(packageJson.build.mac.identity).toBeNull();
   });
 });
