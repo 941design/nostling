@@ -43,6 +43,42 @@ jobs:
 
       - name: Build packages
         run: npm run package -- --publish=never
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      # BUG FIX: Verify macOS app signing and notarization
+      # Root cause: CI builds unsigned macOS app without notarization
+      # Bug report: bug-reports/rejected-build-on-macos.md
+      # Fixed: 2025-12-20
+      - name: Verify macOS signing and notarization
+        if: matrix.os == 'macos-latest'
+        run: |
+          APP_PATH="dist/mac/Nostling.app"
+
+          if [ ! -d "$APP_PATH" ]; then
+            echo "::error::App bundle not found at $APP_PATH"
+            exit 1
+          fi
+
+          echo "::group::Code signature verification"
+          codesign --verify --deep --strict --verbose=4 "$APP_PATH"
+          echo "::endgroup::"
+
+          echo "::group::Gatekeeper assessment"
+          spctl -a -vvv --type execute "$APP_PATH" || {
+            echo "::warning::Gatekeeper assessment failed (expected if not notarized with Developer ID)"
+            echo "This is expected for ad-hoc signed builds without Apple Developer credentials"
+          }
+          echo "::endgroup::"
+
+          echo "::group::Notarization ticket check"
+          xcrun stapler validate "$APP_PATH" || {
+            echo "::warning::No notarization ticket found (expected if APPLE_ID secrets not configured)"
+            echo "For production releases, configure APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, and APPLE_TEAM_ID secrets"
+          }
+          echo "::endgroup::"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

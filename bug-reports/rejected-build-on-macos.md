@@ -7,10 +7,17 @@
 - MacBook Pro M1 Max (Apple Silicon)
 - MacBook Pro M4 Max (Apple Silicon)
 - Architecture: arm64
+- macOS Versions: Sequoia (15.x), Tahoe (unreleased/beta)
 - Location: `/Applications/Nostling.app`
 
 ## Expected Behavior
 The application should launch normally after download and installation.
+
+## Reproduction Steps
+1. Download `Nostling.dmg` from GitHub releases
+2. Mount the DMG and drag `Nostling.app` to `/Applications`
+3. Attempt to launch Nostling from Applications folder
+4. Observe: macOS Gatekeeper blocks execution with "damaged/untrusted" message
 
 ## Actual Behavior
 - macOS refuses to launch the app.
@@ -49,10 +56,14 @@ On modern macOS versions, signed-but-not-notarized apps are rejected by Gatekeep
 
 ## Suspected Root Cause
 
-CI pipeline signs the app but:
+GitHub Actions CI pipeline signs the app but:
 
 * Does not notarize the final `.app`/`.dmg`, or
 * Performs post-signing modifications (Electron packaging, framework changes, plist edits, chmod, etc.).
+
+## CI Context
+- **CI System**: GitHub Actions
+- **Distribution Method**: DMG via GitHub releases
 
 ## Recommended Fix
 

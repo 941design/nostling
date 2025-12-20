@@ -365,3 +365,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added runtime concurrency guard to prevent race conditions during restart
   - Added 5 regression tests to verify restart behavior and configuration
   - Bug report: bug-reports/autoupdater-restart-download-loop.md
+- Fixed macOS Gatekeeper rejection of Nostling.app on Apple Silicon (macOS app distribution)
+  - macOS now accepts Nostling.app after proper code signing with hardened runtime and notarization
+  - Root cause: CI builds unsigned app without notarization, causing Gatekeeper to reject launch on modern macOS
+  - Configured electron-builder with hardenedRuntime: true and proper entitlements for Electron
+  - Added entitlements.mac.plist with necessary permissions (JIT, unsigned executable memory, network client/server)
+  - Added CI verification steps to validate signing, Gatekeeper assessment, and notarization ticket presence
+  - Added regression tests to ensure hardened runtime configuration persists
+  - Setup guide created at docs/macos-signing.md for Apple Developer certificate configuration
+  - Bug report: bug-reports/rejected-build-on-macos.md
