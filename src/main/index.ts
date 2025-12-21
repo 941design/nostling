@@ -19,6 +19,8 @@ import { loadConfig, saveConfig } from './config';
 import { checkForDualFormat, logDeprecationWarning } from './config-yaml-migration';
 import { verifyDownloadedUpdate, constructManifestUrl, sanitizeError, fetchManifest } from './integration';
 import { registerHandlers, broadcastUpdateState } from './ipc/handlers';
+import { generateMnemonic, validateMnemonic } from './nostling/mnemonic-crypto';
+import { getMnemonic, hasMnemonic } from './nostling/mnemonic-storage';
 import { downloadUpdate, setupUpdater, GITHUB_OWNER, GITHUB_REPO } from './update/controller';
 import {
   cleanupStaleMounts,
@@ -568,6 +570,11 @@ app.on('ready', async () => {
         getNostlingService().onProfileUpdated(callback);
       },
       retryFailedMessages: (identityId) => getNostlingService().retryFailedMessages(identityId),
+      // Mnemonic operations for BIP39 backup/recovery
+      generateMnemonic: () => generateMnemonic(),
+      validateMnemonic: (mnemonic) => validateMnemonic(mnemonic),
+      getMnemonic: (identityId) => getMnemonic(getNostlingService().getSecretStore(), identityId),
+      hasMnemonic: (identityId) => hasMnemonic(getNostlingService().getSecretStore(), identityId),
     },
   });
   log('info', `Starting Nostling ${app.getVersion()}`);

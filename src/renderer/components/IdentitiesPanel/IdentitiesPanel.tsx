@@ -570,6 +570,7 @@ function IdentitiesPanelInner({
             onChange={handleProfileChange}
             npub={currentNpub}
             onShowQr={onShowQr ? handleShowQr : undefined}
+            identityId={selectedIdentityId || undefined}
           />
         )}
       </Box>

@@ -206,6 +206,8 @@ export interface CreateIdentityRequest {
   nsec?: string; // when importing from secret
   npub?: string; // when creating from external store reference
   secretRef?: string; // optional hint for existing secret storage
+  mnemonic?: string; // when recovering from BIP39 mnemonic (BIP-32/39/44)
+  derivationPath?: string; // BIP-44 derivation path (default: m/44'/1237'/0'/0/0)
   relays?: string[];
   theme?: string; // Theme ID for initial theme selection
 }
@@ -279,5 +281,11 @@ export interface NostlingApi {
     attemptConnection(contactId: string): Promise<import('./p2p-types').P2PAttemptResult>;
     getConnectionStatus(contactId: string): Promise<import('./p2p-types').P2PContactInfo | null>;
     closeConnection(sessionId: string): Promise<void>;
+  };
+  mnemonic: {
+    generate(): Promise<string>; // Generate new BIP39 mnemonic
+    validate(mnemonic: string): Promise<boolean>; // Validate BIP39 mnemonic
+    getMnemonic(identityId: string): Promise<string | null | ApiErrorResponse>; // Retrieve mnemonic for identity
+    hasMnemonic(identityId: string): Promise<boolean>; // Check if identity has mnemonic stored
   };
 }

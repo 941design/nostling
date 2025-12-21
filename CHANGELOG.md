@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **BIP39 Mnemonic Backup & Recovery**: Industry-standard seed phrase support for identity management following NIP-06
+  - **All new identities** now automatically get a 12-word BIP39 mnemonic for backup capability
+  - "Show Recovery Phrase" button in Identity Details (Security section) for viewing backup phrase
+  - Tab switcher in Identity Modal to import via Secret Key (nsec) or Recovery Phrase
+  - Mnemonics securely stored using OS-level encrypted keychain (Electron safeStorage)
+  - Security-first UX: warning dialog before revealing mnemonic, explicit user acknowledgment required
+  - Real-time BIP39 validation with word count indicator and visual feedback
+  - Backward compatible: existing identities without mnemonics show disabled backup button
+  - Derivation path: m/44'/1237'/0'/0/0 (NIP-06 standard)
+  - Property-based tests: 182 tests covering crypto operations, storage, UI components
+  - Components: mnemonic-crypto.ts, mnemonic-storage.ts, MnemonicBackupModal, MnemonicRecoveryInput
+  - Total test suite: 2334 tests, all passing with zero regressions
 - **NIP-17/59 Direct Messaging Protocol Upgrade**: Modern encrypted messaging with enhanced privacy
   - All new outgoing messages use NIP-17 encryption wrapped in NIP-59 gift wrap (kind:1059 events)
   - Backward compatible: receives both NIP-17/59 (kind:1059/14) and legacy NIP-04 (kind:4) messages

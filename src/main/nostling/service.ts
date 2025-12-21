@@ -45,6 +45,17 @@ import { schedulePublicProfileDiscovery, discoverPublicProfile } from './public-
 import { handleReceivedWrappedEvent } from './profile-receiver';
 import { triggerP2PConnectionsOnOnline } from './p2p-service-integration';
 import { BrowserWindow } from 'electron';
+import {
+  generateMnemonic,
+  validateMnemonic,
+  deriveKeypairFromMnemonic,
+  mnemonicToSeed,
+  seedToHex,
+  deriveKeypairFromSeed,
+  validateDerivationPath,
+  DEFAULT_DERIVATION_PATH,
+} from './mnemonic-crypto';
+import { saveSeed } from './mnemonic-storage';
 
 interface IdentityRow {
   id: string;
@@ -118,6 +129,14 @@ export class NostlingService {
     this.relayConfigManager = new RelayConfigManager(configDir);
   }
 
+  /**
+   * Get the secret store for mnemonic operations
+   * Used by mnemonic backup/recovery IPC handlers
+   */
+  getSecretStore(): NostlingSecretStore {
+    return this.secretStore;
+  }
+
   async listIdentities(): Promise<NostlingIdentity[]> {
     const stmt = this.database.prepare(
       'SELECT id, npub, secret_ref, label, relays, theme, created_at FROM nostr_identities ORDER BY created_at ASC'
@@ -156,10 +175,16 @@ export class NostlingService {
 
       let npubToStore: string;
       let secretRef: string;
+      let seedHex: string | undefined;
+
+      // Validate derivation path if provided
+      if (request.derivationPath && !validateDerivationPath(request.derivationPath)) {
+        throw new Error('Invalid derivation path format. Expected BIP-44 format like m/44\'/1237\'/0\'/0/0');
+      }
 
       // Handle different identity creation paths
       if (request.nsec && isValidNsec(request.nsec.trim())) {
-        // Path 1: Valid nsec provided - derive keypair
+        // Path 1: Valid nsec provided - derive keypair (no seed storage)
         const nsec = request.nsec.trim();
         const keypair = deriveKeypair(nsec);
         npubToStore = keypair.npub;
@@ -174,11 +199,29 @@ export class NostlingService {
         // Store the nsec as-is for tests
         npubToStore = request.npub.trim();
         secretRef = await this.secretStore.saveSecret(request.nsec);
-      } else if (!request.npub && !request.nsec) {
-        // Path 4: Generate new keypair
-        const generated = generateKeypair();
-        npubToStore = generated.keypair.npub;
-        secretRef = await this.secretStore.saveSecret(generated.nsec);
+      } else if (request.mnemonic && validateMnemonic(request.mnemonic.trim())) {
+        // Path 4: Mnemonic recovery - derive keypair using BIP-32/39/44
+        // User may specify custom derivation path for recovery from other apps
+        const mnemonic = request.mnemonic.trim();
+        const derivPath = request.derivationPath || DEFAULT_DERIVATION_PATH;
+
+        // Generate seed from mnemonic (BIP-39)
+        const seed = mnemonicToSeed(mnemonic);
+        seedHex = seedToHex(seed);
+
+        // Derive keypair from seed using specified path (BIP-32)
+        const derivation = deriveKeypairFromSeed(seedHex, derivPath);
+        npubToStore = derivation.npub;
+        secretRef = await this.secretStore.saveSecret(derivation.nsec);
+        log('info', `Derived identity from mnemonic using path: ${derivPath}`);
+      } else if (!request.npub && !request.nsec && !request.mnemonic) {
+        // Path 5: Generate new identity using BIP-39 mnemonic for backup capability
+        const generatedMnemonic = generateMnemonic();
+        const derivation = deriveKeypairFromMnemonic(generatedMnemonic);
+        npubToStore = derivation.npub;
+        secretRef = await this.secretStore.saveSecret(derivation.nsec);
+        seedHex = derivation.seedHex;
+        log('info', `Generated new identity using path: ${derivation.derivationPath}`);
       } else {
         throw new Error('Invalid identity creation request: provide valid nsec, or npub+secretRef, or neither to generate');
       }
@@ -197,6 +240,17 @@ export class NostlingService {
         await this.relayConfigManager.saveRelays(id, DEFAULT_RELAYS);
       } catch (error) {
         log('warn', `Failed to initialize relay config for identity ${id}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+
+      // Save seed if available (for backup/recovery capability)
+      // Seeds are stored instead of mnemonics for security (BIP-32/39/44 compliant)
+      if (seedHex) {
+        try {
+          await saveSeed(this.secretStore, id, seedHex);
+          log('info', `Saved seed backup for identity ${id}`);
+        } catch (error) {
+          log('warn', `Failed to save seed for identity ${id}: ${error instanceof Error ? error.message : String(error)}`);
+        }
       }
 
       log('info', `Created nostling identity ${id}`);

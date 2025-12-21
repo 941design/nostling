@@ -6,12 +6,13 @@
  */
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Box, Text, Link, VStack, HStack, IconButton, Input, Textarea, Image } from '@chakra-ui/react';
+import { Box, Text, Link, VStack, HStack, IconButton, Input, Textarea, Image, Button } from '@chakra-ui/react';
 import { CachedImage } from '../CachedImage';
 import { Avatar } from '../Avatar';
 import { useThemeColors } from '../../themes/ThemeContext';
 import { useHoverInfoProps } from '../HoverInfo';
 import { NpubDisplay } from '../NpubDisplay';
+import { MnemonicBackupModal } from '../MnemonicBackup/MnemonicBackupModal';
 import type { IdentityProfileData } from './types';
 
 // Pencil icon for editing
@@ -327,6 +328,8 @@ export interface IdentityProfileViewProps {
   npub?: string;
   /** Callback when user clicks QR code button */
   onShowQr?: () => void;
+  /** The identity ID for accessing mnemonic backup */
+  identityId?: string;
 }
 
 export function IdentityProfileView({
@@ -339,9 +342,57 @@ export function IdentityProfileView({
   onStartEditBanner,
   npub,
   onShowQr,
+  identityId,
 }: IdentityProfileViewProps): React.ReactElement {
   const colors = useThemeColors();
   const [editingField, setEditingField] = useState<FieldKey | null>(null);
+  const [isMnemonicModalOpen, setIsMnemonicModalOpen] = useState(false);
+  const [mnemonic, setMnemonic] = useState<string>('');
+  const [hasMnemonic, setHasMnemonic] = useState(false);
+  const [isMnemonicLoading, setIsMnemonicLoading] = useState(false);
+
+  // Check if mnemonic exists and load it when modal opens
+  const handleShowRecoveryPhrase = useCallback(async () => {
+    if (!identityId) return;
+
+    setIsMnemonicLoading(true);
+    try {
+      const result = await window.api.nostling!.mnemonic.getMnemonic(identityId);
+      if (typeof result === 'string') {
+        setMnemonic(result);
+        setIsMnemonicModalOpen(true);
+      }
+    } catch (err) {
+      console.error('Failed to load mnemonic:', err);
+    } finally {
+      setIsMnemonicLoading(false);
+    }
+  }, [identityId]);
+
+  // Check if mnemonic exists for this identity
+  useEffect(() => {
+    const checkMnemonic = async () => {
+      if (!identityId) {
+        setHasMnemonic(false);
+        return;
+      }
+
+      try {
+        const exists = await window.api.nostling!.mnemonic.hasMnemonic(identityId);
+        setHasMnemonic(exists);
+      } catch (err) {
+        console.error('Failed to check mnemonic:', err);
+        setHasMnemonic(false);
+      }
+    };
+
+    checkMnemonic();
+  }, [identityId]);
+
+  const handleCloseMnemonicModal = useCallback(() => {
+    setIsMnemonicModalOpen(false);
+    setMnemonic('');
+  }, []);
 
   const handleStartEdit = useCallback((field: FieldKey) => {
     if (!disabled) {
@@ -726,6 +777,35 @@ export function IdentityProfileView({
           />
         )}
       </VStack>
+
+      {/* Security Section */}
+      <VStack align="stretch" gap={3} pt={2} borderTopWidth="1px" borderTopColor={colors.borderSubtle}>
+        <Text fontSize="sm" fontWeight="600" color={colors.textMuted}>
+          Security
+        </Text>
+        <Box>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleShowRecoveryPhrase}
+            disabled={!hasMnemonic || disabled || isMnemonicLoading}
+            loading={isMnemonicLoading}
+            data-testid="identity-profile-show-recovery-phrase"
+          >
+            Show Recovery Phrase
+          </Button>
+        </Box>
+      </VStack>
+
+      {/* Mnemonic Backup Modal */}
+      {mnemonic && (
+        <MnemonicBackupModal
+          isOpen={isMnemonicModalOpen}
+          onClose={handleCloseMnemonicModal}
+          mnemonic={mnemonic}
+          identityLabel={displayName}
+        />
+      )}
     </VStack>
   );
 }

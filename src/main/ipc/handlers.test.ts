@@ -908,8 +908,8 @@ describe('registerHandlers', () => {
       const nostlingDeps = createNostlingDependencies();
       registerHandlers({ ...deps, nostling: nostlingDeps });
 
-      // Base handlers (14) plus nostling channels (including retryFailedMessages, rename flows, relay handlers, updateTheme, unread handlers, profile handlers including getContactProfile, and clearContactAlias) + 1 test-only handler in test mode
-      expect(handlers.size).toBe(39);
+      // Base handlers (14) plus nostling channels (including retryFailedMessages, rename flows, relay handlers, updateTheme, unread handlers, profile handlers including getContactProfile, and clearContactAlias) + 4 mnemonic handlers + 1 test-only handler in test mode
+      expect(handlers.size).toBe(43);
       expect(handlers.has('nostling:identities:list')).toBe(true);
       expect(handlers.has('nostling:contacts:add')).toBe(true);
       expect(handlers.has('nostling:messages:send')).toBe(true);

@@ -56,6 +56,11 @@ interface NostlingIpcDependencies {
   getContactProfile: (contactId: string) => Promise<any>;
   updatePrivateProfile: (request: { identityId: string; content: any }) => Promise<any>;
   onProfileUpdated: (callback: (identityId: string) => void) => void;
+  // Mnemonic operations for BIP39 backup/recovery
+  generateMnemonic: () => string;
+  validateMnemonic: (mnemonic: string) => boolean;
+  getMnemonic: (identityId: string) => Promise<string | null>;
+  hasMnemonic: (identityId: string) => Promise<boolean>;
 }
 
 /**
@@ -283,6 +288,31 @@ export function registerHandlers(dependencies: {
     );
     ipcMain.handle('nostling:identities:update-theme', async (_, identityId: string, themeId: string) =>
       dependencies.nostling!.updateIdentityTheme(identityId, themeId)
+    );
+
+    // Mnemonic operations for BIP39 backup/recovery
+    ipcMain.handle('nostling:mnemonic:generate', async () =>
+      dependencies.nostling!.generateMnemonic()
+    );
+    ipcMain.handle('nostling:mnemonic:validate', async (_, mnemonic: string) =>
+      dependencies.nostling!.validateMnemonic(mnemonic)
+    );
+    ipcMain.handle('nostling:identities:get-mnemonic', async (_, identityId: string) => {
+      try {
+        return await dependencies.nostling!.getMnemonic(identityId);
+      } catch (error) {
+        if (error instanceof SecretDecryptionError) {
+          return {
+            success: false,
+            error: 'SECRET_DECRYPTION_FAILED',
+            message: error.message,
+          } as ErrorResponse;
+        }
+        throw error;
+      }
+    });
+    ipcMain.handle('nostling:identities:has-mnemonic', async (_, identityId: string) =>
+      dependencies.nostling!.hasMnemonic(identityId)
     );
 
     // Contacts

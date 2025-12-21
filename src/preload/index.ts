@@ -215,6 +215,20 @@ const api: RendererApi = {
         return ipcRenderer.invoke('nostling:p2p:close-connection', sessionId);
       },
     },
+    mnemonic: {
+      async generate() {
+        return ipcRenderer.invoke('nostling:mnemonic:generate') as Promise<string>;
+      },
+      async validate(mnemonic: string) {
+        return ipcRenderer.invoke('nostling:mnemonic:validate', mnemonic) as Promise<boolean>;
+      },
+      async getMnemonic(identityId: string) {
+        return ipcRenderer.invoke('nostling:identities:get-mnemonic', identityId) as ReturnType<NostlingApi['mnemonic']['getMnemonic']>;
+      },
+      async hasMnemonic(identityId: string) {
+        return ipcRenderer.invoke('nostling:identities:has-mnemonic', identityId) as Promise<boolean>;
+      },
+    },
   },
 };
 

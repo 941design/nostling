@@ -22,6 +22,7 @@ import {
   Menu,
   Portal,
   Separator,
+  Tabs,
 } from '@chakra-ui/react';
 import {
   AppStatus,
@@ -61,6 +62,7 @@ import { CopyButton } from './components/CopyButton';
 import { useSidebarWidth } from './hooks/useSidebarWidth';
 import { ResizeHandle } from './components/ResizeHandle';
 import { SidebarUserItem } from './components/SidebarUserItem';
+import { MnemonicRecoveryInput } from './components/MnemonicBackup/MnemonicRecoveryInput';
 
 // Simple refresh icon component
 const RefreshIcon = () => (
@@ -612,6 +614,9 @@ function NostlingStatusCard({ statusText, queueSummary, lastSync, lastError, onR
 type IdentityFormState = {
   label: string;
   nsec: string;
+  mnemonic: string;
+  derivationPath: string;
+  importMethod: 'nsec' | 'mnemonic';
 };
 
 type ContactFormState = {
@@ -1092,20 +1097,36 @@ function IdentityModal({
   onClose: () => void;
   onSubmit: (values: IdentityFormState) => Promise<void>;
 }) {
-  const [form, setForm] = useState<IdentityFormState>({ label: '', nsec: '' });
+  const [form, setForm] = useState<IdentityFormState>({
+    label: '',
+    nsec: '',
+    mnemonic: '',
+    derivationPath: "m/44'/1237'/0'/0/0",
+    importMethod: 'nsec'
+  });
   const [submitting, setSubmitting] = useState(false);
+  const [mnemonicValid, setMnemonicValid] = useState(false);
   const labelError = form.label.trim().length === 0;
 
+  const isMnemonicMethod = form.importMethod === 'mnemonic';
+  const importInputValid = isMnemonicMethod ? mnemonicValid : !labelError;
+  const canSubmit = !labelError && importInputValid;
+
   const handleSubmit = async () => {
-    if (labelError) return;
+    if (!canSubmit) return;
     setSubmitting(true);
     try {
       await onSubmit(form);
-      setForm({ label: '', nsec: '' });
+      setForm({ label: '', nsec: '', mnemonic: '', derivationPath: "m/44'/1237'/0'/0/0", importMethod: 'nsec' });
       onClose();
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleImportMethodChange = (method: 'nsec' | 'mnemonic') => {
+    setForm((prev) => ({ ...prev, importMethod: method }));
+    setMnemonicValid(false);
   };
 
   return (
@@ -1118,7 +1139,7 @@ function IdentityModal({
           </Dialog.Header>
           <Dialog.CloseTrigger disabled={submitting} />
           <Dialog.Body>
-            <VStack gap="3">
+            <VStack gap="4">
               <Field.Root invalid={labelError} required>
                 <Field.Label>Label</Field.Label>
                 <Input
@@ -1128,14 +1149,34 @@ function IdentityModal({
                 />
                 {labelError && <Field.ErrorText>Label is required.</Field.ErrorText>}
               </Field.Root>
-              <Field.Root>
-                <Field.Label>nsec (optional, for import)</Field.Label>
-                <Input
-                  placeholder="nsec..."
-                  value={form.nsec}
-                  onChange={(event) => setForm((prev) => ({ ...prev, nsec: event.target.value }))}
-                />
-              </Field.Root>
+
+              <Tabs.Root value={form.importMethod} onValueChange={(e) => handleImportMethodChange(e.value as 'nsec' | 'mnemonic')}>
+                <Tabs.List>
+                  <Tabs.Trigger value="nsec">Secret Key (nsec)</Tabs.Trigger>
+                  <Tabs.Trigger value="mnemonic">Recovery Phrase</Tabs.Trigger>
+                </Tabs.List>
+                <Tabs.Content value="nsec">
+                  <Field.Root>
+                    <Field.Label>Secret Key</Field.Label>
+                    <Input
+                      placeholder="nsec... (optional)"
+                      value={form.nsec}
+                      onChange={(event) => setForm((prev) => ({ ...prev, nsec: event.target.value }))}
+                    />
+                    <Field.HelperText>Paste your private key to import an existing identity</Field.HelperText>
+                  </Field.Root>
+                </Tabs.Content>
+                <Tabs.Content value="mnemonic">
+                  <MnemonicRecoveryInput
+                    value={form.mnemonic}
+                    onChange={(mnemonic) => setForm((prev) => ({ ...prev, mnemonic }))}
+                    onValidationChange={setMnemonicValid}
+                    derivationPath={form.derivationPath}
+                    onDerivationPathChange={(derivationPath) => setForm((prev) => ({ ...prev, derivationPath }))}
+                    autoFocus={true}
+                  />
+                </Tabs.Content>
+              </Tabs.Root>
             </VStack>
           </Dialog.Body>
           <Dialog.Footer>
@@ -1143,7 +1184,7 @@ function IdentityModal({
               <Button variant="ghost" onClick={onClose} disabled={submitting}>
                 Cancel
               </Button>
-              <Button colorPalette="blue" onClick={handleSubmit} loading={submitting}>
+              <Button colorPalette="blue" onClick={handleSubmit} loading={submitting} disabled={!canSubmit}>
                 Save
               </Button>
             </HStack>
@@ -1853,7 +1894,15 @@ function App({ onThemeChange }: AppProps) {
   };
 
   const handleCreateIdentity = async (values: IdentityFormState) => {
-    const identity = await nostling.createIdentity({ label: values.label, nsec: values.nsec || undefined });
+    const createRequest = {
+      label: values.label,
+      ...(values.importMethod === 'nsec' && values.nsec ? { nsec: values.nsec } : {}),
+      ...(values.importMethod === 'mnemonic' && values.mnemonic ? {
+        mnemonic: values.mnemonic,
+        derivationPath: values.derivationPath,
+      } : {}),
+    };
+    const identity = await nostling.createIdentity(createRequest);
     if (identity) {
       setSelectedIdentityId(identity.id);
     }
