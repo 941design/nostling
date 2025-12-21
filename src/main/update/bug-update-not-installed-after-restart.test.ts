@@ -88,6 +88,9 @@ describe('Bug Reproduction: Update not installed after restart', () => {
     const mockDevConfig = {
       forceDevUpdateConfig: false,
       allowPrerelease: false,
+      showMessageInfo: false,
+      showWarningIcon: false,
+      enableP2P: false,
     };
 
     // Setup updater (this sets autoInstallOnAppQuit=true)

@@ -12,6 +12,9 @@ export interface DevUpdateConfig {
   forceDevUpdateConfig: boolean;
   devUpdateSource?: string;
   allowPrerelease: boolean;
+  showMessageInfo: boolean;
+  showWarningIcon: boolean;
+  enableP2P: boolean;
 }
 
 /**
@@ -51,22 +54,30 @@ export function isDevMode(): boolean {
  *       - FORCE_DEV_UPDATE_CONFIG: "true" or "false" (optional, defaults to false in production, true in dev if DEV_UPDATE_SOURCE set)
  *       - DEV_UPDATE_SOURCE: URL string (optional, can be GitHub URL or file:// path)
  *       - ALLOW_PRERELEASE: "true" or "false" (optional, defaults to false)
+ *       - NOSTLING_SHOW_MESSAGE_INFO: "true" or "false" (optional, defaults to false)
+ *       - NOSTLING_SHOW_WARNING_ICON: "true" or "false" (optional, defaults to false)
  *
  *   Outputs:
  *     - DevUpdateConfig object with fields:
  *       - forceDevUpdateConfig: boolean
  *       - devUpdateSource: string or undefined
  *       - allowPrerelease: boolean
+ *       - showMessageInfo: boolean
+ *       - showWarningIcon: boolean
  *
  *   Invariants:
  *     - In production mode (isDevMode() = false):
  *       - forceDevUpdateConfig always false (security constraint C1)
  *       - allowPrerelease always false (security constraint C1)
  *       - devUpdateSource always undefined
+ *       - showMessageInfo can be true (non-security-sensitive UI toggle)
+ *       - showWarningIcon can be true (non-security-sensitive UI toggle)
  *     - In dev mode (isDevMode() = true):
  *       - If DEV_UPDATE_SOURCE is set, forceDevUpdateConfig defaults to true
  *       - If FORCE_DEV_UPDATE_CONFIG explicitly set, use that value
  *       - allowPrerelease can be true only in dev mode
+ *       - showMessageInfo can be true (same as production)
+ *       - showWarningIcon can be true (same as production)
  *
  *   Properties:
  *     - Production safety: production builds never enable dev features
@@ -100,18 +111,29 @@ export function getDevUpdateConfig(): DevUpdateConfig {
   // TRIVIAL: Implemented directly
   const devMode = isDevMode();
 
-  // Production safety: always return safe config in production
+  // Parse showMessageInfo and showWarningIcon independently - they're non-security-sensitive UI toggles
+  // that should work in both dev and production builds (for testing purposes)
+  const showMessageInfo = process.env.NOSTLING_SHOW_MESSAGE_INFO?.toLowerCase() === 'true';
+  const showWarningIcon = process.env.NOSTLING_SHOW_WARNING_ICON?.toLowerCase() === 'true';
+  // P2P is disabled by default (production safety) and must be explicitly enabled via env var
+  const enableP2P = process.env.NOSTLING_ENABLE_P2P?.toLowerCase() === 'true';
+
+  // Production safety: always return safe config for security-sensitive settings
   if (!devMode) {
     return {
       forceDevUpdateConfig: false,
       devUpdateSource: undefined,
       allowPrerelease: false,
+      showMessageInfo, // Not security-sensitive, can be enabled via env var
+      showWarningIcon, // Not security-sensitive, can be enabled via env var
+      enableP2P, // Disabled by default, can be enabled via env var
     };
   }
 
   // Dev mode: parse environment variables
   const devUpdateSource = process.env.DEV_UPDATE_SOURCE?.trim() || undefined;
   const allowPrerelease = process.env.ALLOW_PRERELEASE?.toLowerCase() === 'true';
+  // Note: showMessageInfo and showWarningIcon already parsed above (works in both dev and prod modes)
 
   // Determine forceDevUpdateConfig with smart defaults
   let forceDevUpdateConfig = false;
@@ -127,5 +149,8 @@ export function getDevUpdateConfig(): DevUpdateConfig {
     forceDevUpdateConfig,
     devUpdateSource,
     allowPrerelease,
+    showMessageInfo,
+    showWarningIcon,
+    enableP2P,
   };
 }

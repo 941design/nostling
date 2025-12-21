@@ -25,6 +25,7 @@ import {
 import { hexToNpub, deriveKeypair } from '../nostling/crypto';
 import { log } from '../logging';
 import { NostlingSecretStore } from '../nostling/secret-store';
+import { getDevUpdateConfig } from '../dev-env';
 
 /**
  * Dependencies for P2P IPC handlers
@@ -91,6 +92,19 @@ export function registerP2PIpcHandlers(dependencies: P2PIpcDependencies): void {
 
   // Handler: attempt P2P connection
   ipcMain.handle('nostling:p2p:attempt-connection', async (_, contactId: string) => {
+    // Check if P2P is enabled before attempting connection
+    const devConfig = getDevUpdateConfig();
+    if (!devConfig.enableP2P) {
+      log('debug', 'P2P disabled, rejecting connection attempt');
+      return {
+        contactId,
+        sessionId: '',
+        role: 'offerer' as P2PRole,
+        status: 'unavailable',
+        error: 'P2P connections are disabled',
+      } as P2PAttemptResult;
+    }
+
     try {
       const database = dependencies.getDatabase();
       const relayPool = dependencies.getRelayPool();
@@ -222,6 +236,13 @@ export function registerP2PIpcHandlers(dependencies: P2PIpcDependencies): void {
 
   // Handler: signal ready (from renderer)
   ipcMain.handle('nostling:p2p:signal-ready', async (_, signal: P2PLocalSignal) => {
+    // Check if P2P is enabled before processing signals
+    const devConfig = getDevUpdateConfig();
+    if (!devConfig.enableP2P) {
+      log('debug', 'P2P disabled, ignoring signal-ready');
+      return;
+    }
+
     try {
       const database = dependencies.getDatabase();
       const relayPool = dependencies.getRelayPool();

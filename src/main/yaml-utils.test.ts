@@ -224,7 +224,7 @@ describe('yaml-utils', () => {
 
       expect(yaml).toContain('[Dev mode]');
       expect(yaml).toContain('forceDevUpdateConfig: true');
-      expect(yaml).toContain('devUpdateSource: file:///path/to/updates');
+      expect(yaml).toContain('devUpdateSource: "file:///path/to/updates"');
       expect(yaml).toContain('allowPrerelease: true');
 
       const parsed = YAML.parse(yaml);

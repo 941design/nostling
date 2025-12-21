@@ -26,6 +26,18 @@ jest.mock('./crypto', () => ({
   }),
 }));
 
+// Mock dev-env to enable P2P for tests
+jest.mock('../dev-env', () => ({
+  getDevUpdateConfig: jest.fn(() => ({
+    forceDevUpdateConfig: false,
+    devUpdateSource: undefined,
+    allowPrerelease: false,
+    showMessageInfo: false,
+    showWarningIcon: false,
+    enableP2P: true,
+  })),
+}));
+
 describe('P2P Service Integration', () => {
   let mockDatabase: any;
   let mockRelayPool: any;
@@ -518,6 +530,72 @@ describe('P2P Service Integration', () => {
     it('integrateIntoServiceOnline throws helpful error message', () => {
       const { integrateIntoServiceOnline } = require('./p2p-service-integration');
       expect(() => integrateIntoServiceOnline()).toThrow(/triggerP2PConnectionsOnOnline/);
+    });
+  });
+
+  describe('P2P Disabled Mode', () => {
+    const { getDevUpdateConfig } = require('../dev-env') as { getDevUpdateConfig: jest.Mock };
+
+    beforeEach(() => {
+      // Reset mock to default (P2P enabled)
+      getDevUpdateConfig.mockReturnValue({
+        forceDevUpdateConfig: false,
+        devUpdateSource: undefined,
+        allowPrerelease: false,
+        showMessageInfo: false,
+        showWarningIcon: false,
+        enableP2P: true,
+      });
+    });
+
+    it('routeP2PSignal returns early when P2P is disabled', async () => {
+      getDevUpdateConfig.mockReturnValueOnce({
+        forceDevUpdateConfig: false,
+        devUpdateSource: undefined,
+        allowPrerelease: false,
+        showMessageInfo: false,
+        showWarningIcon: false,
+        enableP2P: false,
+      });
+
+      const event = createMockEvent(443);
+      event.content = JSON.stringify({
+        type: 'p2p_offer',
+        v: 1,
+        ts: Math.floor(Date.now() / 1000),
+        nonce: '0'.repeat(32),
+        session_id: 'sess-disabled-test',
+        from_ipv6: '2001:db8::1',
+        sdp: 'v=0\r\no=- ...',
+      });
+
+      // Should not throw and should not process the signal
+      await routeP2PSignal(mockDatabase, mockRelayPool, createMockKeypair(), 'sender-hex', event, mockMainWindow);
+
+      // Verify no database operations occurred (signal was ignored)
+      expect(mockDatabase.exec).not.toHaveBeenCalled();
+    });
+
+    it('triggerP2PConnectionsOnOnline returns early when P2P is disabled', async () => {
+      getDevUpdateConfig.mockReturnValueOnce({
+        forceDevUpdateConfig: false,
+        devUpdateSource: undefined,
+        allowPrerelease: false,
+        showMessageInfo: false,
+        showWarningIcon: false,
+        enableP2P: false,
+      });
+
+      await triggerP2PConnectionsOnOnline(
+        mockDatabase,
+        mockRelayPool,
+        'identity-hex',
+        createMockKeypair(),
+        mockMainWindow
+      );
+
+      // Verify no database operations occurred (connections were skipped)
+      expect(mockDatabase.exec).not.toHaveBeenCalled();
     });
   });
 });

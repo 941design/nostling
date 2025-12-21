@@ -91,6 +91,9 @@ jest.mock('./dev-env', () => ({
     forceDevUpdateConfig: false,
     devUpdateSource: undefined,
     allowPrerelease: false,
+    showMessageInfo: false,
+    showWarningIcon: false,
+    enableP2P: false,
   })),
 }));
 
@@ -691,6 +694,9 @@ describe('TR3: Production Safety Regression Test', () => {
       forceDevUpdateConfig: false,
       devUpdateSource: undefined,
       allowPrerelease: false,
+      showMessageInfo: false,
+      showWarningIcon: false,
+      enableP2P: false,
     });
 
     // Verify isDevMode correctly identifies production

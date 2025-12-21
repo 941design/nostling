@@ -82,6 +82,9 @@ jest.mock('./dev-env', () => ({
     forceDevUpdateConfig: false,
     devUpdateSource: undefined,
     allowPrerelease: false,
+    showMessageInfo: false,
+    showWarningIcon: false,
+    enableP2P: false,
   })),
 }));
 

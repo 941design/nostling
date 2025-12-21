@@ -103,6 +103,8 @@ run_test() {
         -e FORCE_COLOR=1 \
         -e NOSTLING_DATA_DIR=/tmp/nostling-e2e-data \
         -e NOSTLING_DEV_RELAY=ws://$RELAY_CONTAINER:8080 \
+        -e NOSTLING_SHOW_MESSAGE_INFO=true \
+        -e NOSTLING_SHOW_WARNING_ICON=true \
         -e TEST_FILE="$test_file" \
         -v "$result_dir:/app/test-results" \
         "$IMAGE_NAME" \

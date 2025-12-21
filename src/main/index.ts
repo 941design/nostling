@@ -194,12 +194,14 @@ function setupAutoUpdater() {
 
 // Helper functions for IPC handlers
 async function getStatus(): Promise<AppStatus> {
+  const devConfig = getDevUpdateConfig();
   return {
     version: app.getVersion(),
     platform: process.platform,
     lastUpdateCheck,
     updateState,
     logs: getRecentLogs(),
+    p2pEnabled: devConfig.enableP2P,
   };
 }
 
@@ -580,6 +582,9 @@ app.on('ready', async () => {
   });
   log('info', `Starting Nostling ${app.getVersion()}`);
   config = loadConfig();
+  // Apply dev mode overrides for showMessageInfo and showWarningIcon
+  const devConfig = getDevUpdateConfig();
+  config = { ...config, showMessageInfo: devConfig.showMessageInfo, showWarningIcon: devConfig.showWarningIcon };
   setLogLevel(config.logLevel);
   createWindow();
 

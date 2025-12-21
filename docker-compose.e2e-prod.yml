@@ -1,7 +1,7 @@
 services:
   nostr-relay:
     image: scsibug/nostr-rs-relay:latest
-    container_name: nostling-e2e-relay
+    container_name: nostling-e2e-prod-relay
     ports:
       - "8080:8080"
     volumes:
@@ -12,7 +12,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.e2e
-    container_name: nostling-e2e-test
+    container_name: nostling-e2e-prod-test
     depends_on:
       - nostr-relay
     volumes:
@@ -25,10 +25,9 @@ services:
       - FORCE_COLOR=1
       - NOSTLING_DATA_DIR=/tmp/nostling-e2e-data
       - NOSTLING_DEV_RELAY=ws://nostr-relay:8080
-      - NOSTLING_SHOW_MESSAGE_INFO=true
-      - NOSTLING_SHOW_WARNING_ICON=true
-      - NOSTLING_ENABLE_P2P=true
-      - TEST_FILE=${TEST_FILE:-}
+      # Note: NOSTLING_SHOW_MESSAGE_INFO and NOSTLING_SHOW_WARNING_ICON are NOT set here (uses default: false)
+      # This tests production-like behavior where dev flags are disabled
+      - TEST_FILE=${TEST_FILE:-e2e/prod}
     # Allocate sufficient shared memory for Chromium
     shm_size: '2gb'
     # Show output in real-time

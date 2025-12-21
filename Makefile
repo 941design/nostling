@@ -1,4 +1,4 @@
-.PHONY: help clean install build test lint lint-fix lint-all package release sign-manifest test-e2e test-e2e-serial test-e2e-file test-e2e-native test-e2e-ui test-e2e-headed test-e2e-debug test-e2e-clean test-all dev-update-release dev-update-prerelease dev-update-local local-release local-release-clean test-version-upgrade version-patch version-minor version-major install-hooks run-prod run-dev dev-relay-start dev-relay-stop dev-relay-logs dev-relay-clean dev-main dev-preload dev-renderer
+.PHONY: help clean install build test lint lint-fix lint-all package release sign-manifest test-e2e test-e2e-serial test-e2e-file test-e2e-native test-e2e-ui test-e2e-headed test-e2e-debug test-e2e-clean test-e2e-prod test-all dev-update-release dev-update-prerelease dev-update-local local-release local-release-clean test-version-upgrade version-patch version-minor version-major install-hooks run-prod run-dev dev-relay-start dev-relay-stop dev-relay-logs dev-relay-clean dev-main dev-preload dev-renderer
 
 .DEFAULT_GOAL := help
 
@@ -21,6 +21,9 @@ run-dev: dev-relay-start sign-dev-electron ## Run app in dev mode with local nos
 	@mkdir -p /tmp/nostling-dev-data
 	NOSTLING_DATA_DIR=/tmp/nostling-dev-data \
 	NOSTLING_DEV_RELAY=ws://localhost:8080 \
+	NOSTLING_SHOW_MESSAGE_INFO=true \
+	NOSTLING_SHOW_WARNING_ICON=true \
+	NOSTLING_ENABLE_P2P=true \
 	NOSTLING_LOG_LEVEL=$${NOSTLING_LOG_LEVEL:-debug} \
 	npm run dev
 
@@ -148,6 +151,9 @@ test-e2e-debug: ## Debug E2E tests with Playwright Inspector
 
 test-e2e-clean: ## Clean up Docker resources and test artifacts
 	npm run test:e2e:docker:clean
+
+test-e2e-prod: ## Run E2E tests in production-like mode (no dev flags)
+	docker-compose -f docker-compose.e2e-prod.yml up --build --abort-on-container-exit
 
 test-all: test test-e2e ## Run all tests (unit + E2E)
 	@echo "All tests completed!"

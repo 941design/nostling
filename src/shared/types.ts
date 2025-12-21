@@ -17,6 +17,8 @@ export interface AppConfig {
   forceDevUpdateConfig?: boolean; // Dev mode: force update checks in unpacked app
   devUpdateSource?: string; // Dev mode: custom update source (GitHub URL or local file://)
   allowPrerelease?: boolean; // Dev mode: allow pre-release versions
+  showMessageInfo?: boolean; // Dev mode: show message info button on message bubbles
+  showWarningIcon?: boolean; // Dev mode: show warning icon for non-gift-wrapped messages
 }
 
 export interface AppStatus {
@@ -25,6 +27,7 @@ export interface AppStatus {
   lastUpdateCheck?: string;
   updateState: UpdateState;
   logs: LogEntry[];
+  p2pEnabled?: boolean; // Dev mode: whether P2P connections are enabled
 }
 
 export interface LogEntry {

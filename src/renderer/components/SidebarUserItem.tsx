@@ -56,6 +56,8 @@ export interface SidebarUserItemProps {
   moreButtonTitle?: string;
   /** P2P connection status (only for contacts) */
   p2pStatus?: P2PConnectionStatus;
+  /** Whether P2P is enabled (dev mode only) */
+  p2pEnabled?: boolean;
 }
 
 export function SidebarUserItem({
@@ -76,6 +78,7 @@ export function SidebarUserItem({
   moreButtonLabel = 'More options',
   moreButtonTitle = 'More options',
   p2pStatus,
+  p2pEnabled,
 }: SidebarUserItemProps): React.ReactElement {
   const colors = useThemeColors();
 
@@ -105,7 +108,7 @@ export function SidebarUserItem({
       position="relative"
     >
       {/* P2P connection status indicator - positioned to overlap container border */}
-      {testIdPrefix === 'contact' && (
+      {testIdPrefix === 'contact' && p2pEnabled && (
         <Box
           position="absolute"
           top="-5px"

@@ -56,6 +56,9 @@ describe('Regression: Auto-update 404 error (FIXED)', () => {
     const mockDevConfig = {
       forceDevUpdateConfig: false,
       allowPrerelease: false,
+      showMessageInfo: false,
+      showWarningIcon: false,
+      enableP2P: false,
     };
 
     // Call setupUpdater
@@ -87,6 +90,9 @@ describe('Regression: Auto-update 404 error (FIXED)', () => {
     const mockDevConfig = {
       forceDevUpdateConfig: false,
       allowPrerelease: false,
+      showMessageInfo: false,
+      showWarningIcon: false,
+      enableP2P: false,
     };
 
     // Set different version

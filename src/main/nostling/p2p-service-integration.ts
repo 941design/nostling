@@ -10,6 +10,7 @@ import { Database } from 'sql.js';
 import { RelayPool } from './relay-pool';
 import { NostrEvent, NostrKeypair, npubToHex } from './crypto';
 import { log } from '../logging';
+import { getDevUpdateConfig } from '../dev-env';
 import { BrowserWindow } from 'electron';
 import {
   attemptP2PConnection,
@@ -87,6 +88,13 @@ export async function routeP2PSignal(
   innerEvent: NostrEvent,
   mainWindow: BrowserWindow | null
 ): Promise<void> {
+  // Check if P2P is enabled before processing incoming signals
+  const devConfig = getDevUpdateConfig();
+  if (!devConfig.enableP2P) {
+    log('debug', 'P2P disabled, ignoring incoming P2P signal');
+    return;
+  }
+
   const signal = parseP2PSignal(innerEvent, senderPubkeyHex, database);
 
   if (!signal) {
@@ -169,6 +177,13 @@ export async function triggerP2PConnectionsOnOnline(
   identityKeypair: NostrKeypair,
   mainWindow: BrowserWindow | null
 ): Promise<void> {
+  // Check if P2P is enabled before attempting connections
+  const devConfig = getDevUpdateConfig();
+  if (!devConfig.enableP2P) {
+    log('debug', 'P2P disabled, skipping P2P connection attempts');
+    return;
+  }
+
   // Query all identities to find the one matching this pubkey
   const allIdentityResults = database.exec('SELECT id, npub FROM nostr_identities');
 

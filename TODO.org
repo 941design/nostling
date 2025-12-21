@@ -1,5 +1,7 @@
 * TODO
 
++ consider browser based application
+
 + add playwright mcp
 
 + bug :: messages received before a contact was added should be fetched displayed as well when a contact is added.

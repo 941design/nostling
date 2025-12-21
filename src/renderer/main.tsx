@@ -726,6 +726,7 @@ function ContactList({
   unreadCounts,
   newlyArrived,
   p2pStatuses,
+  p2pEnabled,
 }: {
   contacts: NostlingContact[];
   selectedId: string | null;
@@ -736,6 +737,7 @@ function ContactList({
   unreadCounts?: Record<string, number>;
   newlyArrived?: Set<string>;
   p2pStatuses?: Record<string, P2PConnectionStatus>;
+  p2pEnabled?: boolean;
 }) {
   const colors = useThemeColors();
 
@@ -801,6 +803,7 @@ function ContactList({
               moreButtonLabel="View contact profile"
               moreButtonTitle="View contact profile"
               p2pStatus={p2pStatuses?.[contact.id]}
+              p2pEnabled={p2pEnabled}
             />
           );
         })}
@@ -862,12 +865,14 @@ function MessageBubble({
   onMouseEnter,
   onMouseLeave,
   onInfoClick,
+  showWarningIcon,
 }: {
   message: NostlingMessage;
   isOwn: boolean;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
   onInfoClick?: () => void;
+  showWarningIcon?: boolean;
 }) {
   const colors = useThemeColors();
   const [isHovered, setIsHovered] = useState(false);
@@ -923,7 +928,7 @@ function MessageBubble({
           content={message.content}
           textColor={isOwn ? colors.ownBubbleText : colors.text}
         />
-        {(message.wasGiftWrapped === false || (message.wasGiftWrapped === undefined && message.kind === 4)) && (
+        {showWarningIcon && (message.wasGiftWrapped === false || (message.wasGiftWrapped === undefined && message.kind === 4)) && (
           <Box
             position="absolute"
             top="-8px"
@@ -959,8 +964,18 @@ function ConversationPane({
   const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [infoModalMessage, setInfoModalMessage] = useState<NostlingMessage | null>(null);
+  const [showMessageInfo, setShowMessageInfo] = useState(false);
+  const [showWarningIcon, setShowWarningIcon] = useState(false);
   const listRef = useRef<HTMLDivElement | null>(null);
   const { insertEmoji, textareaRef } = useEmojiInsertion(draft, setDraft);
+
+  // Fetch showMessageInfo and showWarningIcon config settings on mount
+  useEffect(() => {
+    window.api?.config?.get().then((config) => {
+      setShowMessageInfo(config.showMessageInfo ?? false);
+      setShowWarningIcon(config.showWarningIcon ?? false);
+    });
+  }, []);
 
   const canSend = Boolean(identity && contact && draft.trim().length > 0 && !isSending);
 
@@ -1042,7 +1057,8 @@ function ConversationPane({
                   isOwn={message.direction === 'outgoing'}
                   onMouseEnter={() => handleMessageHover(message)}
                   onMouseLeave={() => handleMessageHover(null)}
-                  onInfoClick={() => setInfoModalMessage(message)}
+                  onInfoClick={showMessageInfo ? () => setInfoModalMessage(message) : undefined}
+                  showWarningIcon={showWarningIcon}
                 />
               </Fragment>
             );
@@ -1553,6 +1569,7 @@ function Sidebar({
   onResizeStart,
   isResizing,
   p2pStatuses,
+  p2pEnabled,
 }: {
   identities: NostlingIdentity[];
   contacts: Record<string, NostlingContact[]>;
@@ -1577,6 +1594,7 @@ function Sidebar({
   onResizeStart: (e: React.MouseEvent) => void;
   isResizing: boolean;
   p2pStatuses?: Record<string, P2PConnectionStatus>;
+  p2pEnabled?: boolean;
 }) {
   const colors = useThemeColors();
   const currentContacts = selectedIdentityId ? contacts[selectedIdentityId] || [] : [];
@@ -1647,6 +1665,7 @@ function Sidebar({
               unreadCounts={unreadCounts}
               newlyArrived={newlyArrived}
               p2pStatuses={p2pStatuses}
+              p2pEnabled={p2pEnabled}
             />
           </>
         ) : (
@@ -1672,6 +1691,7 @@ function Sidebar({
               unreadCounts={unreadCounts}
               newlyArrived={newlyArrived}
               p2pStatuses={p2pStatuses}
+              p2pEnabled={p2pEnabled}
             />
           </>
         )}
@@ -2275,6 +2295,7 @@ function App({ onThemeChange }: AppProps) {
           onResizeStart={handleSidebarResizeStart}
           isResizing={isSidebarResizing}
           p2pStatuses={p2pStatuses}
+          p2pEnabled={status?.p2pEnabled}
         />
         <Flex as="main" direction="column" flex="1" overflow="hidden" borderWidth="1px" borderColor={colors.border} borderRadius="md" bg={colors.surfaceBgSubtle}>
           {currentView === 'chat' ? (

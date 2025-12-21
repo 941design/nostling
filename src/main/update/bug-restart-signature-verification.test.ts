@@ -71,6 +71,9 @@ describe('Regression: Update signature verification after restart (FIXED)', () =
     const mockDevConfig = {
       forceDevUpdateConfig: false,
       allowPrerelease: false,
+      showMessageInfo: false,
+      showWarningIcon: false,
+      enableP2P: false,
     };
 
     // Call setupUpdater
@@ -123,6 +126,9 @@ describe('Regression: Update signature verification after restart (FIXED)', () =
     const mockDevConfig = {
       forceDevUpdateConfig: false,
       allowPrerelease: false,
+      showMessageInfo: false,
+      showWarningIcon: false,
+      enableP2P: false,
     };
 
     setupUpdater(false, mockConfig, mockDevConfig);

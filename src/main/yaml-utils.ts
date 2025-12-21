@@ -172,7 +172,8 @@ export function buildAppConfigYaml(config: any): string {
   if (config.devUpdateSource !== undefined) {
     lines.push('');
     lines.push('# [Dev mode] Custom update source (GitHub URL or local file://)');
-    lines.push(`devUpdateSource: ${config.devUpdateSource}`);
+    // Quote the URL to handle special characters like colons
+    lines.push(`devUpdateSource: "${config.devUpdateSource.replace(/"/g, '\\"')}"`);
   }
 
   if (config.allowPrerelease !== undefined) {
