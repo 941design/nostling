@@ -281,6 +281,7 @@ export interface NostlingApi {
     attemptConnection(contactId: string): Promise<import('./p2p-types').P2PAttemptResult>;
     getConnectionStatus(contactId: string): Promise<import('./p2p-types').P2PContactInfo | null>;
     closeConnection(sessionId: string): Promise<void>;
+    onStatusChange(callback: (contactId: string, status: string) => void): () => void;
   };
   mnemonic: {
     generate(): Promise<string>; // Generate new BIP39 mnemonic

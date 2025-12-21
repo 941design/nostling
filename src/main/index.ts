@@ -510,6 +510,7 @@ app.on('ready', async () => {
     getDatabase: () => database,
     getRelayPool: () => getNostlingService().getRelayPool(),
     getMainWindow: () => mainWindow,
+    getSecretStore: () => getNostlingService().getSecretStore(),
   });
 
   // Start message polling based on config
@@ -582,6 +583,9 @@ app.on('ready', async () => {
   setLogLevel(config.logLevel);
   createWindow();
 
+  // Set mainWindow reference on service for P2P IPC communication
+  getNostlingService().setMainWindow(mainWindow);
+
   // Trigger P2P connections after window is created
   // This is deferred to allow the renderer to set up its IPC listeners first
   setTimeout(async () => {
@@ -644,5 +648,6 @@ app.on('window-all-closed', () => {
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow();
+    getNostlingService().setMainWindow(mainWindow);
   }
 });

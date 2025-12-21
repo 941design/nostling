@@ -32,6 +32,7 @@ import {
   NostlingRelayEndpoint,
   UpdateState,
 } from '../shared/types';
+import type { P2PConnectionStatus } from '../shared/p2p-types';
 import './types.d.ts';
 import { getStatusText, isRefreshEnabled } from './utils';
 import { startConversationPoller } from './utils/conversation-poller';
@@ -724,6 +725,7 @@ function ContactList({
   onShowProfile,
   unreadCounts,
   newlyArrived,
+  p2pStatuses,
 }: {
   contacts: NostlingContact[];
   selectedId: string | null;
@@ -733,6 +735,7 @@ function ContactList({
   onShowProfile: (contact: NostlingContact) => void;
   unreadCounts?: Record<string, number>;
   newlyArrived?: Set<string>;
+  p2pStatuses?: Record<string, P2PConnectionStatus>;
 }) {
   const colors = useThemeColors();
 
@@ -797,6 +800,7 @@ function ContactList({
               testIdPrefix="contact"
               moreButtonLabel="View contact profile"
               moreButtonTitle="View contact profile"
+              p2pStatus={p2pStatuses?.[contact.id]}
             />
           );
         })}
@@ -1548,6 +1552,7 @@ function Sidebar({
   width,
   onResizeStart,
   isResizing,
+  p2pStatuses,
 }: {
   identities: NostlingIdentity[];
   contacts: Record<string, NostlingContact[]>;
@@ -1571,6 +1576,7 @@ function Sidebar({
   width: string;
   onResizeStart: (e: React.MouseEvent) => void;
   isResizing: boolean;
+  p2pStatuses?: Record<string, P2PConnectionStatus>;
 }) {
   const colors = useThemeColors();
   const currentContacts = selectedIdentityId ? contacts[selectedIdentityId] || [] : [];
@@ -1640,6 +1646,7 @@ function Sidebar({
               onShowProfile={onShowContactProfile}
               unreadCounts={unreadCounts}
               newlyArrived={newlyArrived}
+              p2pStatuses={p2pStatuses}
             />
           </>
         ) : (
@@ -1664,6 +1671,7 @@ function Sidebar({
               onShowProfile={onShowContactProfile}
               unreadCounts={unreadCounts}
               newlyArrived={newlyArrived}
+              p2pStatuses={p2pStatuses}
             />
           </>
         )}
@@ -1720,6 +1728,35 @@ function App({ onThemeChange }: AppProps) {
   const [hoverInfo, setHoverInfo] = useState<string | null>(null);
   const [conflictModalOpen, setConflictModalOpen] = useState(false);
   const [conflictMessage, setConflictMessage] = useState('');
+
+  // P2P connection status tracking (contactId -> status)
+  const [p2pStatuses, setP2pStatuses] = useState<Record<string, P2PConnectionStatus>>({});
+
+  // Subscribe to P2P status changes and initialize status for contacts
+  useEffect(() => {
+    if (!window.api?.nostling?.p2p) return;
+
+    // Subscribe to status change events
+    const unsubscribe = window.api.nostling.p2p.onStatusChange((contactId: string, status: string) => {
+      setP2pStatuses((prev) => ({ ...prev, [contactId]: status as P2PConnectionStatus }));
+    });
+
+    // Initialize status for all current contacts
+    const initializeStatuses = async () => {
+      const allContacts = Object.values(nostling.contacts).flat();
+      const statuses: Record<string, P2PConnectionStatus> = {};
+      for (const contact of allContacts) {
+        const status = await window.api.nostling!.p2p.getConnectionStatus(contact.id);
+        if (status) {
+          statuses[contact.id] = status.status;
+        }
+      }
+      setP2pStatuses(statuses);
+    };
+    initializeStatuses();
+
+    return unsubscribe;
+  }, [nostling.contacts]);
 
   const selectedIdentity = useMemo(
     () => nostling.identities.find((identity) => identity.id === selectedIdentityId) ?? null,
@@ -2237,6 +2274,7 @@ function App({ onThemeChange }: AppProps) {
           width={sidebarWidth}
           onResizeStart={handleSidebarResizeStart}
           isResizing={isSidebarResizing}
+          p2pStatuses={p2pStatuses}
         />
         <Flex as="main" direction="column" flex="1" overflow="hidden" borderWidth="1px" borderColor={colors.border} borderRadius="md" bg={colors.surfaceBgSubtle}>
           {currentView === 'chat' ? (

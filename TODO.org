@@ -1,5 +1,13 @@
 * TODO
 
++ add playwright mcp
+
++ bug :: messages received before a contact was added should be fetched displayed as well when a contact is added.
+
++ bug :: the new messages info on contacts is not reactive, and disappears to late.
+
++ be sparse when polling events from relays. use timestamp based request to avoid excess traffic and redundant events.
+
 + add desktop feedback when messages arrive and app is not focused/in background
 
 + out-of-band transmission (direct link via ipv6)

@@ -32,6 +32,7 @@ import {
   NostrKeypair,
   NostrEvent
 } from './crypto';
+import { unwrapEvent } from 'nostr-tools/nip59';
 import { RelayPool, RelayEndpoint, Filter, PublishResult, RelayStatus } from './relay-pool';
 import {
   resolveDisplayNameForContact,
@@ -43,7 +44,7 @@ import {
 } from './service-profile-status';
 import { schedulePublicProfileDiscovery, discoverPublicProfile } from './public-profile-discovery';
 import { handleReceivedWrappedEvent } from './profile-receiver';
-import { triggerP2PConnectionsOnOnline } from './p2p-service-integration';
+import { triggerP2PConnectionsOnOnline, isP2PSignalEvent, routeP2PSignal } from './p2p-service-integration';
 import { BrowserWindow } from 'electron';
 import {
   generateMnemonic,
@@ -123,6 +124,7 @@ export class NostlingService {
   private relayConfigManager: RelayConfigManager;
   private pollingTimer: NodeJS.Timeout | null = null;
   private pollingIntervalMs: number = 0;
+  private mainWindow: BrowserWindow | null = null;
 
   constructor(private readonly database: Database, private readonly secretStore: NostlingSecretStore, configDir: string, options: NostlingServiceOptions = {}) {
     this.online = Boolean(options.online);
@@ -135,6 +137,13 @@ export class NostlingService {
    */
   getSecretStore(): NostlingSecretStore {
     return this.secretStore;
+  }
+
+  /**
+   * Set the main window reference for P2P IPC communication
+   */
+  setMainWindow(window: BrowserWindow | null): void {
+    this.mainWindow = window;
   }
 
   async listIdentities(): Promise<NostlingIdentity[]> {
@@ -1337,8 +1346,45 @@ export class NostlingService {
         return;
       }
 
-      // Neither profile nor DM - may be other wrapped content
-      log('debug', `Gift wrap event ${event.id} contained neither profile nor DM`);
+      // Try P2P signal handling
+      try {
+        const rumor = await unwrapEvent(event, recipientSecretKey);
+        // Cast Rumor to NostrEvent for P2P signal check (Rumor is unsigned by NIP-59 design)
+        const innerEvent = rumor as unknown as NostrEvent;
+        if (isP2PSignalEvent(innerEvent)) {
+          // Get identity keypair for P2P signal routing
+          const secretRefStmt = this.database.prepare('SELECT secret_ref FROM nostr_identities WHERE id = ? LIMIT 1');
+          secretRefStmt.bind([identityId]);
+          const hasSecretRef = secretRefStmt.step();
+          if (hasSecretRef) {
+            const secretRef = secretRefStmt.getAsObject().secret_ref as string;
+            secretRefStmt.free();
+
+            const nsec = await this.secretStore.getSecret(secretRef);
+            if (nsec) {
+              const keypair = deriveKeypair(nsec);
+              await routeP2PSignal(
+                this.database,
+                this.relayPool!,
+                keypair,
+                innerEvent.pubkey, // sender pubkey from unwrapped event
+                innerEvent,
+                this.mainWindow
+              );
+              log('info', `Routed P2P signal from ${innerEvent.pubkey.slice(0, 8)}...`);
+              return;
+            }
+          } else {
+            secretRefStmt.free();
+          }
+        }
+      } catch (p2pError) {
+        // P2P unwrap failed, continue to final fallback
+        log('debug', `P2P signal check failed: ${this.toErrorMessage(p2pError)}`);
+      }
+
+      // Neither profile, DM, nor P2P signal - may be other wrapped content
+      log('debug', `Gift wrap event ${event.id} contained neither profile, DM, nor P2P signal`);
     } catch (error) {
       log('warn', `Failed to process gift wrap event ${event.id}: ${this.toErrorMessage(error)}`);
     }

@@ -214,6 +214,11 @@ const api: RendererApi = {
       async closeConnection(sessionId: string) {
         return ipcRenderer.invoke('nostling:p2p:close-connection', sessionId);
       },
+      onStatusChange(callback: (contactId: string, status: string) => void) {
+        const listener = (_: any, contactId: string, status: string) => callback(contactId, status);
+        ipcRenderer.on('nostling:p2p:status-changed', listener);
+        return () => ipcRenderer.removeListener('nostling:p2p:status-changed', listener);
+      },
     },
     mnemonic: {
       async generate() {

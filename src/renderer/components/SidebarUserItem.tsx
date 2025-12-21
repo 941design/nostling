@@ -10,6 +10,7 @@ import React from 'react';
 import { Box, HStack, Text, IconButton, Badge } from '@chakra-ui/react';
 import { AvatarWithBadge } from './AvatarWithBadge';
 import { useThemeColors } from '../themes/ThemeContext';
+import type { P2PConnectionStatus } from '../../shared/p2p-types';
 
 // Three vertical dots icon (same as MoreVerticalIcon in main.tsx)
 const MoreVerticalIcon = () => (
@@ -53,6 +54,8 @@ export interface SidebarUserItemProps {
   moreButtonLabel?: string;
   /** Title/tooltip for the more button */
   moreButtonTitle?: string;
+  /** P2P connection status (only for contacts) */
+  p2pStatus?: P2PConnectionStatus;
 }
 
 export function SidebarUserItem({
@@ -72,6 +75,7 @@ export function SidebarUserItem({
   testIdPrefix,
   moreButtonLabel = 'More options',
   moreButtonTitle = 'More options',
+  p2pStatus,
 }: SidebarUserItemProps): React.ReactElement {
   const colors = useThemeColors();
 
@@ -100,6 +104,29 @@ export function SidebarUserItem({
       className={`group ${animationClass}`}
       position="relative"
     >
+      {/* P2P connection status indicator - positioned to overlap container border */}
+      {testIdPrefix === 'contact' && (
+        <Box
+          position="absolute"
+          top="-5px"
+          left="-5px"
+          w="10px"
+          h="10px"
+          borderRadius="full"
+          bg={p2pStatus === 'connected' ? 'green.400' : 'gray.400'}
+          borderWidth="1.5px"
+          borderColor={colors.surfaceBg}
+          zIndex={1}
+          data-testid={`${testIdPrefix}-p2p-status-${id}`}
+          title={
+            p2pStatus === 'connected'
+              ? 'P2P connected'
+              : p2pStatus === 'connecting'
+                ? 'P2P connecting'
+                : 'P2P not connected'
+          }
+        />
+      )}
       <HStack justify="space-between" align="center" gap="2">
         <HStack flex="1" gap="2">
           <AvatarWithBadge

@@ -22,7 +22,9 @@ import {
   handleRendererStatusUpdate,
   P2PAttemptResult,
 } from '../nostling/p2p-connection-manager';
+import { hexToNpub, deriveKeypair } from '../nostling/crypto';
 import { log } from '../logging';
+import { NostlingSecretStore } from '../nostling/secret-store';
 
 /**
  * Dependencies for P2P IPC handlers
@@ -31,6 +33,7 @@ export interface P2PIpcDependencies {
   getDatabase: () => Database;
   getRelayPool: () => RelayPool | null;
   getMainWindow: () => BrowserWindow | null;
+  getSecretStore: () => NostlingSecretStore;
 }
 
 /**
@@ -109,21 +112,38 @@ export function registerP2PIpcHandlers(dependencies: P2PIpcDependencies): void {
       const [contactNpub, identityNpub] = result[0].values[0];
       const { npubToHex } = await import('../nostling/crypto');
       const contactPubkeyHex = npubToHex(contactNpub as string);
-      const identityPubkeyHex = npubToHex(identityNpub as string);
+
+      // Retrieve identity keypair from secure storage
+      const identityResult = database.exec(
+        `SELECT id, secret_ref FROM nostr_identities WHERE npub = ?`,
+        [identityNpub]
+      );
+      if (!identityResult.length || !identityResult[0].values.length) {
+        throw new Error(`Identity not found for npub: ${identityNpub}`);
+      }
+      const secretRef = identityResult[0].values[0][1] as string;
+      const nsec = await dependencies.getSecretStore().getSecret(secretRef);
+      if (!nsec) {
+        throw new Error(`Secret not found for identity: ${identityNpub}`);
+      }
+      const identityKeypair = deriveKeypair(nsec);
 
       const ipcSendToRenderer = (channel: string, ...args: any[]) => {
         const mainWindow = dependencies.getMainWindow();
-        if (mainWindow) {
-          mainWindow.webContents.send(channel, ...args);
+        // Translate channel names to full nostling:p2p:* prefix
+        if (channel === 'p2p:initiate-connection') {
+          sendP2PInitiateToRenderer(mainWindow, args[0]);
+        } else if (channel === 'p2p:remote-signal') {
+          sendP2PRemoteSignalToRenderer(mainWindow, args[0]);
+        } else {
+          log('warn', `Unknown P2P IPC channel: ${channel}`);
         }
       };
 
-      // Note: In production, the identity keypair would be retrieved from secure storage
-      // This is a contract requirement that the caller must fulfill
       const result2 = await attemptP2PConnection(
         database,
         relayPool,
-        { npub: '', pubkeyHex: identityPubkeyHex, secretKey: new Uint8Array(32) },
+        identityKeypair,
         contactId,
         contactPubkeyHex,
         ipcSendToRenderer
@@ -221,9 +241,25 @@ export function registerP2PIpcHandlers(dependencies: P2PIpcDependencies): void {
 
       const [contactPubkey, identityPubkey, role] = result[0].values[0];
 
+      // Retrieve identity keypair from secure storage using identity_pubkey (hex)
+      const identityNpub = hexToNpub(identityPubkey as string);
+      const identityResult = database.exec(
+        `SELECT secret_ref FROM nostr_identities WHERE npub = ?`,
+        [identityNpub]
+      );
+      if (!identityResult.length || !identityResult[0].values.length) {
+        throw new Error(`Identity not found for pubkey: ${identityPubkey}`);
+      }
+      const secretRef = identityResult[0].values[0][0] as string;
+      const nsec = await dependencies.getSecretStore().getSecret(secretRef);
+      if (!nsec) {
+        throw new Error(`Secret not found for identity: ${identityNpub}`);
+      }
+      const identityKeypair = deriveKeypair(nsec);
+
       if (role === 'offerer') {
         await (await import('../nostling/p2p-signal-handler')).sendP2POffer(
-          { npub: '', pubkeyHex: identityPubkey as string, secretKey: new Uint8Array(32) },
+          identityKeypair,
           contactPubkey as string,
           signal.sessionId,
           signal.sdp,
@@ -234,7 +270,7 @@ export function registerP2PIpcHandlers(dependencies: P2PIpcDependencies): void {
         );
       } else {
         await (await import('../nostling/p2p-signal-handler')).sendP2PAnswer(
-          { npub: '', pubkeyHex: identityPubkey as string, secretKey: new Uint8Array(32) },
+          identityKeypair,
           contactPubkey as string,
           signal.sessionId,
           signal.sdp,
@@ -247,7 +283,7 @@ export function registerP2PIpcHandlers(dependencies: P2PIpcDependencies): void {
 
       for (const candidate of signal.candidates) {
         await (await import('../nostling/p2p-signal-handler')).sendP2PIceCandidate(
-          { npub: '', pubkeyHex: identityPubkey as string, secretKey: new Uint8Array(32) },
+          identityKeypair,
           contactPubkey as string,
           signal.sessionId,
           candidate,
@@ -270,6 +306,41 @@ export function registerP2PIpcHandlers(dependencies: P2PIpcDependencies): void {
         log('info', `P2P connection established: ${update.sessionId}`);
       } else if (update.status === 'failed') {
         log('warn', `P2P connection failed: ${update.sessionId} - ${update.failureReason}`);
+      }
+
+      // Broadcast status change to renderer for reactive UI updates
+      const mainWindow = dependencies.getMainWindow();
+      if (mainWindow) {
+        const database = dependencies.getDatabase();
+        // Look up contact_pubkey from session
+        const stmt = database.prepare(
+          'SELECT contact_pubkey FROM p2p_connection_state WHERE session_id = ?'
+        );
+        stmt.bind([update.sessionId]);
+        if (stmt.step()) {
+          const row = stmt.getAsObject();
+          const contactPubkey = row.contact_pubkey as string;
+          stmt.free();
+
+          // Convert hex to npub and look up contactId
+          const npub = hexToNpub(contactPubkey);
+          const contactStmt = database.prepare(
+            'SELECT id FROM nostr_contacts WHERE npub = ? AND deleted_at IS NULL LIMIT 1'
+          );
+          contactStmt.bind([npub]);
+          if (contactStmt.step()) {
+            const contactRow = contactStmt.getAsObject();
+            const contactId = contactRow.id as string;
+            contactStmt.free();
+
+            // Broadcast to renderer
+            mainWindow.webContents.send('nostling:p2p:status-changed', contactId, update.status);
+          } else {
+            contactStmt.free();
+          }
+        } else {
+          stmt.free();
+        }
       }
     } catch (error) {
       log('error', `P2P status-change failed: ${error}`);
