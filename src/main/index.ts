@@ -401,7 +401,7 @@ async function setConfig(partial: Partial<AppConfig>): Promise<AppConfig> {
   }
   // Message polling: restart if interval changed
   if (partial.messagePollingInterval !== undefined && nostlingService) {
-    const pollingMs = pollingIntervalToMilliseconds(config.messagePollingInterval || '10s');
+    const pollingMs = pollingIntervalToMilliseconds(config.messagePollingInterval || '1m');
     nostlingService.startPolling(pollingMs);
   }
   return config;
@@ -431,13 +431,13 @@ function intervalToMilliseconds(interval: string): number {
 // Helper function to convert message polling interval string to milliseconds
 function pollingIntervalToMilliseconds(interval: string): number {
   const intervalMap: Record<string, number> = {
-    '10s': 10000,     // 10 seconds (default)
+    '10s': 10000,     // 10 seconds
     '30s': 30000,     // 30 seconds
-    '1m': 60000,      // 1 minute
+    '1m': 60000,      // 1 minute (default - polling is now supplementary to streaming)
     '5m': 300000,     // 5 minutes
     'disabled': 0,    // Disabled
   };
-  return intervalMap[interval] || 10000; // Default to 10s if unknown
+  return intervalMap[interval] || 60000; // Default to 1m (streaming handles real-time delivery)
 }
 
 // Start automatic update check timer based on config
@@ -528,8 +528,8 @@ app.on('ready', async () => {
   // Register avatar API proxy handlers (bypass CORS for external avatar server)
   registerAvatarApiHandlers();
 
-  // Start message polling based on config
-  const pollingMs = pollingIntervalToMilliseconds(config.messagePollingInterval || '10s');
+  // Start message polling based on config (supplementary to streaming - 1m default)
+  const pollingMs = pollingIntervalToMilliseconds(config.messagePollingInterval || '1m');
   nostlingService.startPolling(pollingMs);
 
   // macOS: Clean up any stale DMG mounts from previous update attempts

@@ -40,6 +40,17 @@ jest.mock('electron', () => ({
   dialog: {
     showErrorBox: jest.fn(),
   },
+  ipcMain: {
+    handle: jest.fn(),
+    on: jest.fn(),
+    removeHandler: jest.fn(),
+  },
+  net: {
+    request: jest.fn(() => ({
+      on: jest.fn(),
+      end: jest.fn(),
+    })),
+  },
 }));
 
 jest.mock('./logging', () => ({

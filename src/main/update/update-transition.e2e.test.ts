@@ -154,6 +154,17 @@ jest.mock('electron', () => ({
   app: {
     getVersion: jest.fn(() => (global as any).mockAppVersion || '0.0.0'),
   },
+  ipcMain: {
+    handle: jest.fn(),
+    on: jest.fn(),
+    removeHandler: jest.fn(),
+  },
+  net: {
+    request: jest.fn(() => ({
+      on: jest.fn(),
+      end: jest.fn(),
+    })),
+  },
 }));
 
 jest.mock('../logging', () => ({

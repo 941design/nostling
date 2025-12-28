@@ -14,16 +14,30 @@ import { AvatarApiClient } from '../../services/avatar-api-client';
 import type { AvatarVocabulary, AvatarSearchResponse, AvatarItem } from './types';
 
 /**
- * Mock fetch for testing
+ * Mock IPC avatarApi for testing
+ * The AvatarApiClient uses window.api.nostling.avatarApi (IPC proxy)
  */
-global.fetch = jest.fn() as jest.MockedFunction<typeof fetch>;
+const mockAvatarApi = {
+  fetchVocabulary: jest.fn<() => Promise<AvatarVocabulary>>(),
+  search: jest.fn<(params: { subjectFilter: string; limit: number; offset: number }) => Promise<AvatarSearchResponse>>(),
+};
+
+// Setup window.api.nostling.avatarApi mock
+(global as any).window = {
+  api: {
+    nostling: {
+      avatarApi: mockAvatarApi,
+    },
+  },
+};
 
 describe('Avatar Browser Integration', () => {
   let apiClient: AvatarApiClient;
 
   beforeEach(() => {
     apiClient = new AvatarApiClient();
-    (global.fetch as jest.MockedFunction<typeof fetch>).mockClear();
+    mockAvatarApi.fetchVocabulary.mockClear();
+    mockAvatarApi.search.mockClear();
   });
 
   /**
@@ -36,18 +50,12 @@ describe('Avatar Browser Integration', () => {
           subject: fc.array(fc.string({ minLength: 1, maxLength: 20 }), { minLength: 1, maxLength: 10 }),
         }),
         async (vocab) => {
-          (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValueOnce({
-            status: 200,
-            json: async () => vocab,
-          } as Response);
+          mockAvatarApi.fetchVocabulary.mockResolvedValueOnce(vocab);
 
           const result = await apiClient.fetchVocabulary();
 
           expect(result).toEqual(vocab);
-          expect(global.fetch).toHaveBeenCalledWith(
-            'https://wp10665333.server-he.de/vocab.json',
-            expect.objectContaining({ method: 'GET' })
-          );
+          expect(mockAvatarApi.fetchVocabulary).toHaveBeenCalled();
         }
       ),
       { numRuns: 20 }
@@ -68,7 +76,7 @@ describe('Avatar Browser Integration', () => {
           { minLength: 0, maxLength: 500 }
         ),
         async (subject, limit, offset, items) => {
-          (global.fetch as jest.MockedFunction<typeof fetch>).mockClear();
+          mockAvatarApi.search.mockClear();
 
           const expectedItems = items.slice(0, limit);
 
@@ -78,10 +86,7 @@ describe('Avatar Browser Integration', () => {
             offset,
           };
 
-          (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValueOnce({
-            status: 200,
-            json: async () => mockResponse,
-          } as Response);
+          mockAvatarApi.search.mockResolvedValueOnce(mockResponse);
 
           const result = await apiClient.searchAvatars(subject, limit, offset);
 
@@ -89,15 +94,11 @@ describe('Avatar Browser Integration', () => {
           expect(result.offset).toBe(offset);
           expect(result.items.length).toBeLessThanOrEqual(limit);
 
-          const fetchCall = (global.fetch as jest.MockedFunction<typeof fetch>).mock.calls[0];
-          const url = new URL(fetchCall[0] as string);
-
-          expect(url.searchParams.get('limit')).toBe(limit.toString());
-          expect(url.searchParams.get('offset')).toBe(offset.toString());
-
-          if (subject !== '') {
-            expect(url.searchParams.get('subject')).toBe(subject);
-          }
+          expect(mockAvatarApi.search).toHaveBeenCalledWith({
+            subjectFilter: subject,
+            limit,
+            offset,
+          });
         }
       ),
       { numRuns: 20 }
@@ -118,14 +119,11 @@ describe('Avatar Browser Integration', () => {
         async (items, selectedIndex) => {
           const actualIndex = selectedIndex % items.length;
 
-          (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValueOnce({
-            status: 200,
-            json: async () => ({
-              items,
-              limit: 20,
-              offset: 0,
-            }),
-          } as Response);
+          mockAvatarApi.search.mockResolvedValueOnce({
+            items,
+            limit: 20,
+            offset: 0,
+          });
 
           const searchResult = await apiClient.searchAvatars('', 20, 0);
           const selectedItem = searchResult.items[actualIndex];
@@ -148,31 +146,28 @@ describe('Avatar Browser Integration', () => {
         fc.constantFrom('strawberry', 'cat', 'robot'),
         fc.integer({ min: 0, max: 3 }),
         async (subject, pageNumber) => {
-          (global.fetch as jest.MockedFunction<typeof fetch>).mockClear();
+          mockAvatarApi.search.mockClear();
 
           const limit = 20;
           const offset = pageNumber * limit;
 
-          (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValueOnce({
-            status: 200,
-            json: async () => ({
-              items: Array.from({ length: limit }, (_, i) => ({
-                url: `/avatars/page${pageNumber}_${i}.png`,
-              })),
-              limit,
-              offset,
-            }),
-          } as Response);
+          mockAvatarApi.search.mockResolvedValueOnce({
+            items: Array.from({ length: limit }, (_, i) => ({
+              url: `/avatars/page${pageNumber}_${i}.png`,
+            })),
+            limit,
+            offset,
+          });
 
           const result = await apiClient.searchAvatars(subject, limit, offset);
 
           expect(result.offset).toBe(offset);
 
-          const fetchCall = (global.fetch as jest.MockedFunction<typeof fetch>).mock.calls[0];
-          const url = new URL(fetchCall[0] as string);
-
-          expect(url.searchParams.get('subject')).toBe(subject);
-          expect(url.searchParams.get('offset')).toBe(offset.toString());
+          expect(mockAvatarApi.search).toHaveBeenCalledWith({
+            subjectFilter: subject,
+            limit,
+            offset,
+          });
         }
       ),
       { numRuns: 20 }
@@ -187,21 +182,19 @@ describe('Avatar Browser Integration', () => {
       fc.asyncProperty(
         fc.array(fc.record({ url: fc.string() }), { minLength: 0, maxLength: 20 }),
         async (items) => {
-          (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValueOnce({
-            status: 200,
-            json: async () => ({
-              items,
-              limit: 20,
-              offset: 0,
-            }),
-          } as Response);
+          mockAvatarApi.search.mockResolvedValueOnce({
+            items,
+            limit: 20,
+            offset: 0,
+          });
 
           await apiClient.searchAvatars('', 20, 0);
 
-          const fetchCall = (global.fetch as jest.MockedFunction<typeof fetch>).mock.calls[0];
-          const url = new URL(fetchCall[0] as string);
-
-          expect(url.searchParams.has('subject')).toBe(false);
+          expect(mockAvatarApi.search).toHaveBeenCalledWith({
+            subjectFilter: '',
+            limit: 20,
+            offset: 0,
+          });
         }
       ),
       { numRuns: 20 }
@@ -218,14 +211,11 @@ describe('Avatar Browser Integration', () => {
         async (itemCount) => {
           const limit = 20;
 
-          (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValueOnce({
-            status: 200,
-            json: async () => ({
-              items: Array.from({ length: itemCount }, (_, i) => ({ url: `/avatar${i}.png` })),
-              limit,
-              offset: 0,
-            }),
-          } as Response);
+          mockAvatarApi.search.mockResolvedValueOnce({
+            items: Array.from({ length: itemCount }, (_, i) => ({ url: `/avatar${i}.png` })),
+            limit,
+            offset: 0,
+          });
 
           const result = await apiClient.searchAvatars('', limit, 0);
 
@@ -266,32 +256,26 @@ describe('Avatar Browser Integration', () => {
       fc.asyncProperty(
         fc.array(fc.constantFrom('strawberry', 'cat', 'robot', ''), { minLength: 2, maxLength: 5 }),
         async (subjects) => {
-          (global.fetch as jest.MockedFunction<typeof fetch>).mockClear();
+          mockAvatarApi.search.mockClear();
 
           let callCount = 0;
 
           for (const subject of subjects) {
-            (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValueOnce({
-              status: 200,
-              json: async () => ({
-                items: [{ url: `/avatar_${subject || 'all'}.png` }],
-                limit: 20,
-                offset: 0,
-              }),
-            } as Response);
+            mockAvatarApi.search.mockResolvedValueOnce({
+              items: [{ url: `/avatar_${subject || 'all'}.png` }],
+              limit: 20,
+              offset: 0,
+            });
 
             await apiClient.searchAvatars(subject, 20, 0);
 
             callCount++;
 
-            const fetchCall = (global.fetch as jest.MockedFunction<typeof fetch>).mock.calls[callCount - 1];
-            const url = new URL(fetchCall[0] as string);
-
-            if (subject === '') {
-              expect(url.searchParams.has('subject')).toBe(false);
-            } else {
-              expect(url.searchParams.get('subject')).toBe(subject);
-            }
+            expect(mockAvatarApi.search).toHaveBeenNthCalledWith(callCount, {
+              subjectFilter: subject,
+              limit: 20,
+              offset: 0,
+            });
           }
 
           expect(callCount).toBe(subjects.length);
@@ -307,14 +291,11 @@ describe('Avatar Browser Integration', () => {
   it('property: API errors are properly propagated', async () => {
     await fc.assert(
       fc.asyncProperty(
-        fc.constantFrom(400, 500),
-        async (statusCode) => {
-          (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValueOnce({
-            status: statusCode,
-            json: async () => ({ message: 'Error' }),
-          } as Response);
+        fc.constantFrom('Network error', 'Server error', 'Timeout'),
+        async (errorMessage) => {
+          mockAvatarApi.search.mockRejectedValueOnce(new Error(errorMessage));
 
-          await expect(apiClient.searchAvatars('test', 20, 0)).rejects.toThrow();
+          await expect(apiClient.searchAvatars('test', 20, 0)).rejects.toThrow(errorMessage);
         }
       ),
       { numRuns: 10 }
@@ -350,7 +331,7 @@ describe('Avatar Browser Integration', () => {
 
   /**
    * Property: Complete end-to-end workflow with URL sanitization
-   * Tests: fetch vocabulary → search → filter change → paginate → select → sanitize
+   * Tests: fetch vocabulary -> search -> filter change -> paginate -> select -> sanitize
    */
   it('property: complete workflow from vocabulary to sanitized URL selection', async () => {
     await fc.assert(
@@ -373,64 +354,56 @@ describe('Avatar Browser Integration', () => {
         async ({ vocabulary, page1Items, page2Items, filterIndex, selectedIndex }) => {
           const selectedSubject = vocabulary.subject[filterIndex % vocabulary.subject.length];
 
-          (global.fetch as jest.MockedFunction<typeof fetch>).mockClear();
+          mockAvatarApi.fetchVocabulary.mockClear();
+          mockAvatarApi.search.mockClear();
 
           // Step 1: Fetch vocabulary
-          (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValueOnce({
-            status: 200,
-            json: async () => vocabulary,
-          } as Response);
+          mockAvatarApi.fetchVocabulary.mockResolvedValueOnce(vocabulary);
 
           const vocabResult = await apiClient.fetchVocabulary();
           expect(vocabResult).toEqual(vocabulary);
 
           // Step 2: Initial search (empty filter)
-          (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValueOnce({
-            status: 200,
-            json: async () => ({
-              items: page1Items,
-              limit: 20,
-              offset: 0,
-            }),
-          } as Response);
+          mockAvatarApi.search.mockResolvedValueOnce({
+            items: page1Items,
+            limit: 20,
+            offset: 0,
+          });
 
           const initialSearch = await apiClient.searchAvatars('', 20, 0);
           expect(initialSearch.items.length).toBe(20);
 
           // Step 3: Filter change
-          (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValueOnce({
-            status: 200,
-            json: async () => ({
-              items: page1Items,
-              limit: 20,
-              offset: 0,
-            }),
-          } as Response);
+          mockAvatarApi.search.mockResolvedValueOnce({
+            items: page1Items,
+            limit: 20,
+            offset: 0,
+          });
 
           const filteredSearch = await apiClient.searchAvatars(selectedSubject, 20, 0);
           expect(filteredSearch.items.length).toBe(20);
 
-          const fetchCall = (global.fetch as jest.MockedFunction<typeof fetch>).mock.calls[2];
-          const url = new URL(fetchCall[0] as string);
-          expect(url.searchParams.get('subject')).toBe(selectedSubject);
+          expect(mockAvatarApi.search).toHaveBeenNthCalledWith(2, {
+            subjectFilter: selectedSubject,
+            limit: 20,
+            offset: 0,
+          });
 
           // Step 4: Pagination
-          (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValueOnce({
-            status: 200,
-            json: async () => ({
-              items: page2Items,
-              limit: 20,
-              offset: 20,
-            }),
-          } as Response);
+          mockAvatarApi.search.mockResolvedValueOnce({
+            items: page2Items,
+            limit: 20,
+            offset: 20,
+          });
 
           const page2Search = await apiClient.searchAvatars(selectedSubject, 20, 20);
           expect(page2Search.offset).toBe(20);
 
-          const paginationCall = (global.fetch as jest.MockedFunction<typeof fetch>).mock.calls[3];
-          const paginationUrl = new URL(paginationCall[0] as string);
-          expect(paginationUrl.searchParams.get('subject')).toBe(selectedSubject);
-          expect(paginationUrl.searchParams.get('offset')).toBe('20');
+          expect(mockAvatarApi.search).toHaveBeenNthCalledWith(3, {
+            subjectFilter: selectedSubject,
+            limit: 20,
+            offset: 20,
+          });
 
           // Step 5: Select avatar
           const actualIndex = selectedIndex % page2Search.items.length;

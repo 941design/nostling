@@ -70,6 +70,10 @@ const FIRST_POLL_LOOKBACK = 5 * 60; // seconds (5 min) for first poll when no pr
 const FIRST_STREAM_LOOKBACK = 24 * 60 * 60; // seconds (24h) for first subscription
 const TIMESTAMP_UPDATE_DEBOUNCE_MS = 2000; // milliseconds between DB writes
 
+// Constants for reconnection handling
+const RECONNECTION_RESTART_DELAY_MS = 1000; // delay before restarting subscriptions after reconnection
+const POLL_EVENT_LIMIT = 500; // max events per poll to prevent memory exhaustion
+
 interface IdentityRow {
   id: string;
   npub: string;
@@ -141,6 +145,9 @@ export class NostlingService {
   // Debounced timestamp updates for sparse polling
   private pendingTimestampUpdates: Map<string, { kind: number; timestamp: number }> = new Map();
   private timestampUpdateTimer: NodeJS.Timeout | null = null;
+
+  // Reconnection handling - restart subscriptions when relays reconnect
+  private reconnectionRestartTimer: NodeJS.Timeout | null = null;
 
   constructor(private readonly database: Database, private readonly secretStore: NostlingSecretStore, configDir: string, options: NostlingServiceOptions = {}) {
     this.online = Boolean(options.online);
@@ -885,6 +892,10 @@ export class NostlingService {
       await this.startSubscription(identity.id);
     }
 
+    // Register handler to restart subscriptions when relays reconnect
+    // This must be done AFTER initial subscriptions to avoid restarting during setup
+    this.registerReconnectionHandler();
+
     // Mark service online and flush queued messages
     this.online = true;
     await this.flushOutgoingQueue();
@@ -897,6 +908,12 @@ export class NostlingService {
 
     // Stop polling timer
     this.stopPolling();
+
+    // Clear reconnection restart timer
+    if (this.reconnectionRestartTimer) {
+      clearTimeout(this.reconnectionRestartTimer);
+      this.reconnectionRestartTimer = null;
+    }
 
     // Flush any pending timestamp updates before shutdown
     if (this.timestampUpdateTimer) {
@@ -1022,10 +1039,10 @@ export class NostlingService {
         continue;
       }
 
-      // Build filters with per-kind 'since' timestamps
+      // Build filters with per-kind 'since' timestamps and limit to prevent OOM
       const pollFilters = filters.map(f => {
         const kind = f.kinds?.[0];
-        if (!kind) return f;
+        if (!kind) return { ...f, limit: POLL_EVENT_LIMIT };
 
         // Get last known timestamp for this identity/kind
         const lastTimestamp = getMinTimestampForKind(this.database, identity.id, kind);
@@ -1035,7 +1052,7 @@ export class NostlingService {
           ? lastTimestamp - CLOCK_SKEW_BUFFER
           : Math.floor(Date.now() / 1000) - FIRST_POLL_LOOKBACK;
 
-        return { ...f, since: sinceTimestamp };
+        return { ...f, since: sinceTimestamp, limit: POLL_EVENT_LIMIT };
       });
 
       try {
@@ -1120,6 +1137,58 @@ export class NostlingService {
     }
   }
 
+  /**
+   * Schedules a debounced restart of all subscriptions.
+   * Used when relays reconnect to ensure subscriptions are re-established.
+   */
+  private scheduleSubscriptionRestart(): void {
+    if (this.reconnectionRestartTimer) {
+      clearTimeout(this.reconnectionRestartTimer);
+    }
+
+    this.reconnectionRestartTimer = setTimeout(async () => {
+      this.reconnectionRestartTimer = null;
+      await this.restartAllSubscriptions();
+    }, RECONNECTION_RESTART_DELAY_MS);
+  }
+
+  /**
+   * Restarts subscriptions for all identities.
+   * Called after relay reconnection to ensure we receive events again.
+   */
+  private async restartAllSubscriptions(): Promise<void> {
+    if (!this.relayPool) {
+      log('debug', 'Skipping subscription restart: relay pool not initialized');
+      return;
+    }
+
+    const identities = await this.listIdentities();
+    for (const identity of identities) {
+      await this.startSubscription(identity.id);
+    }
+    log('info', `Restarted subscriptions for ${identities.length} identity(ies) after relay reconnection`);
+  }
+
+  /**
+   * Registers a handler to restart subscriptions when relays reconnect.
+   * Should be called after initial subscriptions are established.
+   */
+  private registerReconnectionHandler(): void {
+    if (!this.relayPool) {
+      return;
+    }
+
+    this.relayPool.onStatusChange((url, status) => {
+      // When a relay transitions to 'connected', it may have reconnected
+      // and lost its subscriptions. Schedule a restart to re-establish them.
+      // Note: This callback won't fire for the initial connection since we
+      // register it after subscriptions are already started.
+      if (status === 'connected') {
+        log('info', `Relay ${url} connected, scheduling subscription restart`);
+        this.scheduleSubscriptionRestart();
+      }
+    });
+  }
 
   /**
    * Queue timestamp updates for debounced batch write to database.
