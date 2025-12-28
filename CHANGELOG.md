@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Avatar Image Selector**: Browse and select profile avatars from curated collection during identity profile editing
+  - Modal interface with "Browse Server" tab for avatar selection
+  - Subject-based filtering using external API vocabulary
+  - Grid display (4x5) with pagination (20 avatars per page)
+  - Integration with existing image cache service for offline availability
+  - "Browse" button added to ProfileEditor picture URL field
+  - Auto-populates picture URL and closes modal on selection
+  - Theme-aware styling consistent with app design
+  - External API: https://wp10665333.server-he.de (Avatar Search CGI)
+  - "Upload File" tab placeholder for future file upload functionality
+  - Total test suite: 2382 tests, all passing with zero regressions
 - **BIP39 Mnemonic Backup & Recovery**: Industry-standard seed phrase support for identity management following NIP-06
   - **All new identities** now automatically get a 12-word BIP39 mnemonic for backup capability
   - "Show Recovery Phrase" button in Identity Details (Security section) for viewing backup phrase

@@ -15,11 +15,9 @@ export const DEFAULT_RELAYS: NostlingRelayEndpoint[] = [
   { url: 'wss://relay.primal.net', read: true, write: true, order: 1 },
   { url: 'wss://nos.lol', read: true, write: true, order: 2 },
   { url: 'wss://relay.nostr.band', read: true, write: true, order: 3 },
-  { url: 'wss://nostr.wine', read: true, write: true, order: 4 },
-  { url: 'wss://relay.snort.social', read: true, write: true, order: 5 },
-  { url: 'wss://relay.nostr.bg', read: true, write: true, order: 6 },
-  { url: 'wss://nostr-pub.wellorder.net', read: true, write: true, order: 7 },
-];
+  { url: 'wss://relay.snort.social', read: true, write: true, order: 4 },
+  { url: 'wss://relay.nostr.bg', read: true, write: true, order: 5 },
+];;
 
 /**
  * RelayConfigManager

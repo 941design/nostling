@@ -84,12 +84,13 @@
  */
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { VStack, Box, Image } from '@chakra-ui/react';
+import { VStack, Box, Image, HStack, Button } from '@chakra-ui/react';
 import { Field } from '@chakra-ui/react';
 import { Input } from '@chakra-ui/react';
 import { Textarea } from '@chakra-ui/react';
 import type { ProfileEditorProps, IdentityProfileData } from './types';
 import { useThemeColors } from '../../themes/ThemeContext';
+import { AvatarBrowserModal } from '../AvatarBrowserModal/AvatarBrowserModal';
 
 export function ProfileEditor({
   profile,
@@ -102,6 +103,7 @@ export function ProfileEditor({
   const [isDirty, setIsDirty] = useState(false);
   const [pictureError, setPictureError] = useState(false);
   const [bannerError, setBannerError] = useState(false);
+  const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
 
   // Reset initial profile when prop changes from outside
   useEffect(() => {
@@ -190,6 +192,24 @@ export function ProfileEditor({
     updateDirtyState(updated);
   }, [profile, onChange, updateDirtyState]);
 
+  const handleOpenAvatarBrowser = useCallback(() => {
+    setIsAvatarModalOpen(true);
+  }, []);
+
+  const handleCloseAvatarBrowser = useCallback(() => {
+    setIsAvatarModalOpen(false);
+  }, []);
+
+  const handleAvatarSelected = useCallback((avatarUrl: string) => {
+    setPictureError(false);
+    const updated = {
+      ...profile,
+      content: { ...profile.content, picture: avatarUrl },
+    };
+    onChange(updated);
+    updateDirtyState(updated);
+  }, [profile, onChange, updateDirtyState]);
+
   const opacity = disabled ? 0.6 : 1;
 
   return (
@@ -230,13 +250,25 @@ export function ProfileEditor({
 
       <Field.Root>
         <Field.Label>Picture URL</Field.Label>
-        <Input
-          value={profile.content.picture || ''}
-          onChange={handlePictureChange}
-          disabled={disabled}
-          placeholder="https://example.com/avatar.jpg"
-          data-testid="profile-editor-picture"
-        />
+        <HStack gap={2}>
+          <Input
+            value={profile.content.picture || ''}
+            onChange={handlePictureChange}
+            disabled={disabled}
+            placeholder="https://example.com/avatar.jpg"
+            data-testid="profile-editor-picture"
+            flex={1}
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleOpenAvatarBrowser}
+            disabled={disabled}
+            data-testid="profile-editor-browse-button"
+          >
+            Browse
+          </Button>
+        </HStack>
         {profile.content.picture && !pictureError && (
           <Box mt={2}>
             <Image
@@ -308,6 +340,12 @@ export function ProfileEditor({
           data-testid="profile-editor-lud16"
         />
       </Field.Root>
+
+      <AvatarBrowserModal
+        isOpen={isAvatarModalOpen}
+        onClose={handleCloseAvatarBrowser}
+        onAvatarSelected={handleAvatarSelected}
+      />
     </VStack>
   );
 }

@@ -11,6 +11,7 @@ A desktop messaging application built on the Nostr protocol with secure auto-upd
 - **Private profile sharing** - Share profile information privately with contacts via NIP-59 encrypted messages
 - **Contacts panel** - View full contact profiles with disk-cached images for offline access
 - **Identity profile editor** - Edit identity profiles with live preview and staged updates
+- **Avatar image selector** - Browse and select profile avatars from curated collection with subject filtering and pagination
 - **Emoji picker** - Insert emojis into messages with WCAG Level A accessibility, keyboard navigation, and screen reader support
 - **Relay connectivity** - WebSocket connections to Nostr relays with auto-reconnection
 - **Relay management** - Compact table with drag-and-drop reordering, per-relay read/write policies, and live connection status
@@ -127,6 +128,34 @@ Edit your identity's profile information with live preview and staged updates.
 5. Your updated profile is automatically shared with all contacts
 
 **Note:** The panel locks during save operations to prevent data conflicts.
+
+### Avatar Image Selector
+
+Browse and select profile avatars from a curated collection instead of manually entering image URLs.
+
+**How it works:**
+- Click "Browse" button next to the Picture URL field in the profile editor
+- Browse avatars in a 4x5 grid (20 avatars per page)
+- Filter avatars by subject (animals, objects, symbols, etc.)
+- Navigate pages using Previous/Next buttons
+- Click any avatar to auto-fill the Picture URL field and close the modal
+- Avatar images cached for fast repeat browsing
+
+**To select an avatar:**
+1. Open the profile editor (Edit Identity Profile from hamburger menu)
+2. Click "Browse" button next to Picture URL field
+3. Optionally filter by subject using the dropdown
+4. Browse pages to find desired avatar
+5. Click avatar thumbnail to select
+6. Picture URL field auto-populated, modal closes automatically
+
+**Features:**
+- Curated avatar collection from external API
+- Subject-based filtering for quick discovery
+- Pagination for browsing large collections
+- Image caching for offline availability and fast loading
+- Theme-aware styling matching app appearance
+- "Upload File" tab placeholder for future file upload feature
 
 ### Contacts Panel
 

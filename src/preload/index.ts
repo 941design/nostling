@@ -3,6 +3,7 @@ import {
   AddContactRequest,
   AppConfig,
   AppStatus,
+  AvatarSearchParams,
   CreateIdentityRequest,
   NostlingApi,
   NostlingRelayConfig,
@@ -232,6 +233,14 @@ const api: RendererApi = {
       },
       async hasMnemonic(identityId: string) {
         return ipcRenderer.invoke('nostling:identities:has-mnemonic', identityId) as Promise<boolean>;
+      },
+    },
+    avatarApi: {
+      async fetchVocabulary() {
+        return ipcRenderer.invoke('nostling:avatar-api:fetch-vocabulary') as ReturnType<NostlingApi['avatarApi']['fetchVocabulary']>;
+      },
+      async search(params: AvatarSearchParams) {
+        return ipcRenderer.invoke('nostling:avatar-api:search', params) as ReturnType<NostlingApi['avatarApi']['search']>;
       },
     },
   },

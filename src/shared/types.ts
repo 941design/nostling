@@ -19,6 +19,7 @@ export interface AppConfig {
   allowPrerelease?: boolean; // Dev mode: allow pre-release versions
   showMessageInfo?: boolean; // Dev mode: show message info button on message bubbles
   showWarningIcon?: boolean; // Dev mode: show warning icon for non-gift-wrapped messages
+  ignoreCertErrors?: boolean; // Dev mode: ignore TLS certificate errors (expired certs, self-signed)
 }
 
 export interface AppStatus {
@@ -292,4 +293,25 @@ export interface NostlingApi {
     getMnemonic(identityId: string): Promise<string | null | ApiErrorResponse>; // Retrieve mnemonic for identity
     hasMnemonic(identityId: string): Promise<boolean>; // Check if identity has mnemonic stored
   };
+  avatarApi: {
+    fetchVocabulary(): Promise<AvatarVocabularyResponse>;
+    search(params: AvatarSearchParams): Promise<AvatarSearchResponse>;
+  };
+}
+
+// Avatar API types for CORS-free proxy
+export interface AvatarSearchParams {
+  subjectFilter?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface AvatarVocabularyResponse {
+  [key: string]: string[];
+}
+
+export interface AvatarSearchResponse {
+  items: { url: string }[];
+  limit: number;
+  offset: number;
 }

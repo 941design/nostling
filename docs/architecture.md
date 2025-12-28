@@ -1080,6 +1080,276 @@ The application provides a full-featured profile editing interface for identitie
 - **Integration with existing infrastructure**: Uses private profile sharing system for broadcast
 - **Zero regressions**: All existing tests continue passing
 
+## Avatar Image Selector
+
+The application provides a curated avatar browsing interface integrated into the profile editing workflow, allowing users to select profile avatars from an external collection without manually finding, hosting, and entering image URLs.
+
+### Architecture
+
+**Modal-Based Interface:**
+- AvatarBrowserModal component accessed via "Browse" button in ProfileEditor
+- Chakra UI Dialog pattern with tabs: "Browse Server" (active) and "Upload File" (disabled placeholder)
+- Subject-based filtering using vocabulary from external API
+- Grid layout displaying 20 avatars per page (4x5 grid)
+- Pagination controls for navigating large result sets
+
+**External API Integration:**
+- Service: Avatar Search CGI at `https://wp10665333.server-he.de`
+- Search endpoint: `/cgi/search?<query-parameters>`
+- Vocabulary endpoint: `/vocab.json`
+- Filter-based search with AND/OR logic across filter keys
+- Pagination support via limit/offset parameters
+- JSON response format with avatar URLs and pagination metadata
+
+**Image Caching:**
+- Integrates with existing `image-cache-service` for avatar thumbnails
+- Avatar images cached to disk for offline availability
+- Cache respects 100MB LRU eviction policy
+- Cached images improve performance on repeat modal opens
+
+### Integration Points
+
+**ProfileEditor Integration:**
+- "Browse" button added in HStack alongside picture URL input field
+- Button positioned between input and image preview
+- Consistent with existing modal trigger patterns (QR scanner, etc.)
+- Button disabled when ProfileEditor is in disabled state
+
+**Avatar Selection Workflow:**
+1. User clicks "Browse" button next to Picture URL field
+2. AvatarBrowserModal opens with grid of avatar thumbnails
+3. User optionally filters by subject using dropdown
+4. User browses pages using Previous/Next buttons
+5. User clicks avatar thumbnail to select
+6. Picture URL field auto-populated with full image URL
+7. Modal closes automatically
+8. ProfileEditor image preview updates with selected avatar
+
+**URL Construction:**
+- API returns relative paths: `{"url": "/avatars/uuid.png"}`
+- Full URL constructed: `https://wp10665333.server-he.de/avatars/uuid.png`
+- URL passed through existing `sanitizePictureUrl()` validation
+- Validated URL set in ProfileEditor's staged profile state
+
+### Components
+
+**AvatarBrowserModal.tsx:**
+- Modal container with Dialog.Root and tabbed interface
+- State management: selected subject filter, current page, loading/error states
+- API communication: vocabulary fetch on mount, search on filter/page change
+- Avatar grid rendering with CachedImage components
+- Pagination logic: disable Previous on page 1, disable Next when items < limit
+- Error handling: 400 (invalid query), 500 (server error), network failures
+- Loading states: vocabulary loading, search loading, page navigation loading
+- Empty state: displayed when search returns zero results
+
+**API Communication Layer:**
+- Implemented in renderer process using native fetch
+- AbortController for 30-second request timeout
+- Retry logic not implemented (single attempt per request)
+- Error messages user-friendly (no raw HTTP codes or JSON errors exposed)
+
+**Integration with ProfileEditor:**
+- Modal state managed via useState in ProfileEditor component
+- `isAvatarModalOpen` boolean controls modal visibility
+- `handleOpenAvatarBrowser()` callback opens modal
+- `handleCloseAvatarBrowser()` callback closes modal
+- `handleAvatarSelected(url: string)` callback receives selected URL and updates profile
+
+### User Workflows
+
+**Opening Avatar Browser:**
+1. User opens ProfileEditor (Edit Identity Profile from menu)
+2. User clicks "Browse" button next to Picture URL field
+3. AvatarBrowserModal opens in "Browse Server" tab
+4. Vocabulary loads from `/vocab.json` endpoint
+5. Initial avatar grid displays (all subjects, page 1)
+
+**Filtering Avatars:**
+1. User opens subject filter dropdown
+2. Dropdown populated from API vocabulary
+3. User selects subject (e.g., "animals", "objects", etc.)
+4. Search re-executes with selected subject filter
+5. Grid updates with filtered results
+6. Pagination resets to page 1
+
+**Navigating Pages:**
+1. User clicks Next button to view more avatars
+2. Offset increases by 20 (page size)
+3. New page of results fetched from API
+4. Grid updates with new avatars
+5. Previous button enables (not on page 1 anymore)
+6. Next button disables when reaching end (items.length < 20)
+
+**Selecting Avatar:**
+1. User clicks avatar thumbnail in grid
+2. Full URL constructed from base URL and relative path
+3. URL validated through sanitizePictureUrl()
+4. ProfileEditor's handleFieldChange() called with new picture URL
+5. Modal closes automatically
+6. ProfileEditor image preview updates immediately
+7. Dirty state triggers (Apply button enables)
+
+**Canceling Selection:**
+1. User clicks modal close button, backdrop, or presses Escape
+2. Modal closes without selecting avatar
+3. Picture URL field unchanged
+4. No state changes in ProfileEditor
+
+### State Management
+
+**Modal State (in AvatarBrowserModal):**
+- `vocabulary`: Available filter values from API (`{ subject: ["animals", "objects", ...] }`)
+- `selectedSubject`: Currently selected subject filter (string or null for all)
+- `currentPage`: Current page number (0-indexed)
+- `avatars`: Current page of avatar results from API
+- `isLoading`: Boolean for API request in progress
+- `error`: Error message string or null
+
+**Pagination State:**
+- Page size: fixed at 20 avatars
+- Offset calculation: `currentPage * 20`
+- End detection: `avatars.length < 20` disables Next button
+- Reset to page 0 when filter changes
+
+**Error State:**
+- API errors (400, 500) display user-friendly messages
+- Network errors display generic connection error
+- Errors displayed in modal body, replacing avatar grid
+- Retry mechanism: user can change filter or close/reopen modal
+
+### API Contract
+
+**Search Request:**
+```
+GET /cgi/search?subject={value}&limit=20&offset={page*20}
+```
+
+**Search Response (200 OK):**
+```json
+{
+  "items": [
+    {"url": "/avatars/uuid-1.png"},
+    {"url": "/avatars/uuid-2.png"}
+  ],
+  "limit": 20,
+  "offset": 0
+}
+```
+
+**Vocabulary Request:**
+```
+GET /vocab.json
+```
+
+**Vocabulary Response (200 OK):**
+```json
+{
+  "subject": ["animals", "objects", "symbols", "food"]
+}
+```
+
+**Error Response (400/500):**
+```json
+{
+  "error": "invalid_query",
+  "message": "Unknown filter key: invalid_key"
+}
+```
+
+### Security
+
+**URL Validation:**
+- All avatar URLs validated via `sanitizePictureUrl()` before use
+- Only HTTP/HTTPS protocols allowed
+- Prevents javascript:, data:, file: protocol exploitation
+- XSS protection consistent with existing image handling
+
+**Network Security:**
+- HTTPS-only communication with avatar API
+- 30-second request timeout prevents hanging requests
+- AbortController allows canceling in-flight requests
+- No credentials or sensitive data transmitted
+
+**API Limits (enforced by server):**
+- Max 500 results per request (limit parameter)
+- Max 10 filter keys per query
+- Max 50 values per filter key
+- Client respects server constraints (uses limit=20, single subject filter)
+
+### Performance
+
+**Pagination:**
+- Limits memory footprint to 20 images at a time
+- Prevents loading entire avatar collection into memory
+- Reduces initial load time (only fetch first page)
+
+**Image Caching:**
+- Avatar thumbnails cached via image-cache-service
+- Cached images available offline for repeat browsing
+- Cache hit on subsequent modal opens (same avatars)
+- LRU eviction at 100MB maintains bounded storage
+
+**Loading States:**
+- Prevents UI blocking during API calls
+- User can close modal during loading
+- Vocabulary loading separate from avatar grid loading
+- Pagination loading doesn't block filter interaction
+
+### Accessibility
+
+**Keyboard Navigation:**
+- Escape key closes modal (standard dialog pattern)
+- Tab navigation through controls (filter dropdown, pagination buttons)
+- Enter/Space activate buttons
+- Focus management follows Chakra UI accessibility patterns
+
+**Theme Integration:**
+- Modal uses `useThemeColors()` hook for consistent theming
+- Grid styling adapts to light/dark themes
+- Button colors consistent with app theme
+- Disabled states visually distinct (reduced opacity)
+
+**Screen Reader Support:**
+- Modal has proper ARIA labels via Chakra Dialog component
+- Filter dropdown accessible with ARIA attributes
+- Pagination buttons descriptive (not just "Previous"/"Next")
+- Avatar images have alt text (derived from URL or index)
+
+### Testing
+
+**Property-Based Tests:**
+- API communication: vocabulary fetch, search with filters, pagination
+- URL construction: relative path to full URL conversion
+- Selection workflow: URL validation, modal close, ProfileEditor update
+- Error handling: 400/500 responses, network failures, timeout
+- State management: page navigation, filter changes, loading states
+
+**Integration Tests:**
+- Modal open/close via Browse button
+- Filter dropdown population from vocabulary
+- Avatar grid rendering with CachedImage
+- Pagination controls enable/disable logic
+- Selection propagates to ProfileEditor picture URL field
+- Theme-aware styling verification
+
+**Test Coverage:**
+- Total test suite: 2382 tests
+- All tests passing
+- Zero regressions detected
+
+### Design Principles
+
+- **Simple filtering**: Only expose subject filter to avoid UI clutter
+- **Quick selection**: Auto-fill and close on selection (no confirmation step)
+- **Future-ready**: Disabled "Upload File" tab indicates upcoming feature
+- **Preserves existing workflow**: Button alongside input (not replacing it)
+- **Consistent patterns**: Follows existing modal patterns (ContactModal, QrCodeScannerModal)
+- **Offline-capable**: Cached images work without network
+- **Graceful degradation**: API errors don't crash modal, show error message
+- **Performance-conscious**: Pagination prevents memory bloat
+- **Secure by default**: URL validation prevents XSS
+
 ## Contacts Panel with Image Cache
 
 The application provides a read-only contacts panel for viewing full contact profiles with disk-based image caching for offline access.

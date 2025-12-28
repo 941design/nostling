@@ -2,7 +2,7 @@
 import { initializePaths, getUserDataPath } from './paths';
 initializePaths();
 
-import { app, BrowserWindow, Menu } from 'electron';
+import { app, BrowserWindow, Menu, session } from 'electron';
 
 // On Linux in CI/test environment, configure password store to use gnome-libsecret
 // This must be called BEFORE app.whenReady() to take effect
@@ -48,6 +48,7 @@ import { NostlingService } from './nostling/service';
 import { ImageCacheService } from './image-cache/image-cache-service';
 import { registerImageCacheHandlers } from './ipc/image-cache-handlers';
 import { registerP2PIpcHandlers } from './ipc/p2p-handlers';
+import { registerAvatarApiHandlers } from './ipc/avatar-api-handlers';
 import { triggerP2PConnectionsOnOnline } from './nostling/p2p-service-integration';
 let mainWindow: BrowserWindow | null = null;
 let config: AppConfig = loadConfig();
@@ -482,6 +483,18 @@ app.on('ready', async () => {
   // Remove the default application menu entirely
   Menu.setApplicationMenu(null);
 
+  // Certificate error bypass for development (expired certs, self-signed)
+  // Enable via: NOSTLING_IGNORE_CERT_ERRORS=true environment variable
+  // or config.ignoreCertErrors in config file
+  const ignoreCertErrors = process.env.NOSTLING_IGNORE_CERT_ERRORS === 'true' || config.ignoreCertErrors;
+  if (ignoreCertErrors) {
+    log('warn', 'Certificate error bypass is enabled - TLS certificate validation is disabled');
+    session.defaultSession.setCertificateVerifyProc((_request, callback) => {
+      // Accept all certificates (0 = OK)
+      callback(0);
+    });
+  }
+
   // Initialize database and run migrations before window creation
   await initializeDatabaseWithMigrations();
 
@@ -514,6 +527,9 @@ app.on('ready', async () => {
     getMainWindow: () => mainWindow,
     getSecretStore: () => getNostlingService().getSecretStore(),
   });
+
+  // Register avatar API proxy handlers (bypass CORS for external avatar server)
+  registerAvatarApiHandlers();
 
   // Start message polling based on config
   const pollingMs = pollingIntervalToMilliseconds(config.messagePollingInterval || '10s');

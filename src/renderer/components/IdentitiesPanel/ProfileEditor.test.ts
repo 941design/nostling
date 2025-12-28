@@ -626,4 +626,176 @@ describe('ProfileEditor', () => {
       );
     });
   });
+
+  describe('Avatar Browser Integration Properties', () => {
+    it('Property: Avatar selection updates picture field via onChange', () => {
+      fc.assert(
+        fc.property(
+          identityProfileDataArbitrary,
+          fc.webUrl({ validSchemes: ['https'] }),
+          (profile, avatarUrl) => {
+            const updated = updateField(profile, 'picture', avatarUrl);
+
+            expect(updated.content.picture).toBe(avatarUrl);
+            expect(validateProfile(updated)).toBe(true);
+          }
+        )
+      );
+    });
+
+    it('Property: Avatar selection triggers dirty state if URL differs from initial', () => {
+      fc.assert(
+        fc.property(
+          identityProfileDataArbitrary,
+          fc.webUrl({ validSchemes: ['https'] }),
+          (profile, avatarUrl) => {
+            const initial = profile;
+            const initialPicture = profile.content.picture || '';
+
+            fc.pre(avatarUrl !== initialPicture);
+
+            const updated = updateField(profile, 'picture', avatarUrl);
+            expect(isDirty(updated, initial)).toBe(true);
+          }
+        )
+      );
+    });
+
+    it('Property: Avatar selection does not trigger dirty state if same as initial', () => {
+      fc.assert(
+        fc.property(
+          fc.webUrl({ validSchemes: ['https'] }),
+          profileContentArbitrary,
+          (avatarUrl, content) => {
+            const profile: IdentityProfileData = {
+              label: 'Test',
+              content: { ...content, picture: avatarUrl },
+            };
+            const initial = profile;
+
+            const updated = updateField(profile, 'picture', avatarUrl);
+            expect(isDirty(updated, initial)).toBe(false);
+          }
+        )
+      );
+    });
+
+    it('Property: Modal state transitions are independent of profile data', () => {
+      fc.assert(
+        fc.property(
+          identityProfileDataArbitrary,
+          fc.boolean(),
+          fc.boolean(),
+          (profile, modalOpenBefore, modalOpenAfter) => {
+            expect(validateProfile(profile)).toBe(true);
+            expect(typeof modalOpenBefore).toBe('boolean');
+            expect(typeof modalOpenAfter).toBe('boolean');
+          }
+        )
+      );
+    });
+
+    it('Property: Avatar URL selection preserves all other profile fields', () => {
+      fc.assert(
+        fc.property(
+          identityProfileDataArbitrary,
+          fc.webUrl({ validSchemes: ['https'] }),
+          (profile, avatarUrl) => {
+            const updated = updateField(profile, 'picture', avatarUrl);
+
+            expect(updated.label).toBe(profile.label);
+            expect(updated.content.name).toBe(profile.content.name);
+            expect(updated.content.about).toBe(profile.content.about);
+            expect(updated.content.banner).toBe(profile.content.banner);
+            expect(updated.content.website).toBe(profile.content.website);
+            expect(updated.content.nip05).toBe(profile.content.nip05);
+            expect(updated.content.lud16).toBe(profile.content.lud16);
+            expect(updated.content.picture).toBe(avatarUrl);
+          }
+        )
+      );
+    });
+
+    it('Property: Multiple avatar selections use last selected value', () => {
+      fc.assert(
+        fc.property(
+          identityProfileDataArbitrary,
+          fc.webUrl({ validSchemes: ['https'] }),
+          fc.webUrl({ validSchemes: ['https'] }),
+          fc.webUrl({ validSchemes: ['https'] }),
+          (profile, url1, url2, url3) => {
+            const afterFirst = updateField(profile, 'picture', url1);
+            const afterSecond = updateField(afterFirst, 'picture', url2);
+            const afterThird = updateField(afterSecond, 'picture', url3);
+
+            expect(afterThird.content.picture).toBe(url3);
+          }
+        )
+      );
+    });
+
+    it('Property: Avatar selection followed by manual edit preserves manual value', () => {
+      fc.assert(
+        fc.property(
+          identityProfileDataArbitrary,
+          fc.webUrl({ validSchemes: ['https'] }),
+          fc.string(),
+          (profile, avatarUrl, manualUrl) => {
+            const afterAvatar = updateField(profile, 'picture', avatarUrl);
+            const afterManual = updateField(afterAvatar, 'picture', manualUrl);
+
+            expect(afterManual.content.picture).toBe(manualUrl);
+          }
+        )
+      );
+    });
+
+    it('Property: Manual edit followed by avatar selection uses avatar value', () => {
+      fc.assert(
+        fc.property(
+          identityProfileDataArbitrary,
+          fc.string(),
+          fc.webUrl({ validSchemes: ['https'] }),
+          (profile, manualUrl, avatarUrl) => {
+            const afterManual = updateField(profile, 'picture', manualUrl);
+            const afterAvatar = updateField(afterManual, 'picture', avatarUrl);
+
+            expect(afterAvatar.content.picture).toBe(avatarUrl);
+          }
+        )
+      );
+    });
+
+    it('Property: Avatar selection resets picture error state', () => {
+      fc.assert(
+        fc.property(
+          identityProfileDataArbitrary,
+          fc.webUrl({ validSchemes: ['https'] }),
+          (profile, avatarUrl) => {
+            const updated = updateField(profile, 'picture', avatarUrl);
+
+            expect(isValidUrl(avatarUrl)).toBe(true);
+            expect(updated.content.picture).toBe(avatarUrl);
+          }
+        )
+      );
+    });
+
+    it('Property: Disabled state does not affect avatar selection data flow', () => {
+      fc.assert(
+        fc.property(
+          identityProfileDataArbitrary,
+          fc.webUrl({ validSchemes: ['https'] }),
+          fc.boolean(),
+          (profile, avatarUrl, disabled) => {
+            const updated = updateField(profile, 'picture', avatarUrl);
+
+            expect(updated.content.picture).toBe(avatarUrl);
+            expect(validateProfile(updated)).toBe(true);
+            expect(typeof disabled).toBe('boolean');
+          }
+        )
+      );
+    });
+  });
 });

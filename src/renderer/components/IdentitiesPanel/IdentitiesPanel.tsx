@@ -297,6 +297,14 @@ function IdentitiesPanelInner({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && !isApplying) {
+        // Don't close the panel if a dialog/modal is open
+        // Check if the event originated from inside a dialog element
+        const target = e.target as HTMLElement;
+        const isInsideDialog = target?.closest('[role="dialog"]');
+        if (isInsideDialog) {
+          // Let the dialog handle the Escape key
+          return;
+        }
         handleCancel();
       }
     };

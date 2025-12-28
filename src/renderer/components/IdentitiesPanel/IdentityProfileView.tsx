@@ -13,6 +13,7 @@ import { useThemeColors } from '../../themes/ThemeContext';
 import { useHoverInfoProps } from '../HoverInfo';
 import { NpubDisplay } from '../NpubDisplay';
 import { MnemonicBackupModal } from '../MnemonicBackup/MnemonicBackupModal';
+import { AvatarBrowserModal } from '../AvatarBrowserModal/AvatarBrowserModal';
 import type { IdentityProfileData } from './types';
 
 // Pencil icon for editing
@@ -350,6 +351,7 @@ export function IdentityProfileView({
   const [mnemonic, setMnemonic] = useState<string>('');
   const [hasMnemonic, setHasMnemonic] = useState(false);
   const [isMnemonicLoading, setIsMnemonicLoading] = useState(false);
+  const [isAvatarBrowserOpen, setIsAvatarBrowserOpen] = useState(false);
 
   // Check if mnemonic exists and load it when modal opens
   const handleShowRecoveryPhrase = useCallback(async () => {
@@ -425,6 +427,22 @@ export function IdentityProfileView({
   const handleCancelEdit = useCallback(() => {
     setEditingField(null);
   }, []);
+
+  // Avatar browser handlers
+  const handleOpenAvatarBrowser = useCallback(() => {
+    setIsAvatarBrowserOpen(true);
+  }, []);
+
+  const handleCloseAvatarBrowser = useCallback(() => {
+    setIsAvatarBrowserOpen(false);
+  }, []);
+
+  const handleAvatarSelected = useCallback((avatarUrl: string) => {
+    // Update the picture field with the selected avatar URL
+    const updatedContent = { ...profile.content, picture: avatarUrl };
+    onChange({ ...profile, content: updatedContent });
+    setIsAvatarBrowserOpen(false);
+  }, [profile, onChange]);
 
   // Get picture and banner URLs
   const pictureUrl = profile.content.picture;
@@ -694,20 +712,36 @@ export function IdentityProfileView({
           multiline
         />
 
-        {/* Picture URL */}
-        <EditableField
-          fieldKey="picture"
-          label="Picture URL"
-          value={profile.content.picture || ''}
-          originalValue={originalProfile?.content.picture || ''}
-          placeholder="Not set"
-          editingField={editingField}
-          onStartEdit={handleStartEdit}
-          onSaveEdit={handleSaveEdit}
-          onCancelEdit={handleCancelEdit}
-          disabled={disabled}
-          isImageUrl
-        />
+        {/* Picture URL with Browse button */}
+        <Box>
+          <EditableField
+            fieldKey="picture"
+            label="Picture URL"
+            value={profile.content.picture || ''}
+            originalValue={originalProfile?.content.picture || ''}
+            placeholder="Not set"
+            editingField={editingField}
+            onStartEdit={handleStartEdit}
+            onSaveEdit={handleSaveEdit}
+            onCancelEdit={handleCancelEdit}
+            disabled={disabled}
+            isImageUrl
+          />
+          {!disabled && editingField !== 'picture' && (
+            <Box ml={LABEL_WIDTH} pl={2} mt={2}>
+              <Box {...useHoverInfoProps('Browse avatar images from server')}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleOpenAvatarBrowser}
+                  data-testid="identity-profile-picture-browse"
+                >
+                  Browse Avatars
+                </Button>
+              </Box>
+            </Box>
+          )}
+        </Box>
 
         {/* Banner URL */}
         <EditableField
@@ -806,6 +840,13 @@ export function IdentityProfileView({
           identityLabel={displayName}
         />
       )}
+
+      {/* Avatar Browser Modal */}
+      <AvatarBrowserModal
+        isOpen={isAvatarBrowserOpen}
+        onClose={handleCloseAvatarBrowser}
+        onAvatarSelected={handleAvatarSelected}
+      />
     </VStack>
   );
 }

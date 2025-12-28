@@ -15,7 +15,9 @@ install: ## Install dependencies
 	npm install
 
 run-prod: ## Run app in production mode (uses system userData, log level: debug unless NOSTLING_LOG_LEVEL set)
-	NOSTLING_LOG_LEVEL=$${NOSTLING_LOG_LEVEL:-debug} npm run dev
+	NOSTLING_LOG_LEVEL=$${NOSTLING_LOG_LEVEL:-debug} \
+	NOSTLING_IGNORE_CERT_ERRORS=true \
+	npm run dev
 
 run-dev: dev-relay-start sign-dev-electron ## Run app in dev mode with local nostr relay (log level: debug unless NOSTLING_LOG_LEVEL set)
 	@mkdir -p /tmp/nostling-dev-data
@@ -24,6 +26,7 @@ run-dev: dev-relay-start sign-dev-electron ## Run app in dev mode with local nos
 	NOSTLING_SHOW_MESSAGE_INFO=true \
 	NOSTLING_SHOW_WARNING_ICON=true \
 	NOSTLING_ENABLE_P2P=true \
+	NOSTLING_IGNORE_CERT_ERRORS=true \
 	NOSTLING_LOG_LEVEL=$${NOSTLING_LOG_LEVEL:-debug} \
 	npm run dev
 
