@@ -4,6 +4,8 @@ A desktop messaging application built on the Nostr protocol with secure auto-upd
 
 ## Features
 
+For detailed user stories organized by persona and epic, see [user-stories.md](user-stories.md).
+
 - **Nostr encrypted messaging** with NIP-17/59 encryption (gift-wrapped private messages)
 - **Identity management** - Create/import identities from nsec keys
 - **Contact whitelist** - Only receive messages from known contacts
@@ -278,6 +280,12 @@ Or: Right-click the app → **Open** → **Open**
 
 ## Development
 
+**Node.js Version**: This project requires Node.js 20.x. Consider using [nvm](https://github.com/nvm-sh/nvm) with the included `.nvmrc` file:
+```bash
+nvm install
+nvm use
+```
+
 ### Commands
 
 | Command | Description |
@@ -425,6 +433,8 @@ This app is intentionally unsigned (`identity: null`). This avoids Gatekeeper is
 
 ## Documentation
 
+- [User Stories](user-stories.md) - User-centric feature descriptions organized by persona and epic
+- [Specification](specs/spec.md) - Software specification for AI agents
 - [Architecture](docs/architecture.md) - Technical architecture and design
 - [Dev Mode Update Testing](docs/dev-mode-update-testing.md) - Testing auto-updates locally
 - [RSA Key Setup](docs/rsa-key-setup.md) - Cryptographic key configuration

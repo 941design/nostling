@@ -2,6 +2,12 @@
 
 This document describes the technical architecture of Nostling.
 
+**Related Documentation:**
+- [User Stories](../user-stories.md) - Feature descriptions organized by persona and epic
+- [Software Specification](../specs/spec.md) - Implemented feature specification for AI agents
+- [Feature Specs](../specs/) - Individual feature specifications (implemented and planned)
+- [README](../README.md) - User-facing installation and usage guide
+
 ## Electron Process Model
 
 Nostling follows Electron's three-process architecture:

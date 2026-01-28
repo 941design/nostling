@@ -1,5 +1,7 @@
 # Desktop App Bootstrap Specification
 
+> **Specification Scope**: This document describes **currently implemented** functionality in the Nostling desktop application. For planned/unimplemented features, see the individual feature specification files in `specs/*-spec.md`. For user-centric feature descriptions, see `user-stories.md`.
+
 ## 1. Purpose & Scope
 
 ### 1.1 Purpose
@@ -263,91 +265,6 @@ Dev mode features are **automatically disabled** in production builds:
 
 ---
 
-## 12. Avatar Image Selector
-
-### 12.1 Purpose
-
-Enable users to select profile avatars from an external curated collection during identity profile editing, eliminating the need to manually find, host, and enter image URLs.
-
-### 12.2 Integration
-
-The avatar browser integrates into the profile editing workflow via a "Browse" button adjacent to the picture URL input field in the ProfileEditor component.
-
-### 12.3 Functionality
-
-**Avatar Browsing**:
-- Modal-based interface with two tabs: "Browse Server" (active) and "Upload File" (disabled placeholder)
-- Grid display of avatar thumbnails (4x5 grid, 20 avatars per page)
-- Subject-based filtering using vocabulary from external API
-- Pagination controls for navigating large result sets
-- Loading and error states for API interactions
-
-**Avatar Selection**:
-- Click avatar thumbnail to auto-populate picture URL field
-- Modal closes automatically after selection
-- Selected URL validated through existing `sanitizePictureUrl()` function
-- Image preview updates immediately in ProfileEditor
-
-**Image Caching**:
-- Avatar images cached using existing `image-cache-service`
-- Cached images improve performance on repeat browsing
-- Cache respects 100MB LRU eviction policy
-
-### 12.4 External API
-
-**Service**: Avatar Search API
-- Base URL: `https://wp10665333.server-he.de`
-- Search endpoint: `/cgi/search?<query-parameters>`
-- Vocabulary endpoint: `/vocab.json`
-
-**API Contract**:
-- Filter-based search with AND/OR logic across keys
-- Pagination support (limit/offset parameters)
-- JSON response with avatar URLs and pagination metadata
-- Error handling for invalid queries (400) and server errors (500)
-
-**Security**:
-- HTTPS-only communication
-- URL sanitization via existing security controls
-- 30-second request timeout for network calls
-- Fetch requests abortable via AbortController
-
-### 12.5 Components
-
-**AvatarBrowserModal**:
-- Chakra UI Dialog-based modal component
-- Tabbed interface with "Browse Server" and "Upload File" tabs
-- Subject filter dropdown populated from API vocabulary
-- Avatar grid with clickable thumbnails
-- Pagination controls (Previous/Next buttons)
-- Loading, error, and empty states
-
-**ProfileEditor Integration**:
-- "Browse" button added alongside picture URL input field
-- Modal state managed in ProfileEditor component
-- Selected avatar URL propagated through existing onChange handlers
-- Consistent with existing modal patterns (ContactModal, QrCodeScannerModal)
-
-### 12.6 Properties
-
-**User Experience**:
-- Simple subject-based filtering (avoids UI clutter)
-- Quick selection workflow: click avatar to select and close modal
-- Disabled "Upload File" tab indicates future functionality
-- Preserves existing URL entry workflow (button alongside input, not replacing)
-
-**Performance**:
-- Pagination limits memory footprint to 20 images at a time
-- Image caching prevents redundant network requests
-- Loading states prevent UI blocking during API calls
-
-**Accessibility**:
-- Theme-aware styling via `useThemeColors()` hook
-- Keyboard navigation support (ESC to close, standard button/modal interactions)
-- Consistent with existing Chakra UI accessibility patterns
-
----
-
 ## 7. Persistence Layer
 
 ### 7.1 Purpose
@@ -591,3 +508,34 @@ Error from any state → failed
 * State operations (get/set/delete/getAll) work correctly
 * Data persists across application restarts
 * Migration failures prevent application startup with clear error messages
+
+---
+
+## 12. Related Feature Specifications
+
+This document describes the core bootstrap functionality that is currently implemented. Additional features are documented in separate specification files:
+
+### Implemented Features (Detailed Specs)
+* [Avatar Image Selector](avatar-image-selector-spec.md) - Browse and select profile avatars from curated collection
+* [Contacts Panel](contacts-panel-spec.md) - View contact profiles with offline image caching
+* [Emoji Picker](emoji-picker-spec.md) - Insert emojis with WCAG Level A accessibility
+* [Identities Panel](identities-panel-spec.md) - Identity profile editor with live preview
+* [NIP-17/59 Upgrade](nip-17-59-upgrade-spec.md) - Modern encryption protocol migration
+* [Ostrich-Themed Status Messages](ostrich-themed-status-messages-spec.md) - Playful status messages
+* [Profile Avatars](profile-avatars-spec.md) - Avatar display with status badges
+* [QR Code Contact Management](qr-code-contact-spec.md) - Scan QR codes to add contacts
+* [Relay Redesign](relay-redesign-spec.md) - Relay management UI with drag-and-drop
+* [Theme Selection Panel](theme-selection-panel-spec.md) - Per-identity theme customization
+* [Theme System](theme-system-spec.md) - 10 distinctive color schemes
+* [YAML Configuration Format](yaml-config-format-spec.md) - JSON to YAML migration
+
+### Unimplemented/Planned Features
+* [Reactive Relay Sync](reactive-relay-sync-spec.md) - Event-driven relay synchronization (infrastructure exists, full reactive model incomplete)
+* [P2P WebRTC Messaging](p2p-webrtc-spec.md) - Direct peer-to-peer connections (experimental, behind dev flag)
+* [Custom Theme Creation](custom-theme-creation-spec.md) - User-created custom themes [Priority: High]
+* [Theme Light/Dark Variants](theme-light-dark-variants-spec.md) - Light and dark variants for each theme [Priority: High]
+* [Mnemonic Backup E2E Tests](mnemonic-backup-e2e-spec.md) - E2E test coverage for mnemonic workflows [Priority: Medium]
+
+### Architecture Documentation
+* [Technical Architecture](../docs/architecture.md) - Comprehensive technical architecture (68KB)
+* [User Stories](../user-stories.md) - User-centric feature descriptions by persona and epic

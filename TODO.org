@@ -1,71 +1,28 @@
-* TODO
+* Active Development Tasks
 
-+ avatar
-  + browser scrolling
-  + fewer avatars per page, dynamically
-  + enlarge avatars
+This file tracks active bugs, minor enhancements, and exploratory ideas.
 
-+ old messages not retrieved
+For well-defined future features, see =specs/*-spec.md= files.
+For implemented features and user stories, see =user-stories.md=.
+For the main software specification, see =specs/spec.md=.
 
-+ banner removal
+** Bugs
 
-+ relay configs as json
-
-+ consider browser based application
-
-+ add playwright mcp
-
-+ bug :: messages received before a contact was added should be fetched displayed as well when a contact is added.
-
-+ bug :: the new messages info on contacts is not reactive, and disappears to late.
-
-+ be sparse when polling events from relays. use timestamp based request to avoid excess traffic and redundant events.
-
-+ add desktop feedback when messages arrive and app is not focused/in background
-
-+ out-of-band transmission (direct link via ipv6)
-  + add state indicator to contact when p2p connection is established
-
-+ mnemonic backup, nsec export -> e2e test
-
-+ banner and avatar uploads
-  + either select one of the built-in avatars/banners and only send the metadata event or exchange data out of band
-
++ bug :: messages received before a contact was added should be fetched and displayed when the contact is added.
++ bug :: the new messages info on contacts is not reactive, and disappears too late.
++ bug :: download status does not update in a timely manner
++ amethyst sent this: =[//]: # (nip18)=
+  + examine what message type that was (developer mode)
 + letter in avatar placeholder in contact details view is not centered. please compare to identity details view, where positioning is correct.
 
-+ developer mode where messages can be inspected on double click (modal overlay); requires --dev flag
-  + highlight/error log if messages are not kind 4
-  + add transmission protocol (nostr or p2p)
+** TODO [#A] Themes (see also: specs/custom-theme-creation-spec.md, specs/theme-light-dark-variants-spec.md)
 
-+ allow removing identites
-
-+ bug: download status does not update in a timely manner
-
-+ consolidate documentation
-
-+ amethyst sent this: `[//]: # (nip18)`
-  + examine what message type that was (developer mode)
-
-+ edit relays per identity
-
-+ html/markdown messages
-  
-+ add nostling icon
-  
-+ on network connection loss during download, resume
-
-** TODO [#A] Themes
-
-+ save custom themes
-+ one dark one light each
-+ banner image
 + more fonts
 + theme generator
   + background
   + avatar
   + banner
   + reuse color theme
-+ each color theme should provide dark and light variant
 + cancel/undo/revert/save
 + fonts
   + heading?
@@ -73,19 +30,13 @@
   + contact/identities (headers)
   + messages self/other
 + transition when switching themes
-+ background colors: 7
-  + main panel
-  + message cards (2)
-  + side bar
-  + footer
-  + header
-  + chat window
 + light gradient
   + matching text colors
   + matching label colors
 + card corner radius
++ banner image
 
-⏺ There are 10 background colors in the theme system:
+There are 10 background colors in the theme system:
 
   Layout backgrounds (5):
   1. appBg - Main application shell
@@ -101,40 +52,37 @@
   9. inputBg - Input fields
   10. ownBubbleBg - User's outgoing message bubbles
 
-** TODO [#B] remove legacy handlers
+** TODO [#B] Code Cleanup
 
-⏺ Legacy handlers are backward-compatibility aliases for older IPC channel names that were used before the codebase was refactored to use
-  a domain-based naming convention.
++ remove legacy IPC handlers (status:get, update:check, update:restart)
+  + These are backward-compatibility aliases for older channel names.
+  + See src/main/ipc/handlers.ts
 
-  Looking at src/main/ipc/handlers.ts:351-370:
+** Enhancements
 
-  // BUG FIX: Legacy IPC handlers for backward compatibility
-  // Root cause: E2E tests using old API channel names (status:get, update:check, update:restart)
-  ipcMain.handle('status:get', async () => {
-    return dependencies.getStatus();
-  });
++ avatar
+  + browser scrolling
+  + fewer avatars per page, dynamically
+  + enlarge avatars
++ banner removal
++ old messages not retrieved
++ add desktop feedback when messages arrive and app is not focused/in background
++ developer mode where messages can be inspected on double click (modal overlay); requires --dev flag
+  + highlight/error log if messages are not kind 4
+  + add transmission protocol (nostr or p2p)
++ allow removing identities
++ edit relays per identity
++ html/markdown messages
++ add nostling icon
++ on network connection loss during download, resume
++ banner and avatar uploads
+  + either select one of the built-in avatars/banners and only send the metadata event or exchange data out of band
++ local relay
 
-  ipcMain.handle('update:check', async () => {
-    return dependencies.checkForUpdates();
-  });
+** [#C] Exploratory Ideas
 
-  ipcMain.handle('update:restart', async () => {
-    return dependencies.restartToUpdate();
-  });
-
-  These 3 legacy handlers map to the same functionality as their newer counterparts:
-
-  | Legacy Channel | New Channel       | Function                |
-  |----------------|-------------------|-------------------------|
-  | status:get     | system:get-status | Get app status          |
-  | update:check   | updates:check     | Check for updates       |
-  | update:restart | updates:restart   | Restart to apply update |
-
-  They exist because E2E tests (or possibly older code) were still using the old channel names. Rather than break those tests, the
-  handlers were kept for backward compatibility during a transition period.
-
-** [#C] Misc Features/Issues
-
++ consider browser-based application
++ add playwright mcp
 + username vs. display name
 + is the sidebar width conceptually part of a theme? if so, store it in SQLite DB
 + consider moving sub-header title into header
@@ -151,10 +99,8 @@
   + the savanna is ours to conquer
   + looking forward to
   + welcome to my flock
-  + ...
 + enable sending images (upload where?, inline?)
 + calendar integration/display, ical
-+ run all e2e tests in parallel against the same relay in docker compose
 + ensure contact list is scrollable
 + direct link
   + indicate whether a contact is online
@@ -197,14 +143,13 @@
 + save screen size in config
 + vertically shrink footer
 + add splash screen with nostling
-+ create
 + identities vertically by avatar?
 + enlarge sidebar on large screens
 
 ** [#C] Release
 
 + do NOT allow release if test, test-e2e, or lint fails
-+ compress git history befor version release
++ compress git history before version release
 + compress migrations into one initial migration
 + remove old versions
 + tidy up repo
@@ -245,27 +190,7 @@
   Critical insight: The encryption key is tied to the app's identity in the OS. On macOS, if the app is reinstalled, the keychain entry
   may become orphaned/inaccessible because the new app instance gets a new keychain entry.
 
-> is my understanding correct that dev mode does not have access to the OS keychain, because the app was not installed from bundle? 
-
-⏺ Not quite. Dev mode does have access to the keychain - the issue is that the access is unstable across restarts.
-
-  Here's what happens:
-
-  | Scenario          | App Identity (from Keychain's view)          | Keychain Entry                      |
-  |-------------------|----------------------------------------------|-------------------------------------|
-  | Production bundle | Signed app with stable code signature        | Persistent, same entry every launch |
-  | Dev mode          | Unsigned Electron binary / varying signature | May get new entry each session      |
-
-  The Dev Mode Problem
-
-  Session 1: electron . → Keychain creates entry "Electron Safe Storage" with key A
-             → encrypt(nsec) with key A → store
-
-  Session 2: electron . → Keychain creates NEW entry with key B (or can't find entry A)
-             → decrypt with key B → FAILS
-             → fallback to UTF-8 decode → garbage
-
-** [#C] hoverinfo controller
+** [#C] Hoverinfo Controller
 
   Current Approach: Explicit hideInfo()
 
@@ -279,19 +204,6 @@
   - Handler decides when/how to clear (e.g., timeout, next message, idle detection)
   - Simpler API for callers
 
-  Potential Benefits of Queueing
-
-  1. Simpler caller code - just showInfo("message"), no cleanup responsibility
-  2. Consistent timing - handler controls display duration uniformly
-  3. Graceful transitions - could show messages sequentially instead of overwriting
-  4. Handles edge cases - component unmounts before calling hideInfo(), rapid hover changes
-
-  Potential Drawbacks
-
-  1. Less control - some messages might want different durations (copy feedback vs hover info)
-  2. Stale messages - queue could show outdated info if user moves quickly
-  3. Complexity - queue management, priority, deduplication
-
   Middle Ground Options
 
   Option A: Auto-expire with optional override
@@ -300,8 +212,6 @@
 
   Option B: Message types with different behaviors
   showInfo(text, { type: 'hover' | 'feedback' })
-  // 'hover' = cleared on next showInfo or timeout
-  // 'feedback' = shows for fixed duration then clears
 
   Option C: Last-write-wins with hysteresis (closest to current)
   showInfo(text) // shows immediately
@@ -311,40 +221,17 @@
 
 + add configuration for backup relays and copy incoming messages
 
-⏺ Based on the message flow, here's what you'd need to do to pipe incoming messages to a backup relay:
+  Key Insertion Point: src/main/nostling/service.ts in handleIncomingEvent()
 
-  Key Insertion Point
+  Implementation Approach: Republish raw event to backup relay after dedup check, before processing.
 
-  src/main/nostling/service.ts in handleIncomingEvent() (lines 1170-1185)
+  What You'd Need to Add:
+  1. Backup relay connection (dedicated SimplePool or extend RelayPool)
+  2. Publish method (reuse existing relay-pool publish)
+  3. Configuration (store backup relay URL in settings/config)
 
-  This is where the raw NostrEvent arrives from relays - still encrypted, with all original fields intact (id, pubkey, sig, etc.). This is
-   the ideal place to republish before any processing.
-
-  Implementation Approach
-
-  // In handleIncomingEvent() - after dedup check, before processing
-  private handleIncomingEvent(identityId: string, event: NostrEvent): void {
-    if (this.seenEventIds.has(event.id)) return;
-    this.seenEventIds.add(event.id);
-
-    // >>> BACKUP HERE - raw event with encrypted content
-    this.publishToBackupRelay(event);
-
-    // Continue with normal processing...
-    this.eventQueue.push(async () => { ... });
-  }
-
-  What You'd Need to Add
-
-  1. Backup relay connection - Either:
-    - Add a dedicated SimplePool instance for the backup relay
-    - Or extend RelayPool to support a "backup" relay list
-  2. Publish method - The RelayPool already has publish() (line ~250 in relay-pool.ts) that could be reused or adapted
-  3. Configuration - Store the backup relay URL somewhere (settings, config file)
-
-  Important Notes
-
-  - The raw event is already signed by the original author - you're just re-broadcasting it
-  - The content is still NIP-04 encrypted - no need to re-encrypt
-  - You'd republish the exact same event, not create a new one
-  - Consider making this async/non-blocking so it doesn't slow down message processing
+  Notes:
+  - Raw event is already signed by original author
+  - Content is still encrypted (NIP-04/NIP-17)
+  - Republish exact same event, not create a new one
+  - Make async/non-blocking to not slow down processing
