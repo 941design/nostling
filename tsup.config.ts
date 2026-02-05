@@ -14,6 +14,14 @@ export default defineConfig({
     'electron-updater',
     'electron-log',
   ],
+  // Bundle ESM-only dependencies to avoid CJS/ESM compatibility issues
+  noExternal: [
+    'nostr-tools',
+    '@noble/hashes',
+    '@noble/curves',
+    '@scure/bip32',
+    '@scure/bip39',
+  ],
   define: {
     'process.env.EMBEDDED_RSA_PUBLIC_KEY': JSON.stringify(publicKey),
   },
