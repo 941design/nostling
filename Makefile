@@ -97,31 +97,31 @@ dev-update-local: ## Test updates from local file system (FR2 file:// protocol s
 	fi
 	npm run dev
 
-build: ## Build the application for production
+build: install ## Build the application for production
 	npm run build
 
-build-main: ## Build main process only
+build-main: install ## Build main process only
 	npm run build:main
 
-build-preload: ## Build preload script only
+build-preload: install ## Build preload script only
 	npm run build:preload
 
-build-renderer: ## Build renderer process only
+build-renderer: install ## Build renderer process only
 	npm run build:renderer
 
-lint: ## Run type checking
+lint: install ## Run type checking
 	npm run lint
 
-lint-fix: ## Auto-fix ESLint errors
+lint-fix: install ## Auto-fix ESLint errors
 	npm run lint:fix
 
-lint-all: ## Run type checking and ESLint
+lint-all: install ## Run type checking and ESLint
 	npm run lint && npm run lint:eslint
 
-test: ## Run unit tests
+test: install ## Run unit tests
 	npm test
 
-test-watch: ## Run unit tests in watch mode
+test-watch: install ## Run unit tests in watch mode
 	npm run test:watch
 
 test-e2e: ## Run E2E tests in parallel Docker containers (JOBS=12)
@@ -140,7 +140,7 @@ test-e2e-file: ## Run single E2E test file in Docker (FILE=e2e/foo.spec.ts)
 	fi
 	TEST_FILE=$(FILE) docker-compose -f docker-compose.e2e.yml up --build --abort-on-container-exit
 
-test-e2e-native: ## Run E2E tests directly (no container)
+test-e2e-native: install ## Run E2E tests directly (no container)
 	npm run test:e2e
 
 test-e2e-ui: ## Run E2E tests in interactive UI mode
