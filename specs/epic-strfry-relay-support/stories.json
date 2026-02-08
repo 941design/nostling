@@ -1,7 +1,7 @@
 {
   "epic_name": "strfry-relay-support",
   "created_at": "2026-02-08T12:30:00Z",
-  "updated_at": "2026-02-08T12:32:00Z",
+  "updated_at": "2026-02-08T12:51:00Z",
   "total_stories": 5,
   "stories": [
     {
@@ -69,7 +69,7 @@
       "mock_dependencies": [],
       "introduces_mocks": [],
       "test_fixtures": [],
-      "status": "pending",
+      "status": "done",
       "notes": "Can be tested independently by running 'docker compose -f docker-compose.e2e.yml up relay' and connecting to ws://localhost:8080. Story 01 must complete first to have strfry.conf available, but no runtime dependency (can use placeholder config for testing)."
     },
     {

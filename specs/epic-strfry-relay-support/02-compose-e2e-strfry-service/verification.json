@@ -1,0 +1,100 @@
+{
+  "created_at": "2026-02-08T12:40:00Z",
+  "story_id": "02",
+  "questions": [
+    {
+      "id": "VQ-02-001",
+      "category": "correctness",
+      "question": "Does docker-compose.e2e.yml use the multi-arch Strfry image (ghcr.io/dockur/strfry)?",
+      "actionable_check": "Verify image field in nostr-relay service is ghcr.io/dockur/strfry:latest",
+      "evidence_required": ["image_value", "file_line"],
+      "pass_criteria": "Image is set to ghcr.io/dockur/strfry:latest"
+    },
+    {
+      "id": "VQ-02-002",
+      "category": "correctness",
+      "question": "Does docker-compose.e2e.yml mount strfry.conf to the correct container path?",
+      "actionable_check": "Verify volume mount ./strfry.conf:/etc/strfry.conf:ro exists in relay service",
+      "evidence_required": ["volume_mount_value", "readonly_flag"],
+      "pass_criteria": "Config mounted read-only at /etc/strfry.conf"
+    },
+    {
+      "id": "VQ-02-003",
+      "category": "correctness",
+      "question": "Does docker-compose.e2e.yml define a named volume for persistent database storage?",
+      "actionable_check": "Verify strfry-data volume is defined and mounted to /app/strfry-db",
+      "evidence_required": ["volume_definition", "mount_path"],
+      "pass_criteria": "Named volume strfry-data exists and is mounted to /app/strfry-db"
+    },
+    {
+      "id": "VQ-02-004",
+      "category": "correctness",
+      "question": "Does docker-compose.e2e.yml expose port 8080 correctly?",
+      "actionable_check": "Verify ports mapping 8080:8080 exists in relay service",
+      "evidence_required": ["port_mapping"],
+      "pass_criteria": "Port 8080 is exposed from container to host"
+    },
+    {
+      "id": "VQ-02-005",
+      "category": "correctness",
+      "question": "Does docker-compose.dev.yml also use Strfry (hard migration)?",
+      "actionable_check": "Verify dev compose also uses ghcr.io/dockur/strfry:latest with correct volumes",
+      "evidence_required": ["dev_compose_image", "dev_compose_volumes"],
+      "pass_criteria": "Dev compose matches e2e compose pattern with Strfry image"
+    },
+    {
+      "id": "VQ-02-006",
+      "category": "integration",
+      "question": "Are the compose files syntactically valid?",
+      "actionable_check": "Run docker compose config --quiet for both e2e and dev compose files",
+      "evidence_required": ["e2e_config_result", "dev_config_result"],
+      "pass_criteria": "Both compose files parse without errors"
+    },
+    {
+      "id": "VQ-02-007",
+      "category": "correctness",
+      "question": "Does the NOSTLING_DEV_RELAY env var still point to ws://nostr-relay:8080?",
+      "actionable_check": "Verify e2e-test service environment still has NOSTLING_DEV_RELAY=ws://nostr-relay:8080",
+      "evidence_required": ["env_value"],
+      "pass_criteria": "NOSTLING_DEV_RELAY unchanged since service name and port remain the same"
+    }
+  ],
+  "mandatory_questions": [
+    {
+      "id": "VQ-02-M01",
+      "category": "acceptance_criteria",
+      "question": "Does the image support linux/amd64 and linux/arm64 (AC-001)?",
+      "actionable_check": "Run docker buildx imagetools inspect ghcr.io/dockur/strfry:latest and check platform list",
+      "evidence_required": ["platforms_list", "inspection_output"],
+      "pass_criteria": "Image manifest shows both linux/amd64 and linux/arm64",
+      "acceptance_criterion": "AC-001"
+    },
+    {
+      "id": "VQ-02-M02",
+      "category": "acceptance_criteria",
+      "question": "Does the compose config support relay startup on current architecture (AC-002/AC-003)?",
+      "actionable_check": "Verify compose file is valid and image supports current platform",
+      "evidence_required": ["compose_valid", "current_platform"],
+      "pass_criteria": "Compose config valid and image supports current architecture",
+      "acceptance_criterion": "AC-002"
+    },
+    {
+      "id": "VQ-02-M03",
+      "category": "acceptance_criteria",
+      "question": "Is persistent storage configured via named volume (AC-005)?",
+      "actionable_check": "Verify strfry-data volume defined and mounted for database persistence",
+      "evidence_required": ["volume_definition", "mount_target"],
+      "pass_criteria": "Named volume strfry-data exists for /app/strfry-db persistence",
+      "acceptance_criterion": "AC-005"
+    },
+    {
+      "id": "VQ-02-M04",
+      "category": "acceptance_criteria",
+      "question": "Is the relay service properly defined in docker-compose.e2e.yml (AC-009)?",
+      "actionable_check": "Verify nostr-relay service exists with Strfry image, port, config, and volume",
+      "evidence_required": ["service_definition_complete"],
+      "pass_criteria": "Service has image, ports, volumes (config + data), restart policy",
+      "acceptance_criterion": "AC-009"
+    }
+  ]
+}

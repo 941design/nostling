@@ -1,12 +1,13 @@
 {
   "epic_name": "strfry-relay-support",
   "created_at": "2026-02-08T12:15:00Z",
-  "updated_at": "2026-02-08T12:32:00Z",
+  "updated_at": "2026-02-08T12:51:00Z",
   "status": "in_progress",
   "phase": "STORIES_DEFINED",
   "current_story": null,
   "completed_stories": [
-    "01"
+    "01",
+    "02"
   ],
   "blocked_stories": [],
   "escalated_stories": [],

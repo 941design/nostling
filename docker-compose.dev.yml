@@ -1,11 +1,12 @@
 services:
   nostr-relay:
-    image: scsibug/nostr-rs-relay:latest
+    image: ghcr.io/dockur/strfry:latest
     container_name: nostling-dev-relay
     ports:
       - "8080:8080"
     volumes:
-      - nostr-relay-data:/usr/src/app/db
+      - ./strfry.conf:/etc/strfry.conf:ro
+      - strfry-data:/app/strfry-db
 
 volumes:
-  nostr-relay-data:
+  strfry-data:

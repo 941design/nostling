@@ -1,11 +1,12 @@
 services:
   nostr-relay:
-    image: scsibug/nostr-rs-relay:latest
+    image: ghcr.io/dockur/strfry:latest
     container_name: nostling-e2e-relay
     ports:
       - "8080:8080"
     volumes:
-      - ./e2e/relay-config.toml:/usr/src/app/config.toml:ro
+      - ./strfry.conf:/etc/strfry.conf:ro
+      - strfry-data:/app/strfry-db
     restart: unless-stopped
 
   e2e-test:
@@ -34,3 +35,6 @@ services:
     # Show output in real-time
     stdin_open: true
     tty: true
+
+volumes:
+  strfry-data:
