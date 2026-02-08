@@ -11,7 +11,7 @@ This epic replaces the nostr-rs-relay (amd64-only) with Strfry relay for local t
 
 ### AC-001: Multi-arch Image Availability
 - **Description**: Strfry relay Docker image must support both linux/amd64 and linux/arm64 platforms
-- **Verification**: Run `docker buildx imagetools inspect thesamecat/strfry` and confirm both `linux/amd64` and `linux/arm64` are listed in the manifest
+- **Verification**: Run `docker buildx imagetools inspect ghcr.io/dockur/strfry:latest` and confirm both `linux/amd64` and `linux/arm64` are listed in the manifest
 - **Type**: integration
 - **Source**: FR-1 (Strfry Relay Image Support)
 
@@ -59,13 +59,13 @@ This epic replaces the nostr-rs-relay (amd64-only) with Strfry relay for local t
 
 ### AC-009: Compose File Updated for E2E
 - **Description**: docker-compose.e2e.yml must define a relay service using Strfry image instead of nostr-rs-relay
-- **Verification**: Verify docker-compose.e2e.yml contains service named `relay` with image `thesamecat/strfry`, port mapping `8080:8080`, and volume mount for config and data
+- **Verification**: Verify docker-compose.e2e.yml contains service `nostr-relay` with image `ghcr.io/dockur/strfry:latest`, port mapping `8080:8080`, and volume mount for config and data
 - **Type**: manual
 - **Source**: FR-2 (Local Testing via Docker Compose)
 
 ### AC-010: Compose File Updated for E2E Prod
 - **Description**: docker-compose.e2e-prod.yml must define a relay service using Strfry image
-- **Verification**: Verify docker-compose.e2e-prod.yml contains service named `relay` with image `thesamecat/strfry`, port mapping `8080:8080`, and volume mount for config and data
+- **Verification**: Verify docker-compose.e2e-prod.yml contains service `nostr-relay` with image `ghcr.io/dockur/strfry:latest`, port mapping `8080:8080`, and volume mount for config and data
 - **Type**: manual
 - **Source**: FR-2 (Local Testing via Docker Compose)
 
