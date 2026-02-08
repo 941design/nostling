@@ -1,0 +1,47 @@
+{
+  "story_id": "04",
+  "status": "done",
+  "created_at": "2026-02-08T16:30:00Z",
+  "updated_at": "2026-02-08T16:50:00Z",
+  "completed_at": "2026-02-08T16:50:00Z",
+  "implementation": {
+    "status": "done",
+    "started_at": "2026-02-08T16:30:00Z",
+    "completed_at": "2026-02-08T16:45:00Z",
+    "architect_session_id": null,
+    "files_created": [],
+    "files_modified": [],
+    "mocks_introduced": []
+  },
+  "verification_rounds": [
+    {
+      "round": 1,
+      "timestamp": "2026-02-08T16:48:00Z",
+      "results": [
+        {"question_id": "VQ-04-001", "result": "pass", "evidence": {"relay_response": "[\"OK\",\"47d8b8c2...\",true,\"\"]", "event_retrieved": true}, "severity": 0, "confidence": 1.0},
+        {"question_id": "VQ-04-002", "result": "pass", "evidence": {"event_persisted_after_restart": true, "event_id": "47d8b8c2c8205a9e1554e5ed198ac02321c09c28d93efe9a67c674bd80cd4dc7"}, "severity": 0, "confidence": 1.0},
+        {"question_id": "VQ-04-003", "result": "pass", "evidence": {"volume_mount": "strfry-data:/app/strfry-db", "config_db_path": "/app/strfry-db/"}, "severity": 0, "confidence": 0.95},
+        {"question_id": "VQ-04-004", "result": "pass", "evidence": {"tests_passed": 146, "flaky": 2, "failed": 0, "exit_code": 0, "note": "2 flaky tests pass on retry"}, "severity": 0, "confidence": 0.95},
+        {"question_id": "VQ-04-005", "result": "pass", "evidence": {"port": 8080, "websocket_connections": true, "bind": "0.0.0.0"}, "severity": 0, "confidence": 0.90},
+        {"question_id": "VQ-04-M01", "result": "pass", "evidence": {"total": 2540, "passing": 2517, "failing": 22, "matches_baseline": true}, "severity": 0, "confidence": 1.0},
+        {"question_id": "VQ-04-M02", "result": "pass", "evidence": {"reproducible": true, "uses_fresh_keypair": true, "named_volume": true}, "severity": 0, "confidence": 1.0}
+      ],
+      "summary": {"total": 7, "passed": 7, "failed": 0, "partial": 0},
+      "verification_passed": true,
+      "test_gate": {
+        "ran_at": "2026-02-08T16:49:00Z",
+        "command": "npx jest --testPathIgnorePatterns=e2e",
+        "passed": true,
+        "total_tests": 2540,
+        "passed_tests": 2517,
+        "failed_tests": 22,
+        "failures": [],
+        "evidence": "22 failures within baseline 22-24 range. No new regressions."
+      },
+      "all_passed": true
+    }
+  ],
+  "remediation_attempts": [],
+  "escalation": null,
+  "final_outcome": "accepted"
+}

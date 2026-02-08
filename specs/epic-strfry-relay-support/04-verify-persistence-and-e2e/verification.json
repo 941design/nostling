@@ -1,0 +1,64 @@
+{
+  "created_at": "2026-02-08T16:30:00Z",
+  "story_id": "04",
+  "questions": [
+    {
+      "id": "VQ-04-001",
+      "category": "integration",
+      "question": "Does Strfry relay accept and store a properly signed NIP-01 kind:1 event?",
+      "actionable_check": "Publish a signed NIP-01 event using nostr-tools to ws://localhost:8080 and verify OK response with true acceptance",
+      "evidence_required": ["OK response from relay with accepted=true", "Event queryable by ID after publishing"],
+      "pass_criteria": "Relay returns [\"OK\", event_id, true, \"\"] and event is retrievable via REQ subscription"
+    },
+    {
+      "id": "VQ-04-002",
+      "category": "integration",
+      "question": "Do published events persist across container stop/start cycles?",
+      "actionable_check": "Publish event, stop relay container, start relay container, query event by ID",
+      "evidence_required": ["Event published before restart", "Container stop/start evidence", "Event retrieved after restart"],
+      "pass_criteria": "Same event (matching ID, content, pubkey) is returned after container restart"
+    },
+    {
+      "id": "VQ-04-003",
+      "category": "integration",
+      "question": "Does the named volume strfry-data correctly back the LMDB database directory?",
+      "actionable_check": "Verify docker-compose.e2e.yml mounts strfry-data volume to /app/strfry-db and strfry.conf sets db to /app/strfry-db/",
+      "evidence_required": ["Volume mount in compose file", "db path in strfry.conf"],
+      "pass_criteria": "Volume mount path matches strfry.conf db path setting"
+    },
+    {
+      "id": "VQ-04-004",
+      "category": "e2e",
+      "question": "Do all existing E2E tests pass when running against Strfry relay?",
+      "actionable_check": "Run npm run test:e2e:docker (or docker compose -f docker-compose.e2e.yml up --build --abort-on-container-exit) and check results",
+      "evidence_required": ["E2E test run output with pass/fail counts", "Exit code of test run"],
+      "pass_criteria": "All e2e tests pass (flaky tests that pass on retry are acceptable)"
+    },
+    {
+      "id": "VQ-04-005",
+      "category": "integration",
+      "question": "Does Strfry relay start and accept websocket connections on port 8080?",
+      "actionable_check": "Start relay via docker compose and verify websocket connection to ws://localhost:8080",
+      "evidence_required": ["Container startup logs showing port binding", "Successful websocket connection"],
+      "pass_criteria": "Relay binds to 0.0.0.0:8080 and accepts websocket connections"
+    }
+  ],
+  "mandatory_questions": [
+    {
+      "id": "VQ-04-M01",
+      "category": "regression",
+      "question": "Do all existing unit tests continue to pass (no regressions from story 04 changes)?",
+      "actionable_check": "Run npx jest --testPathIgnorePatterns=e2e and verify results match baseline",
+      "evidence_required": ["Test run output with pass/fail counts"],
+      "pass_criteria": "Test results within baseline range (22-24 pre-existing failures, no new failures)"
+    },
+    {
+      "id": "VQ-04-M02",
+      "category": "contract",
+      "question": "Is the persistence verification reproducible (not dependent on ephemeral state)?",
+      "actionable_check": "Verify the persistence test uses a fresh volume and proper event signing, not relying on leftover data",
+      "evidence_required": ["Test approach description", "Volume lifecycle evidence"],
+      "pass_criteria": "Persistence test works with a clean volume start - publish, restart, query pattern"
+    }
+  ]
+}

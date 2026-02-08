@@ -130,7 +130,7 @@
       "mock_dependencies": [],
       "introduces_mocks": [],
       "test_fixtures": [],
-      "status": "pending",
+      "status": "done",
       "notes": "Requires stories 02 and 03 to be complete (compose files updated). Persistence test can be standalone script or added to test suite. High complexity due to container lifecycle management and potential for timing issues."
     },
     {
