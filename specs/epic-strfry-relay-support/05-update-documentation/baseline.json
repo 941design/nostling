@@ -1,0 +1,33 @@
+{
+  "created_at": "2026-02-08T16:52:00Z",
+  "status": "ready",
+  "story_id": "05",
+  "checks": {
+    "compiles": {
+      "passed": true,
+      "command": "npm run lint",
+      "evidence": "TypeScript compilation successful"
+    },
+    "tests_pass": {
+      "passed": false,
+      "command": "npx jest --testPathIgnorePatterns=e2e",
+      "evidence": "22 flaky failures (pre-existing, user approved)",
+      "flakiness_detected": true,
+      "failure_range": {"min_failing": 22, "max_failing": 24}
+    },
+    "dependencies": {
+      "passed": true,
+      "command": "npm install",
+      "evidence": "All dependencies installed"
+    }
+  },
+  "test_snapshot": {
+    "total": 2540,
+    "passing": 2517,
+    "failing": 22,
+    "skipped": 1,
+    "failing_suites": ["src/main/index.test.ts", "src/main/timer.test.ts", "src/main/security/crypto.test.ts"],
+    "flakiness_note": "Carried from prior stories. User approved."
+  },
+  "blocking_issues": [{"type": "pre_existing_test_failures", "user_decision": "proceed"}]
+}

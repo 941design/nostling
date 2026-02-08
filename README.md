@@ -320,6 +320,27 @@ npm run test:e2e:debug      # E2E with Playwright Inspector
 npm run test:e2e:docker     # E2E in Docker (simulates CI)
 ```
 
+### Local Nostr Relay (Strfry)
+
+The project uses [Strfry](https://github.com/hoytech/strfry), a high-performance C++ Nostr relay, for local development and E2E testing. The relay runs via Docker Compose and supports both linux/amd64 and linux/arm64.
+
+**Start the relay for development:**
+```bash
+docker compose -f docker-compose.dev.yml up -d nostr-relay
+```
+
+The relay listens on `ws://localhost:8080` and persists events to a named Docker volume (`strfry-data`).
+
+**Configuration:** Relay settings are in `strfry.conf` in the project root. Key settings include database path, websocket port (8080), rate limits, and logging level.
+
+**E2E tests use the relay automatically** - when running `npm run test:e2e:docker`, the relay starts as part of the Docker Compose stack.
+
+**Stop and clean up:**
+```bash
+docker compose -f docker-compose.dev.yml down       # Stop (preserves data)
+docker compose -f docker-compose.dev.yml down -v     # Stop and delete data
+```
+
 ### Dev Mode Update Testing
 
 Test the auto-update system locally before releasing:
