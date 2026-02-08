@@ -1,0 +1,176 @@
+{
+  "epic_name": "strfry-relay-support",
+  "created_at": "2026-02-08T12:30:00Z",
+  "updated_at": "2026-02-08T12:32:00Z",
+  "total_stories": 5,
+  "stories": [
+    {
+      "id": "01",
+      "name": "strfry-config-file",
+      "title": "Create Strfry configuration file",
+      "description": "Create strfry.conf in project root with documented settings for database path, websocket port, rate limits, and log level. This provides the foundation for relay deployment and serves as reference documentation for operators.",
+      "acceptance_criteria": [
+        "AC-006",
+        "AC-007",
+        "AC-008",
+        "AC-013"
+      ],
+      "scope": {
+        "includes": [
+          "Create strfry.conf in project root",
+          "Document database path setting with comments",
+          "Configure websocket listener port (8080)",
+          "Add rate limit settings with sane defaults for dev",
+          "Add log level configuration with comments",
+          "Include inline documentation explaining each setting"
+        ],
+        "excludes": [
+          "Docker compose integration",
+          "Volume mount configuration",
+          "E2E test updates"
+        ]
+      },
+      "complexity": "low",
+      "mock_dependencies": [],
+      "introduces_mocks": [],
+      "test_fixtures": [],
+      "status": "done",
+      "notes": "Foundation story with no dependencies. Config file can be validated manually by reading it and checking for required settings. Reference Strfry documentation for config format."
+    },
+    {
+      "id": "02",
+      "name": "compose-e2e-strfry-service",
+      "title": "Update docker-compose.e2e.yml for Strfry relay",
+      "description": "Replace nostr-rs-relay service definition with Strfry relay in docker-compose.e2e.yml. Configure image, port mapping, volume mounts for config and persistent data. Ensure relay is reachable at ws://localhost:8080.",
+      "acceptance_criteria": [
+        "AC-001",
+        "AC-002",
+        "AC-003",
+        "AC-005",
+        "AC-009",
+        "AC-014"
+      ],
+      "scope": {
+        "includes": [
+          "Replace relay service with Strfry image (thesamecat/strfry)",
+          "Configure port mapping 8080:8080",
+          "Mount strfry.conf to container config path",
+          "Define named volume for persistent database storage",
+          "Verify multi-arch image manifest",
+          "Test startup on amd64 (arm64 if available)"
+        ],
+        "excludes": [
+          "E2E test modifications",
+          "Production compose file updates",
+          "Documentation updates"
+        ]
+      },
+      "complexity": "medium",
+      "mock_dependencies": [],
+      "introduces_mocks": [],
+      "test_fixtures": [],
+      "status": "pending",
+      "notes": "Can be tested independently by running 'docker compose -f docker-compose.e2e.yml up relay' and connecting to ws://localhost:8080. Story 01 must complete first to have strfry.conf available, but no runtime dependency (can use placeholder config for testing)."
+    },
+    {
+      "id": "03",
+      "name": "compose-e2e-prod-strfry-service",
+      "title": "Update docker-compose.e2e-prod.yml for Strfry relay",
+      "description": "Replace nostr-rs-relay service definition with Strfry relay in docker-compose.e2e-prod.yml. Mirror configuration from e2e compose file with production-appropriate settings.",
+      "acceptance_criteria": [
+        "AC-010",
+        "AC-014"
+      ],
+      "scope": {
+        "includes": [
+          "Replace relay service with Strfry image",
+          "Configure port mapping 8080:8080",
+          "Mount strfry.conf to container config path",
+          "Define named volume for persistent database storage",
+          "Verify config matches e2e compose pattern"
+        ],
+        "excludes": [
+          "E2E test modifications",
+          "Development compose file updates",
+          "Documentation updates"
+        ]
+      },
+      "complexity": "low",
+      "mock_dependencies": [],
+      "introduces_mocks": [],
+      "test_fixtures": [],
+      "status": "pending",
+      "notes": "Similar to story 02 but for prod compose file. Can be tested independently by starting prod compose and verifying relay starts successfully. Pattern from story 02 can be reused."
+    },
+    {
+      "id": "04",
+      "name": "verify-persistence-and-e2e",
+      "title": "Verify event persistence and run E2E test suite",
+      "description": "Create integration test to verify published NIP-01 events persist across container restarts. Run full E2E test suite against Strfry relay to ensure compatibility. This validates the relay works correctly for all existing use cases.",
+      "acceptance_criteria": [
+        "AC-004",
+        "AC-011"
+      ],
+      "scope": {
+        "includes": [
+          "Create persistence verification script/test",
+          "Publish NIP-01 event to relay",
+          "Stop and restart relay container",
+          "Query event by ID and verify it returns",
+          "Run npm run test:e2e:docker",
+          "Verify all E2E tests pass with Strfry"
+        ],
+        "excludes": [
+          "Modifying E2E tests themselves",
+          "Performance testing",
+          "Load testing"
+        ]
+      },
+      "complexity": "high",
+      "mock_dependencies": [],
+      "introduces_mocks": [],
+      "test_fixtures": [],
+      "status": "pending",
+      "notes": "Requires stories 02 and 03 to be complete (compose files updated). Persistence test can be standalone script or added to test suite. High complexity due to container lifecycle management and potential for timing issues."
+    },
+    {
+      "id": "05",
+      "name": "update-documentation",
+      "title": "Update documentation for Strfry migration",
+      "description": "Update README.md and/or docs/ to describe Strfry setup, migration from nostr-rs-relay, and sidecar deployment guidance. Ensure developers can easily start the relay and understand configuration options.",
+      "acceptance_criteria": [
+        "AC-012"
+      ],
+      "scope": {
+        "includes": [
+          "Add Strfry setup instructions to README or docs/",
+          "Explain how to start relay using docker compose",
+          "Document migration from nostr-rs-relay",
+          "Provide sidecar deployment guidance",
+          "Link to strfry.conf for configuration reference",
+          "Include troubleshooting tips if needed"
+        ],
+        "excludes": [
+          "Detailed Strfry internals documentation",
+          "Production deployment automation",
+          "Custom plugin development guides"
+        ]
+      },
+      "complexity": "low",
+      "mock_dependencies": [],
+      "introduces_mocks": [],
+      "test_fixtures": [],
+      "status": "pending",
+      "notes": "Can be started early but should be finalized after other stories complete to ensure accuracy. Documentation should reference actual compose commands and config file locations from implemented stories."
+    }
+  ],
+  "story_order": [
+    "01",
+    "02",
+    "03",
+    "04",
+    "05"
+  ],
+  "dependency_notes": "Stories are designed to be independent where possible. Story 01 (config file) is foundational but other stories can use placeholder configs during development. Story 04 (verification) logically follows compose updates (02, 03) but can be developed in parallel using test fixtures. Story 05 (docs) should be finalized last to reflect actual implementation.",
+  "mock_resolution_plan": "No temporary mocks introduced. All stories work with real Strfry relay image and actual infrastructure. Test fixtures are not needed as we're testing real relay behavior."
+}
