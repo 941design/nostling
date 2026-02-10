@@ -1,7 +1,7 @@
 {
   "epic_name": "nip17-timestamp-lookback",
   "created_at": "2026-02-10T22:30:00Z",
-  "updated_at": "2026-02-10T21:58:01Z",
+  "updated_at": "2026-02-10T22:47:44Z",
   "total_stories": 3,
   "stories": [
     {
@@ -63,7 +63,7 @@
       "mock_dependencies": [],
       "introduces_mocks": [],
       "test_fixtures": [],
-      "status": "pending",
+      "status": "done",
       "notes": "Independent of story 01. Provides redundant delivery path even if subscription misses events. Can be tested by artificially delaying subscription and verifying polling catches up. Since both stories provide delivery paths, they can be implemented in any order."
     },
     {
@@ -125,5 +125,9 @@
     "03"
   ],
   "dependency_notes": "Stories 01 and 02 are completely independent and can be implemented in parallel or in any order. Both provide delivery improvements: 01 fixes the primary delivery path (streaming subscription), 02 adds redundancy (polling backup). Story 03 depends on completion of 01 and 02, as it verifies the integrated solution. However, story 03 setup activities (environment preparation, test fixture configuration) can begin immediately and run in parallel with implementation.",
-  "mock_resolution_plan": "No temporary mocks are introduced in this epic. The stories use only permanent test fixtures (local relay, dual Electron instances) which are part of the standard testing infrastructure per CLAUDE.md. All components being modified (subscription logic, polling logic) are existing production code with no dependencies on unimplemented features."
+  "mock_resolution_plan": "No temporary mocks are introduced in this epic. The stories use only permanent test fixtures (local relay, dual Electron instances) which are part of the standard testing infrastructure per CLAUDE.md. All components being modified (subscription logic, polling logic) are existing production code with no dependencies on unimplemented features.",
+  "completed_stories": [
+    "02"
+  ],
+  "current_story": "03"
 }

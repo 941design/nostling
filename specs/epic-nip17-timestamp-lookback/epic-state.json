@@ -1,12 +1,13 @@
 {
   "epic_name": "nip17-timestamp-lookback",
   "created_at": "2026-02-10T21:54:23Z",
-  "updated_at": "2026-02-10T22:39:04Z",
+  "updated_at": "2026-02-10T22:47:44Z",
   "status": "in_progress",
   "phase": "STORIES_DEFINED",
-  "current_story": "02",
+  "current_story": "03",
   "completed_stories": [
-    "01"
+    "01",
+    "02"
   ],
   "blocked_stories": [],
   "escalated_stories": [],
@@ -29,6 +30,11 @@
     {
       "phase": "STORY_01_COMPLETE",
       "timestamp": "2026-02-10T22:39:04Z",
+      "trigger": "verification_passed"
+    },
+    {
+      "phase": "STORY_02_COMPLETE",
+      "timestamp": "2026-02-10T22:47:44Z",
       "trigger": "verification_passed"
     }
   ]

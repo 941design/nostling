@@ -1,0 +1,101 @@
+{
+  "created_at": "2026-02-10T23:05:00Z",
+  "story_id": "02",
+  "story_title": "Extend polling mechanism to include kind 1059",
+
+  "questions": [
+    {
+      "id": "VQ-02-001",
+      "category": "TEST",
+      "question": "Does the polling mechanism correctly retrieve both kind 4 and kind 1059 events?",
+      "actionable_check": "Run property-based tests that verify pollMessages queries include both kind 4 and kind 1059 filters, and verify both kinds are processed",
+      "evidence_required": ["test file path", "test output showing both kinds polled"],
+      "pass_criteria": "Tests verify both kind 4 and kind 1059 filters are included in polling query",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-02-002",
+      "category": "TEST",
+      "question": "Does timestamp tracking work correctly for both kind 4 and kind 1059 polling?",
+      "actionable_check": "Verify that getMinTimestampForKind is called for both kinds and 'since' parameter is set correctly for each kind",
+      "evidence_required": ["test demonstrating per-kind timestamp tracking", "test output"],
+      "pass_criteria": "Tests verify per-kind 'since' timestamps are applied correctly for both kinds",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-02-003",
+      "category": "ARCHITECTURE",
+      "question": "Does getKind1059Filters follow the same pattern as getKind4Filters?",
+      "actionable_check": "Review implementation of both methods for structural consistency",
+      "evidence_required": ["code comparison showing parallel structure"],
+      "pass_criteria": "Both methods use identical filter extraction pattern from getSubscriptionFilters",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-02-004",
+      "category": "SPEC",
+      "question": "Does polling maintain existing kind 4 behavior unchanged?",
+      "actionable_check": "Run existing kind 4 polling tests and verify no regression",
+      "evidence_required": ["test output from story 01 tests", "any existing polling tests"],
+      "pass_criteria": "All existing kind 4 tests pass without modification",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-02-005",
+      "category": "TEST",
+      "question": "Does the implementation handle edge cases (no filters, no identities, relay pool not initialized)?",
+      "actionable_check": "Verify early-return conditions still work correctly with dual-kind logic",
+      "evidence_required": ["test output for edge cases"],
+      "pass_criteria": "Edge case tests pass showing correct handling of empty states",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-02-006",
+      "category": "QUALITY",
+      "question": "Does the polling enhancement use the correct FIRST_POLL_LOOKBACK for both kinds?",
+      "actionable_check": "Verify that initial poll (no lastTimestamp) uses FIRST_POLL_LOOKBACK constant, not NIP17_TIMESTAMP_WINDOW, since polling is independent of subscription windows",
+      "evidence_required": ["code inspection", "test showing initial poll uses FIRST_POLL_LOOKBACK"],
+      "pass_criteria": "Both kinds use FIRST_POLL_LOOKBACK for initial polling (polling is separate from subscription lookback)",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-02-007",
+      "category": "SPEC",
+      "question": "Does the integration test verify dual-instance message delivery via polling?",
+      "actionable_check": "Check if integration test sends message, waits for poll interval, and confirms delivery",
+      "evidence_required": ["integration test file", "test demonstrating polling catch-up"],
+      "pass_criteria": "Integration test demonstrates that polling catches messages missed by subscription",
+      "added_in_round": 1
+    }
+  ],
+
+  "mandatory_questions": [
+    {
+      "id": "VQ-02-DEAD",
+      "category": "QUALITY",
+      "question": "Is there any dead code introduced by this story?",
+      "actionable_check": "Search for unused functions, classes, imports in files modified by this story",
+      "evidence_required": ["file paths", "unused symbol names"],
+      "pass_criteria": "No unused code in story scope",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-02-DUP",
+      "category": "QUALITY",
+      "question": "Are there any duplicate implementations?",
+      "actionable_check": "Check for similar logic in multiple places within story scope",
+      "evidence_required": ["file paths", "duplicated logic description"],
+      "pass_criteria": "No duplicate implementations",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-02-INT",
+      "category": "TEST",
+      "question": "Do integration tests validate the story's workflow?",
+      "actionable_check": "Verify integration test exists that exercises the complete polling flow for both kinds",
+      "evidence_required": ["test file", "test function", "flow description"],
+      "pass_criteria": "At least one integration test covers polling for both kind 4 and kind 1059",
+      "added_in_round": 1
+    }
+  ]
+}

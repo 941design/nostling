@@ -823,6 +823,12 @@ export class NostlingService {
     return filters.filter((f): f is NostrKind4Filter => f.kinds?.includes(4) === true) as NostrKind4Filter[];
   }
 
+  // Extract kind 1059 filters for polling (used in pollMessages)
+  async getKind1059Filters(identityId: string): Promise<NostrKind1059Filter[]> {
+    const filters = await this.getSubscriptionFilters(identityId);
+    return filters.filter((f): f is NostrKind1059Filter => f.kinds?.includes(1059) === true) as NostrKind1059Filter[];
+  }
+
   async getRelaysForIdentity(identityId: string): Promise<NostlingRelayEndpoint[]> {
     return this.withErrorLogging(`get relays for identity ${identityId}`, async () => {
       return this.relayConfigManager.loadRelays(identityId);
@@ -1035,7 +1041,10 @@ export class NostlingService {
       .map(([url]) => url);
 
     for (const identity of identities) {
-      const filters = await this.getKind4Filters(identity.id);
+      const kind4Filters = await this.getKind4Filters(identity.id);
+      const kind1059Filters = await this.getKind1059Filters(identity.id);
+      const filters = [...kind4Filters, ...kind1059Filters];
+      
       if (filters.length === 0) {
         continue;
       }
