@@ -5,6 +5,7 @@ release
 local-release
 .DS_Store
 *.log
+.mcp.json
 
 # Playwright
 test-results/

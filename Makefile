@@ -1,4 +1,4 @@
-.PHONY: help clean install build test lint lint-fix lint-all package release sign-manifest test-e2e test-e2e-serial test-e2e-file test-e2e-native test-e2e-ui test-e2e-headed test-e2e-debug test-e2e-clean test-e2e-prod test-all dev-update-release dev-update-prerelease dev-update-local local-release local-release-clean test-version-upgrade version-patch version-minor version-major install-hooks run-prod run-dev dev-relay-start dev-relay-stop dev-relay-logs dev-relay-clean dev-main dev-preload dev-renderer
+.PHONY: help clean install build test lint lint-fix lint-all package release sign-manifest test-e2e test-e2e-serial test-e2e-file test-e2e-native test-e2e-ui test-e2e-headed test-e2e-debug test-e2e-clean test-e2e-prod test-all dev-update-release dev-update-prerelease dev-update-local local-release local-release-clean test-version-upgrade version-patch version-minor version-major install-hooks run-prod run-dev dev-relay-start dev-relay-stop dev-relay-logs dev-relay-clean dev-main dev-preload dev-renderer dev-dual
 
 .DEFAULT_GOAL := help
 
@@ -68,6 +68,9 @@ dev-relay-clean: ## Stop relay and remove data
 	@docker compose -f docker-compose.dev.yml down -v
 	@rm -rf /tmp/nostling-dev-data
 	@echo "Dev environment cleaned"
+
+dev-dual: build dev-relay-start ## Launch two instances with Playwright CDP debugging (ports 9222/9223)
+	./scripts/dev-dual.sh
 
 dev-main: ## Start main process development mode only
 	npm run dev:main
