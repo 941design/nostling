@@ -1,0 +1,34 @@
+version: '1'
+vm:
+  name: clauded-nostling-4de1dc
+  distro: ubuntu
+  cpus: 4
+  memory: 8GiB
+  disk: 20GiB
+mount:
+  host: /Users/mrother/Projects/941design/nostling
+  guest: /Users/mrother/Projects/941design/nostling
+environment:
+  python: '3.12'
+  node: '22'
+  java: null
+  kotlin: null
+  rust: null
+  go: null
+  dart: null
+  c: null
+  tools:
+  - docker
+  databases:
+  - sqlite
+  frameworks:
+  - claude-code
+  - playwright
+  playwright_browsers:
+  - chromium
+  - firefox
+  - webkit
+claude:
+  dangerously_skip_permissions: true
+ssh:
+  host_key_checking: true
