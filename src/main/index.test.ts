@@ -28,6 +28,9 @@ jest.mock('electron', () => ({
     getVersion: jest.fn(() => '1.0.0'),
     on: jest.fn(),
     getPath: jest.fn(() => '/tmp/test-userdata'),
+    commandLine: {
+      appendSwitch: jest.fn(),
+    },
   },
   BrowserWindow: jest.fn(() => mockWindow),
   Menu: {

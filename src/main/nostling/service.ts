@@ -68,6 +68,7 @@ import {
 const CLOCK_SKEW_BUFFER = 60; // seconds subtracted from 'since' to handle clock drift
 const FIRST_POLL_LOOKBACK = 5 * 60; // seconds (5 min) for first poll when no prior state
 const FIRST_STREAM_LOOKBACK = 24 * 60 * 60; // seconds (24h) for first subscription
+const NIP17_TIMESTAMP_WINDOW = 3 * 24 * 60 * 60; // seconds (3 days) for NIP-17 gift wraps (2d randomization + 1d buffer)
 const TIMESTAMP_UPDATE_DEBOUNCE_MS = 2000; // milliseconds between DB writes
 
 // Constants for reconnection handling
@@ -1420,16 +1421,20 @@ export class NostlingService {
     const baseFilters = await this.getSubscriptionFilters(identityId);
 
     // Add 'since' to streaming subscriptions for efficiency
-    // Use stored timestamp with buffer, or 24-hour lookback for first startup
+    // Use stored timestamp with buffer, or kind-specific lookback for first startup
+    // NIP-17 (kind 1059) uses 3-day window due to timestamp randomization (up to 2 days in past)
     const filtersWithSince = baseFilters.map(f => {
       const kind = f.kinds?.[0];
       if (!kind) return f;
 
       const lastTimestamp = getMinTimestampForKind(this.database, identityId, kind);
 
+      // Choose lookback window based on event kind
+      const lookbackWindow = kind === 1059 ? NIP17_TIMESTAMP_WINDOW : FIRST_STREAM_LOOKBACK;
+
       const sinceTimestamp = lastTimestamp
         ? lastTimestamp - CLOCK_SKEW_BUFFER
-        : Math.floor(Date.now() / 1000) - FIRST_STREAM_LOOKBACK;
+        : Math.floor(Date.now() / 1000) - lookbackWindow;
 
       return { ...f, since: sinceTimestamp };
     });
