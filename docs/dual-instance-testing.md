@@ -300,18 +300,24 @@ This sequence is a prerequisite for all test scenarios below.
 
 #### Steps
 
-1. Complete pre-test setup. Verify both instances show relay connected (footer status).
-
-2. **Instance B** -- Note the current footer status (should indicate connected relay).
-
-3. **Stop the relay**:
+1. **Clean start required** -- Delete data directories and logs, then launch fresh instances. Existing identities/contacts/messages from prior runs invalidate this test. The relay does not need pruning; old npubs become irrelevant once new identities are created.
    ```bash
-   docker compose -f docker-compose.e2e.yml stop nostling-dev-relay
+   rm -rf /tmp/nostling-a /tmp/nostling-b /tmp/nostling-a.log /tmp/nostling-b.log
+   make dev-dual
    ```
 
-4. **Wait** 10 seconds. Both instances should detect the disconnection.
+2. Complete pre-test setup (create identities + contacts). Verify both instances show relay connected (footer status).
 
-5. **Instance A** -- Send a message (it will be queued or fail to publish):
+3. **Instance B** -- Note the current footer status (should indicate connected relay).
+
+4. **Stop the relay**:
+   ```bash
+   docker compose -f docker-compose.e2e.yml stop nostr-relay
+   ```
+
+5. **Wait** 10 seconds. Both instances should detect the disconnection.
+
+6. **Instance A** -- Send a message (it will be queued or fail to publish):
    ```js
    await window.api.nostling.messages.send({
      identityId: '<alice-identity-id>',
@@ -320,23 +326,23 @@ This sequence is a prerequisite for all test scenarios below.
    })
    ```
 
-6. **Restart the relay**:
+7. **Restart the relay**:
    ```bash
-   docker compose -f docker-compose.e2e.yml start nostling-dev-relay
+   docker compose -f docker-compose.e2e.yml start nostr-relay
    ```
 
-7. **Wait** 30 seconds for reconnection and message retry.
+8. **Wait** 30 seconds for reconnection and message retry.
 
-8. **Instance A** -- Trigger message retry if needed:
+9. **Instance A** -- Trigger message retry if needed:
    ```js
    await window.api.nostling.messages.retry('<alice-identity-id>')
    ```
 
-9. **Wait** 15 seconds.
+10. **Wait** 15 seconds.
 
-10. **Instance B** -- Take screenshot. Verify the message "Sent while relay is down [t05]" appears.
+11. **Instance B** -- Take screenshot. Verify the message "Sent while relay is down [t05]" appears.
 
-11. **Log check** -- Instance B:
+12. **Log check** -- Instance B:
     ```
     grep "Received NIP-17 DM" /tmp/nostling-b.log
     ```
@@ -362,7 +368,7 @@ This sequence is a prerequisite for all test scenarios below.
 
 3. **Stop the relay**:
    ```bash
-   docker compose -f docker-compose.e2e.yml stop nostling-dev-relay
+   docker compose -f docker-compose.e2e.yml stop nostr-relay
    ```
 
 4. **Wait** 15 seconds for disconnection detection.
@@ -371,7 +377,7 @@ This sequence is a prerequisite for all test scenarios below.
 
 6. **Restart the relay**:
    ```bash
-   docker compose -f docker-compose.e2e.yml start nostling-dev-relay
+   docker compose -f docker-compose.e2e.yml start nostr-relay
    ```
 
 7. **Wait** 15 seconds for reconnection.
