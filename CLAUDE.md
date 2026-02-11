@@ -9,29 +9,11 @@
 
 ## Dual-Instance Test Environment
 
-For verifying messaging behavior, relay connectivity, and UI changes, use two separate Nostling instances connected to the same local relay.
+For verifying messaging behavior, relay connectivity, and UI changes, use two separate Nostling instances connected to the same local relay. Start with `make dev-dual`.
 
-### Setup
-
-```bash
-make dev-dual
-```
-
-This starts a strfry relay on `ws://localhost:8080`, launches two Electron instances (CDP ports 9222 and 9223, data dirs `/tmp/nostling-a` and `/tmp/nostling-b`), and prints the Playwright MCP config snippet to add to `.mcp.json`. On Linux it also handles Xvfb, dbus, and gnome-keyring. See `docs/dual-instance-playwright-setup.md` for manual setup and details.
-
-### Test Protocol
-
-1. Create identities on each instance (or reuse existing ones in `/tmp/nostling-a` and `/tmp/nostling-b`)
-2. Add mutual contacts by exchanging npubs
-3. Send a message from instance A and verify delivery on instance B (screenshot + logs)
-4. Send a message from instance B and verify delivery on instance A
-5. Check logs at `/tmp/nostling-a.log` and `/tmp/nostling-b.log` for `Publish complete` and `Received NIP-17 DM` entries
-6. If a message doesn't arrive, query the relay directly to confirm the event exists and check `created_at` against the subscription's `since` window
-
-### MCP Access
-
-- `playwright-a` controls instance A (CDP `http://127.0.0.1:9222`)
-- `playwright-b` controls instance B (CDP `http://127.0.0.1:9223`)
+- **Setup and infrastructure**: `docs/dual-instance-playwright-setup.md`
+- **Test scenarios and procedures**: `docs/dual-instance-testing.md`
+- `playwright-a` controls Instance A (CDP `http://127.0.0.1:9222`), `playwright-b` controls Instance B (CDP `http://127.0.0.1:9223`)
 - Use `browser_take_screenshot` or `browser_evaluate` for verification — `browser_snapshot` is unreliable with Chakra UI
 
 ## Documentation Guidelines

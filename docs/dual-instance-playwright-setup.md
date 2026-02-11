@@ -126,4 +126,4 @@ Repeat with `/tmp/nostling-b` and port `9223` for the second instance.
 
 2. **RelayTable UI blocks `ws://` URLs** — The relay configuration UI validates that URLs start with `wss://`, so `ws://localhost:8080` cannot be added through the UI. Use `NOSTLING_DEV_RELAY` env var instead.
 
-3. **NIP-17 timestamp lookback bug** — The subscription's 24-hour `since` window is too narrow for NIP-17 gift wraps with ±2-day randomized timestamps. See `specs/bug-nip17-timestamp-lookback.md`.
+3. **NIP-17 timestamp lookback bug** — Fixed. The subscription now uses a 3-day lookback window for kind 1059 events (2-day randomization + 1-day safety margin). See `specs/epic-nip17-timestamp-lookback/spec.md`.
