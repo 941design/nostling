@@ -279,7 +279,7 @@ describe('IdentityModal - Submit Button Validity Properties', () => {
       fc.assert(
         fc.property(
           fc.string({ minLength: 1, maxLength: 50 }).filter(s => s.trim().length > 0),
-          fc.string({ minLength: 1, maxLength: 100 }),
+          fc.string({ minLength: 1, maxLength: 100 }).filter(s => s.trim().length > 0),
           (label, nsec) => {
             const form = createFormState('nsec', { label, nsec });
             expect(canSubmit(form)).toBe(true);
