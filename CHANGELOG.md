@@ -44,6 +44,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Service layer: updated message processing and subscription filters for dual-protocol support
 
 ### Fixed
+- **Relay Auto-Reconnection (Severity: Critical)**: Relay WebSocket connections now automatically reconnect after connection drops
+  - Implements exponential backoff reconnection strategy (1s, 2s, 4s, 8s, 16s, 30s cap)
+  - Reconnection timers properly cleared on successful reconnection to prevent resource leaks
+  - Automatic subscription restart after successful reconnection
+  - Fixes permanent "disconnected" state after relay restart or network interruption
+  - Regression tests: 3 tests covering reconnection logic, backoff timing, and successful recovery
+  - Bug report: bug-reports/relay-no-auto-reconnect-report.md
 - **P2P Connection Resource Exhaustion (Severity 8)**: Batch simultaneous P2P connection attempts to prevent renderer event loop blocking
   - With 50+ contacts, parallel RTCPeerConnection creation blocked event loop
   - Added `MAX_CONCURRENT_CONNECTIONS: 5` to P2P_CONFIG

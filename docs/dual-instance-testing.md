@@ -50,6 +50,42 @@ docker compose -f docker-compose.e2e.yml down -v
 make dev-dual
 ```
 
+### Agentic Environment Management
+
+When tests are run by an AI agent (via `/manual-test`), the agent is allowed to start, stop, and restart the environment as needed. The test environment exists solely for running these tests.
+
+**Restart procedure** (non-interactive, suitable for background execution):
+
+```bash
+# 1. Kill existing Electron instances
+pkill -f "electron.*nostling" 2>/dev/null || true
+sleep 2
+
+# 2. Clean data directories and logs
+rm -rf /tmp/nostling-a /tmp/nostling-b /tmp/nostling-a.log /tmp/nostling-b.log
+
+# 3. Ensure relay is running
+docker compose -f docker-compose.e2e.yml up -d
+sleep 2
+
+# 4. Launch fresh instances in background
+./scripts/dev-dual.sh &
+
+# 5. Wait for CDP endpoints (poll up to 30s)
+for port in 9222 9223; do
+  for i in $(seq 1 30); do
+    curl -s "http://127.0.0.1:${port}/json/version" >/dev/null 2>&1 && break
+    sleep 1
+  done
+done
+```
+
+**When to restart**:
+- CDP endpoints are unreachable
+- Relay connectivity is broken and `relays.reload()` doesn't recover it
+- A test requires a clean start (e.g., T05)
+- The prior test disrupted relay connectivity (e.g., stopped/started the relay)
+
 ### Instrumentation Notes
 
 - `playwright-a` controls Instance A, `playwright-b` controls Instance B.

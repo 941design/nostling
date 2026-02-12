@@ -106,6 +106,8 @@ export class RelayPool {
   private statusCallbacks: Array<(url: string, status: RelayStatus) => void>;
   private activeSubscriptions: Map<string, { sub: SubCloser; seenEvents: BoundedSet<string> }>;
   private statusCheckInterval: NodeJS.Timeout | null;
+  private reconnectTimers: Map<string, NodeJS.Timeout>;
+  private reconnectAttempts: Map<string, number>;
 
   constructor() {
     // Pass WebSocket implementation directly to SimplePool for Node.js/Electron environment
@@ -122,6 +124,8 @@ export class RelayPool {
     this.statusCallbacks = [];
     this.activeSubscriptions = new Map();
     this.statusCheckInterval = null;
+    this.reconnectTimers = new Map();
+    this.reconnectAttempts = new Map();
   }
 
   /**
@@ -244,6 +248,16 @@ export class RelayPool {
       clearInterval(this.statusCheckInterval);
       this.statusCheckInterval = null;
     }
+
+    // BUG FIX: Clear all reconnection timers to prevent leaks
+    // Root cause: Reconnection timers must be cleared on disconnect
+    // Bug report: bug-reports/relay-no-auto-reconnect-report.md
+    // Fixed: 2026-02-12
+    for (const timer of this.reconnectTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.reconnectTimers.clear();
+    this.reconnectAttempts.clear();
 
     const subscriptionArray = Array.from(this.activeSubscriptions.values());
     for (const { sub } of subscriptionArray) {
@@ -438,13 +452,82 @@ export class RelayPool {
         const currentStatus = this.statusMap.get(url);
 
         if (isConnected && currentStatus !== 'connected') {
+          // BUG FIX: Clear reconnection timer on successful reconnection
+          // Root cause: Timer must be cleared when relay reconnects
+          // Bug report: bug-reports/relay-no-auto-reconnect-report.md
+          // Fixed: 2026-02-12
+          this.clearReconnectTimer(url);
           this.updateStatus(url, 'connected');
           log('info', `Relay ${url}: reconnected`);
         } else if (!isConnected && currentStatus === 'connected') {
           this.updateStatus(url, 'disconnected');
           log('warn', `Relay ${url}: connection dropped`);
+          // BUG FIX: Schedule reconnection attempt with exponential backoff
+          // Root cause: startStatusMonitoring() detected drops but never reconnected
+          // Bug report: bug-reports/relay-no-auto-reconnect-report.md
+          // Fixed: 2026-02-12
+          this.scheduleReconnection(url);
         }
       });
     }, 2000);
+  }
+
+  /**
+   * Schedules a reconnection attempt with exponential backoff.
+   * BUG FIX: Implements automatic reconnection when relay drops
+   * Root cause: SimplePool has no built-in reconnection mechanism
+   * Bug report: bug-reports/relay-no-auto-reconnect-report.md
+   * Fixed: 2026-02-12
+   *
+   * Backoff schedule: 1s, 2s, 4s, 8s, 16s, 30s (capped)
+   */
+  private scheduleReconnection(url: string): void {
+    // Don't schedule if already scheduled
+    if (this.reconnectTimers.has(url)) {
+      return;
+    }
+
+    const attempts = this.reconnectAttempts.get(url) || 0;
+    const delays = [1000, 2000, 4000, 8000, 16000, 30000];
+    const delay = delays[Math.min(attempts, delays.length - 1)];
+
+    log('debug', `Relay ${url}: scheduling reconnection attempt ${attempts + 1} in ${delay}ms`);
+
+    const timer = setTimeout(async () => {
+      this.reconnectTimers.delete(url);
+
+      try {
+        log('debug', `Relay ${url}: attempting reconnection (attempt ${attempts + 1})`);
+        await this.pool.ensureRelay(url, { connectionTimeout: 5000 });
+        // Success will be detected by status monitoring loop
+        this.reconnectAttempts.set(url, 0);
+        log('info', `Relay ${url}: reconnection succeeded`);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        log('warn', `Relay ${url}: reconnection attempt ${attempts + 1} failed - ${errorMessage}`);
+        this.reconnectAttempts.set(url, attempts + 1);
+        // Schedule next attempt
+        this.scheduleReconnection(url);
+      }
+    }, delay);
+
+    this.reconnectTimers.set(url, timer);
+  }
+
+  /**
+   * Clears reconnection timer for a relay and resets attempt counter.
+   * BUG FIX: Cleanup when relay successfully reconnects
+   * Root cause: Must clear timers to prevent duplicate reconnection attempts
+   * Bug report: bug-reports/relay-no-auto-reconnect-report.md
+   * Fixed: 2026-02-12
+   */
+  private clearReconnectTimer(url: string): void {
+    const timer = this.reconnectTimers.get(url);
+    if (timer) {
+      clearTimeout(timer);
+      this.reconnectTimers.delete(url);
+      this.reconnectAttempts.set(url, 0);
+      log('debug', `Relay ${url}: cleared reconnection timer`);
+    }
   }
 }

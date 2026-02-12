@@ -353,6 +353,27 @@ The relay manager provides per-identity relay configuration with filesystem-base
 - Red dot: disconnected/error
 - Based on WebSocket connection state
 
+### Automatic Reconnection
+
+**Reconnection Strategy:**
+- Automatic reconnection when relay WebSocket connections drop
+- Exponential backoff delays: 1s, 2s, 4s, 8s, 16s, 30s (capped)
+- Reconnection timers cleared on successful reconnection
+- No user intervention required for network interruptions
+
+**Behavior:**
+- Status monitoring detects disconnections every 2 seconds
+- First reconnection attempt after 1 second
+- Subsequent attempts use exponential backoff with 30s maximum
+- Subscriptions automatically restarted after successful reconnection
+- Queued messages automatically retried when connectivity restored
+
+**Implementation:**
+- `RelayPool.scheduleReconnection()` manages backoff timers
+- `RelayPool.clearReconnectTimer()` cleans up on success
+- Integrates with existing `registerReconnectionHandler()` for subscription restart
+- Prevents resource leaks by clearing timers on disconnect
+
 ### Conflict Resolution
 
 When external modifications detected:

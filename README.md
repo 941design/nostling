@@ -15,9 +15,9 @@ For detailed user stories organized by persona and epic, see [user-stories.md](u
 - **Identity profile editor** - Edit identity profiles with live preview and staged updates
 - **Avatar image selector** - Browse and select profile avatars from curated collection with subject filtering and pagination
 - **Emoji picker** - Insert emojis into messages with WCAG Level A accessibility, keyboard navigation, and screen reader support
-- **Relay connectivity** - WebSocket connections to Nostr relays with auto-reconnection
+- **Relay connectivity** - WebSocket connections to Nostr relays with automatic reconnection (exponential backoff: 1s to 30s)
 - **Relay management** - Compact table with drag-and-drop reordering, per-relay read/write policies, and live connection status
-- **Offline support** - Queue messages when offline, publish when connectivity restored
+- **Offline support** - Queue messages when offline, automatic retry when connectivity restored
 - **Secure auto-updates** with RSA-4096 cryptographic verification
 - **Auto-update footer** with real-time progress, configurable check intervals, and manual refresh
 - **Ostrich-themed status messages** - Playful, randomly-selected status messages throughout the app
@@ -428,6 +428,24 @@ The app automatically migrates configuration files from JSON to YAML format:
 - **Safe to remove JSON**: Once you've confirmed the app works correctly, you can safely delete the old JSON files
 
 YAML files include helpful comments explaining each configuration option. The JSON format is deprecated and will be auto-removed in the next major version
+
+## Troubleshooting
+
+### Relay Connection Issues
+
+**Automatic Reconnection:**
+Relay WebSocket connections automatically reconnect when dropped (network interruption, relay restart). No user action required.
+
+- **Reconnection strategy**: Exponential backoff (1s, 2s, 4s, 8s, 16s, 30s max)
+- **Status indicators**: Yellow dot shows "reconnecting", green when connected
+- **Message queue**: Messages queued during disconnection are automatically retried after reconnection
+- **Subscriptions**: Automatically restarted after successful reconnection
+
+**If reconnection fails persistently:**
+1. Check relay URL is correct in relay configuration
+2. Verify relay is accessible (test with `wscat -c wss://relay.example.com`)
+3. Check firewall/network settings allow WebSocket connections
+4. Review logs for connection errors (see Log Files section)
 
 ## Log Files
 
