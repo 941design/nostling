@@ -85,7 +85,6 @@ Status indicators:
 - ✅ Escape key closes panel
 
 **Implementation:** `src/renderer/components/IdentitiesPanel/`, `src/renderer/components/ProfileEditor.tsx`
-**Specification:** [identities-panel-spec.md](specs/identities-panel-spec.md)
 
 ---
 
@@ -105,7 +104,6 @@ Status indicators:
 - ✅ Avatar images cached for fast repeat browsing
 
 **Implementation:** `src/renderer/components/AvatarBrowserModal.tsx`, `src/main/image-cache/`
-**Specification:** [avatar-image-selector-spec.md](specs/avatar-image-selector-spec.md)
 
 ---
 
@@ -124,7 +122,6 @@ Status indicators:
 - ✅ Theme loads automatically when switching identities
 
 **Implementation:** `src/renderer/components/ThemeSelectionPanel/`, `src/renderer/themes/`
-**Specification:** [theme-system-spec.md](specs/theme-system-spec.md), [theme-selection-panel-spec.md](specs/theme-selection-panel-spec.md)
 
 ---
 
@@ -176,7 +173,6 @@ Status indicators:
 - ✅ Close via button or Escape key
 
 **Implementation:** `src/renderer/components/QrCodeDisplayModal.tsx`
-**Specification:** [qr-code-contact-spec.md](specs/qr-code-contact-spec.md)
 
 ---
 
@@ -204,7 +200,6 @@ Status indicators:
 - ✅ Database prevents duplicate contacts
 
 **Implementation:** `src/renderer/components/QrCodeScannerModal.tsx`
-**Specification:** [qr-code-contact-spec.md](specs/qr-code-contact-spec.md)
 
 ---
 
@@ -225,7 +220,6 @@ Status indicators:
 - ✅ Escape/Cancel returns to chat
 
 **Implementation:** `src/renderer/components/ContactsPanel.tsx`, `src/renderer/components/CachedImage.tsx`
-**Specification:** [contacts-panel-spec.md](specs/contacts-panel-spec.md)
 
 ---
 
@@ -244,7 +238,6 @@ Status indicators:
 - ✅ Messages persist with protocol kind (4 or 1059)
 
 **Implementation:** `src/main/nostling/crypto.ts`, `src/main/nostling/service.ts`
-**Specification:** [nip-17-59-upgrade-spec.md](specs/nip-17-59-upgrade-spec.md)
 
 ---
 
@@ -265,7 +258,6 @@ Status indicators:
 - ✅ Theme-aware styling
 
 **Implementation:** `src/renderer/components/EmojiPicker/`
-**Specification:** [emoji-picker-spec.md](specs/emoji-picker-spec.md)
 
 ---
 
@@ -347,7 +339,6 @@ Status indicators:
 - ✅ Hash-based conflict detection
 
 **Implementation:** `src/renderer/components/RelayTable.tsx`, `src/main/nostling/relay-config-manager.ts`
-**Specification:** [relay-redesign-spec.md](specs/relay-redesign-spec.md)
 
 ---
 
@@ -427,7 +418,6 @@ Status indicators:
 - ✅ Preserves dynamic content (versions, percentages, counts)
 
 **Implementation:** `src/main/utils/themed.ts`, `src/main/state/themed.ts`, `themed-messages.json`
-**Specification:** [ostrich-themed-status-messages-spec.md](specs/ostrich-themed-status-messages-spec.md)
 
 ---
 
@@ -448,7 +438,6 @@ Status indicators:
 - ✅ XSS protection via URL sanitization
 
 **Implementation:** `src/renderer/components/Avatar.tsx`, `src/renderer/components/AvatarWithBadge.tsx`
-**Specification:** [profile-avatars-spec.md](specs/profile-avatars-spec.md)
 
 ---
 
@@ -625,7 +614,7 @@ Status indicators:
 
 ## References
 
-- [Main Specification (specs/spec.md)](specs/spec.md) - Implemented bootstrap functionality
-- [Technical Architecture (docs/architecture.md)](docs/architecture.md) - Comprehensive technical details
+- [Main Specification (specs/spec.md)](specs/spec.md) - Comprehensive specification of all implemented functionality
+- [Technical Architecture (docs/architecture.md)](docs/architecture.md) - Technical implementation details and architecture
 - [README.md](README.md) - User-facing installation and usage guide
-- [Feature Specifications (specs/)](specs/) - Detailed feature specs for individual components
+- [Remaining Feature Specifications (specs/)](specs/) - Specs for unimplemented/planned features, bugs, and reference documentation

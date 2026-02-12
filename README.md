@@ -473,9 +473,11 @@ This app is intentionally unsigned (`identity: null`). This avoids Gatekeeper is
 ## Documentation
 
 - [User Stories](user-stories.md) - User-centric feature descriptions organized by persona and epic
-- [Specification](specs/spec.md) - Software specification for AI agents
-- [Architecture](docs/architecture.md) - Technical architecture and design
+- [Specification](specs/spec.md) - Comprehensive software specification of all implemented features (for AI agents)
+- [Architecture](docs/architecture.md) - Technical architecture and implementation details
+- [Unimplemented Features](specs/) - Specifications for planned features, bugs, and reference documents
 - [Dev Mode Update Testing](docs/dev-mode-update-testing.md) - Testing auto-updates locally
+- [Dual-Instance Testing](docs/dual-instance-testing.md) - Verifying messaging and UI changes with two instances
 - [RSA Key Setup](docs/rsa-key-setup.md) - Cryptographic key configuration
 - [E2E Tests](e2e/README.md) - End-to-end test documentation
 
