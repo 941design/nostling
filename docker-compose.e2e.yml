@@ -1,4 +1,18 @@
 services:
+  blossom-server:
+    image: node:20-alpine
+    container_name: nostling-e2e-blossom
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./e2e/blossom-server.js:/app/blossom-server.js:ro
+      - blossom-data:/data
+    environment:
+      - BLOSSOM_PORT=3001
+      - BLOSSOM_DATA_DIR=/data
+    command: ["node", "/app/blossom-server.js"]
+    restart: unless-stopped
+
   nostr-relay:
     image: ghcr.io/dockur/strfry:latest
     container_name: nostling-e2e-relay
@@ -15,6 +29,7 @@ services:
       dockerfile: Dockerfile.e2e
     container_name: nostling-e2e-test
     depends_on:
+      - blossom-server
       - nostr-relay
     volumes:
       # Mount test results and reports for local inspection
@@ -25,6 +40,7 @@ services:
       - NODE_ENV=test
       - FORCE_COLOR=1
       - NOSTLING_DATA_DIR=/tmp/nostling-e2e-data
+      - NOSTLING_BLOSSOM_SERVER=http://blossom-server:3001
       - NOSTLING_DEV_RELAY=ws://nostr-relay:8080
       - NOSTLING_SHOW_MESSAGE_INFO=true
       - NOSTLING_SHOW_WARNING_ICON=true
@@ -38,3 +54,4 @@ services:
 
 volumes:
   strfry-data:
+  blossom-data:

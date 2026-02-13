@@ -1765,6 +1765,7 @@ These features are specified but not yet fully implemented:
 * [theme-light-dark-variants-spec.md](theme-light-dark-variants-spec.md) - **[Planned]** Light and dark variants for each theme [Priority: High]
 * [mnemonic-backup-e2e-spec.md](mnemonic-backup-e2e-spec.md) - **[Test Spec]** E2E test coverage for mnemonic workflows [Priority: Medium]
 * [nip17-e2e-test-spec.md](nip17-e2e-test-spec.md) - **[Test Spec]** Dual-instance Playwright tests for NIP-17 delivery
+* [blossom-media-uploads-spec.md](blossom-media-uploads-spec.md) - **[Planned]** Content-addressed media uploads via Blossom (BUD-06) servers [Priority: High]
 
 ### 20.2 Reference Documentation
 
