@@ -45,8 +45,10 @@
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@types/semver": "^7.7.1",
+    "blurhash": "^2.0.5",
     "electron-log": "^5.1.4",
     "electron-updater": "^6.3.9",
+    "file-type": "^21.3.0",
     "framer-motion": "^12.23.26",
     "jsdom": "^27.3.0",
     "jsqr": "^1.4.0",
@@ -56,6 +58,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "semver": "^7.7.3",
+    "sharp": "^0.34.5",
     "sql.js": "^1.13.0",
     "ws": "^8.18.3"
   },
@@ -125,5 +128,8 @@
       "category": "Utility",
       "artifactName": "${productName}-${version}-${arch}.${ext}"
     }
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-arm64-gnu": "^4.57.1"
   }
 }
