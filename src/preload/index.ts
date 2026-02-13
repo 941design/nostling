@@ -69,6 +69,9 @@ const api: RendererApi = {
     async openExternal(url: string) {
       return ipcRenderer.invoke('system:open-external', url) as Promise<void>;
     },
+    async showOpenDialog(options: { filters?: { name: string; extensions: string[] }[]; properties?: string[] }) {
+      return ipcRenderer.invoke('system:show-open-dialog', options) as Promise<string[] | undefined>;
+    },
   },
   state: {
     async get(key: string) {
@@ -242,6 +245,11 @@ const api: RendererApi = {
       async search(params: AvatarSearchParams) {
         return ipcRenderer.invoke('nostling:avatar-api:search', params) as ReturnType<NostlingApi['avatarApi']['search']>;
       },
+    },
+  },
+  blobStorage: {
+    async storeBlob(filePath: string) {
+      return ipcRenderer.invoke('blob-storage:store-blob', filePath) as Promise<{ hash: string; metadata: any; deduplicated: boolean }>;
     },
   },
 };

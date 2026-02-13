@@ -94,6 +94,7 @@ export interface ConfigApi {
 export interface SystemApi {
   getStatus(): Promise<AppStatus>;
   openExternal(url: string): Promise<void>;
+  showOpenDialog(options: { filters?: { name: string; extensions: string[] }[]; properties?: string[] }): Promise<string[] | undefined>;
 }
 
 // Persistence Layer: Application state types
@@ -112,12 +113,17 @@ export interface StateApi {
   getAll(): Promise<Record<string, string>>;
 }
 
+export interface BlobStorageApi {
+  storeBlob(filePath: string): Promise<{ hash: string; metadata: any; deduplicated: boolean }>;
+}
+
 export interface RendererApi {
   updates: UpdatesApi;
   config: ConfigApi;
   system: SystemApi;
   state: StateApi; // Added persistence layer API
   nostling?: NostlingApi;
+  blobStorage?: BlobStorageApi;
 }
 
 // Legacy flat API for backward compatibility (optional)

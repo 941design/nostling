@@ -47,7 +47,11 @@ import { HoverInfoProvider, useHoverInfo } from './components/HoverInfo';
 import { MessageInfoModal } from './components/MessageInfoModal';
 import { SubPanel } from './components/SubPanel';
 import { EmojiPicker, useEmojiInsertion } from './components/EmojiPicker';
+import { AttachmentButton } from './components/AttachmentButton/AttachmentButton';
+import { AttachmentPreviewStrip } from './components/AttachmentPreviewStrip/AttachmentPreviewStrip';
+import { useAttachments } from './hooks/useAttachments';
 import { parseMessageContent } from './utils/linkify';
+import { toaster } from './components/ui/toaster';
 import { createThemeSystem, getThemeIdForIdentity, getSemanticColors } from './themes/useTheme';
 import { ThemeGenerator, type ThemeGeneratorInput } from './themes/generator';
 import type { ThemeSemanticColors } from './themes/useTheme';
@@ -968,6 +972,8 @@ function ConversationPane({
   const [showWarningIcon, setShowWarningIcon] = useState(false);
   const listRef = useRef<HTMLDivElement | null>(null);
   const { insertEmoji, textareaRef } = useEmojiInsertion(draft, setDraft);
+  const { attachments, addAttachment, removeAttachment, clearAttachments } = useAttachments();
+  const [isDragOver, setIsDragOver] = useState(false);
 
   // Fetch showMessageInfo and showWarningIcon config settings on mount
   useEffect(() => {
@@ -978,6 +984,7 @@ function ConversationPane({
   }, []);
 
   const canSend = Boolean(identity && contact && draft.trim().length > 0 && !isSending);
+  const canAttach = Boolean(identity && contact && !isSending);
 
   const handleMessageHover = (message: NostlingMessage | null) => {
     if (message) {
@@ -1011,6 +1018,79 @@ function ConversationPane({
       event.preventDefault();
       handleSend();
     }
+  };
+
+  const handleAttachClick = async () => {
+    if (!canAttach) return;
+
+    try {
+      const filePaths = await window.api?.system?.showOpenDialog({
+        properties: ['openFile', 'multiSelections'],
+        filters: [
+          { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp'] },
+          { name: 'Videos', extensions: ['mp4', 'webm'] },
+          { name: 'Audio', extensions: ['mp3', 'ogg', 'wav'] },
+          { name: 'PDF', extensions: ['pdf'] },
+          { name: 'All Files', extensions: ['*'] },
+        ],
+      });
+
+      if (filePaths && filePaths.length > 0) {
+        for (const filePath of filePaths) {
+          await handleAddFile(filePath);
+        }
+      }
+    } catch (error) {
+      toaster.create({
+        title: 'File selection error',
+        description: error instanceof Error ? error.message : 'Failed to select file',
+        type: 'error',
+        duration: 5000,
+      });
+    }
+  };
+
+  const handleAddFile = async (filePath: string) => {
+    // In production, this would read the file from the path
+    // For now, we'll show an error since we can't read files directly in renderer
+    toaster.create({
+      title: 'Not yet implemented',
+      description: 'File attachment will be fully functional in the next story. File path: ' + filePath,
+      type: 'info',
+      duration: 5000,
+    });
+  };
+
+  const handleDrop = async (event: React.DragEvent) => {
+    event.preventDefault();
+    setIsDragOver(false);
+
+    if (!canAttach) return;
+
+    const files = Array.from(event.dataTransfer.files);
+    for (const file of files) {
+      const result = await addAttachment(file);
+      if (!result.success) {
+        toaster.create({
+          title: 'File rejected',
+          description: result.error || 'Invalid file',
+          type: 'error',
+          duration: 5000,
+        });
+      }
+    }
+  };
+
+  const handleDragOver = (event: React.DragEvent) => {
+    event.preventDefault();
+    if (canAttach) {
+      setIsDragOver(true);
+    }
+  };
+
+  const handleDragLeave = (event: React.DragEvent) => {
+    event.preventDefault();
+    setIsDragOver(false);
   };
 
   if (!identity) {
@@ -1067,7 +1147,37 @@ function ConversationPane({
       </Box>
 
       <Separator borderColor={colors.border} />
-      <Box p="4" bg={colors.surfaceBg}>
+      <Box
+        p="4"
+        bg={colors.surfaceBg}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        position="relative"
+      >
+        {isDragOver && (
+          <Box
+            position="absolute"
+            top="0"
+            left="0"
+            right="0"
+            bottom="0"
+            bg="blue.500"
+            opacity="0.1"
+            borderWidth="2px"
+            borderColor="blue.500"
+            borderStyle="dashed"
+            borderRadius="md"
+            zIndex={10}
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Text color="blue.500" fontSize="xl" fontWeight="bold">
+              Drop files here
+            </Text>
+          </Box>
+        )}
         <Box position="relative">
           <Textarea
             ref={textareaRef}
@@ -1087,12 +1197,18 @@ function ConversationPane({
             right="0.5rem"
             zIndex={1}
             pointerEvents="none"
+            display="flex"
+            gap="1"
           >
+            <Box pointerEvents="auto">
+              <AttachmentButton disabled={!canAttach} onClick={handleAttachClick} />
+            </Box>
             <Box pointerEvents="auto">
               <EmojiPicker onEmojiSelect={insertEmoji} />
             </Box>
           </Box>
         </Box>
+        <AttachmentPreviewStrip attachments={attachments} onRemove={removeAttachment} />
         {sendError && (
           <Text color="red.300" fontSize="sm" mt="2">
             {sendError}

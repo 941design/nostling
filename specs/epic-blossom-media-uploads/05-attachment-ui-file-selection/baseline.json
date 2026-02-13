@@ -1,0 +1,19 @@
+{
+  "story_id": "05",
+  "story_title": "Attachment UI with File Selection and Validation",
+  "created_at": "2026-02-13T23:55:00Z",
+  "status": "ready",
+  "checks": {
+    "test_suite_passing": true,
+    "no_regressions": true,
+    "story_directory_exists": true
+  },
+  "test_snapshot": {
+    "total": 2681,
+    "passing": 2680,
+    "failing": 0,
+    "skipped": 1,
+    "command": "npm test",
+    "timestamp": "2026-02-13T23:55:00Z"
+  }
+}

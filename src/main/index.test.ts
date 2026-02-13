@@ -152,6 +152,26 @@ jest.mock('./nostling/p2p-service-integration', () => ({
   triggerP2PConnectionsOnOnline: jest.fn(() => Promise.resolve()),
 }));
 
+jest.mock('./blossom/BlossomServerService', () => ({
+  BlossomServerService: jest.fn().mockImplementation(() => ({
+    initialize: jest.fn(() => Promise.resolve()),
+  })),
+}));
+
+jest.mock('./ipc/blossom-handlers', () => ({
+  registerBlossomHandlers: jest.fn(),
+}));
+
+jest.mock('./blob-storage/BlobStorageService', () => ({
+  BlobStorageService: jest.fn().mockImplementation(() => ({
+    initialize: jest.fn(() => Promise.resolve()),
+  })),
+}));
+
+jest.mock('./ipc/blob-storage-handlers', () => ({
+  registerBlobStorageHandlers: jest.fn(),
+}));
+
 jest.mock('./nostling/service', () => ({
   NostlingService: jest.fn().mockImplementation(() => ({
     initialize: jest.fn(() => Promise.resolve()),

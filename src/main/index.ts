@@ -51,7 +51,9 @@ import { registerImageCacheHandlers } from './ipc/image-cache-handlers';
 import { registerP2PIpcHandlers } from './ipc/p2p-handlers';
 import { registerAvatarApiHandlers } from './ipc/avatar-api-handlers';
 import { registerBlossomHandlers } from './ipc/blossom-handlers';
+import { registerBlobStorageHandlers } from './ipc/blob-storage-handlers';
 import { BlossomServerService } from './blossom/BlossomServerService';
+import { BlobStorageService } from './blob-storage/BlobStorageService';
 import { triggerP2PConnectionsOnOnline } from './nostling/p2p-service-integration';
 let mainWindow: BrowserWindow | null = null;
 let config: AppConfig = loadConfig();
@@ -61,6 +63,7 @@ let updateState: UpdateState = { phase: 'idle' };
 let lastUpdateCheck: string | undefined;
 let nostlingService: NostlingService | null = null;
 let imageCacheService: ImageCacheService | null = null;
+let blobStorageService: BlobStorageService | null = null;
 let dbFlushTimer: ReturnType<typeof setInterval> | null = null;
 
 // Flush database to disk every 30 seconds for crash safety
@@ -109,6 +112,13 @@ function getNostlingService(): NostlingService {
     throw new Error('Nostling service not initialized');
   }
   return nostlingService;
+}
+
+function getBlobStorageService(): BlobStorageService {
+  if (!blobStorageService) {
+    throw new Error('Blob storage service not initialized');
+  }
+  return blobStorageService;
 }
 
 function setupAutoUpdater() {
@@ -534,6 +544,12 @@ app.on('ready', async () => {
   const blossomServerService = new BlossomServerService();
   await blossomServerService.initialize();
   registerBlossomHandlers({ blossomServerService });
+
+  // Initialize blob storage service
+  const blobsDir = path.join(configDir, 'blobs');
+  blobStorageService = new BlobStorageService(blobsDir);
+  await blobStorageService.initialize();
+  registerBlobStorageHandlers({ blobStorageService });
 
   // Start message polling based on config (supplementary to streaming - 1m default)
   const pollingMs = pollingIntervalToMilliseconds(config.messagePollingInterval || '1m');

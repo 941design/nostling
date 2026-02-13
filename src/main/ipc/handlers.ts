@@ -146,6 +146,16 @@ export function registerHandlers(dependencies: {
     }
   });
 
+  // System domain: show file dialog
+  ipcMain.handle('system:show-open-dialog', async (_, options: { filters?: { name: string; extensions: string[] }[]; properties?: string[] }) => {
+    const { dialog } = await import('electron');
+    const result = await dialog.showOpenDialog({
+      properties: (options.properties as ('openFile' | 'openDirectory' | 'multiSelections' | 'showHiddenFiles' | 'createDirectory' | 'promptToCreate' | 'noResolveAliases' | 'treatPackageAsDirectory' | 'dontAddToRecent')[]) || ['openFile'],
+      filters: options.filters || [],
+    });
+    return result.canceled ? undefined : result.filePaths;
+  });
+
   // Updates domain: check, download, and restart
   ipcMain.handle('updates:check', async () => {
     return dependencies.checkForUpdates();

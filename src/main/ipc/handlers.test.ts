@@ -606,7 +606,7 @@ describe('registerHandlers', () => {
       //                  config:get, config:set, state:get, state:set, state:delete, state:get-all
       // 3 legacy handlers: status:get, update:check, update:restart
       // 1 test-only handler: test:inject-profile (only in test mode)
-      expect(handlers.size).toBe(15);
+      expect(handlers.size).toBe(16);
     });
 
     it('should register all required channel names', () => {
@@ -638,7 +638,7 @@ describe('registerHandlers', () => {
       const updatesChannels = allChannels.filter((ch) => ch.startsWith('updates:'));
       const configChannels = allChannels.filter((ch) => ch.startsWith('config:'));
 
-      expect(systemChannels).toEqual(['system:get-status', 'system:open-external']);
+      expect(systemChannels).toEqual(['system:get-status', 'system:open-external', 'system:show-open-dialog']);
       expect(updatesChannels).toContain('updates:check');
       expect(updatesChannels).toContain('updates:download');
       expect(updatesChannels).toContain('updates:restart');
@@ -806,13 +806,13 @@ describe('registerHandlers', () => {
 
       registerHandlers(deps1);
       // Updated to reflect 14 handlers (11 new + 3 legacy) + 1 test-only handler in test mode
-      expect(mockIpcMain.handle).toHaveBeenCalledTimes(15);
+      expect(mockIpcMain.handle).toHaveBeenCalledTimes(16);
 
       handlers.clear();
       registerHandlers(deps2);
-      expect(mockIpcMain.handle).toHaveBeenCalledTimes(30);
+      expect(mockIpcMain.handle).toHaveBeenCalledTimes(32);
 
-      expect(handlers.size).toBe(15);
+      expect(handlers.size).toBe(16);
     });
   });
 
@@ -854,7 +854,7 @@ describe('registerHandlers', () => {
       registerHandlers(deps);
 
       // Updated to reflect 14 handlers (11 new + 3 legacy) + 1 test-only handler in test mode
-      expect(handlers.size).toBe(15);
+      expect(handlers.size).toBe(16);
       expect(handlers.has('system:get-status')).toBe(true);
       expect(handlers.has('system:open-external')).toBe(true);
       expect(handlers.has('updates:check')).toBe(true);
@@ -909,7 +909,7 @@ describe('registerHandlers', () => {
       registerHandlers({ ...deps, nostling: nostlingDeps });
 
       // Base handlers (14) plus nostling channels (including retryFailedMessages, rename flows, relay handlers, updateTheme, unread handlers, profile handlers including getContactProfile, and clearContactAlias) + 4 mnemonic handlers + 1 test-only handler in test mode
-      expect(handlers.size).toBe(43);
+      expect(handlers.size).toBe(44);
       expect(handlers.has('nostling:identities:list')).toBe(true);
       expect(handlers.has('nostling:contacts:add')).toBe(true);
       expect(handlers.has('nostling:messages:send')).toBe(true);

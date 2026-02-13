@@ -1,0 +1,101 @@
+{
+  "created_at": "2026-02-13T23:55:00Z",
+  "story_id": "05",
+  "story_title": "Attachment UI with File Selection and Validation",
+
+  "questions": [
+    {
+      "id": "VQ-05-001",
+      "category": "SPEC",
+      "question": "Does the attachment button follow the same disabled conditions as the Send button?",
+      "actionable_check": "Review AttachmentButton props and ConversationPane integration to verify disabled logic matches canSend conditions",
+      "evidence_required": ["AttachmentButton component", "ConversationPane disabled prop wiring"],
+      "pass_criteria": "Button disabled when no identity or no contact selected, matching Send button conditions",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-05-002",
+      "category": "TEST",
+      "question": "Are file size validation tests comprehensive?",
+      "actionable_check": "Review attachment-validation.test.ts for size limit tests including boundary cases",
+      "evidence_required": ["test file path", "test names for size validation"],
+      "pass_criteria": "Tests exist for: under limit accepts, over limit rejects, exact limit boundary, zero-size file",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-05-003",
+      "category": "TEST",
+      "question": "Are MIME type validation tests comprehensive?",
+      "actionable_check": "Review attachment-validation.test.ts for MIME type tests covering supported and unsupported types",
+      "evidence_required": ["test file path", "test names for MIME validation"],
+      "pass_criteria": "Tests cover: all supported types accept (JPEG, PNG, GIF, WebP, MP4, WebM, MP3, OGG, WAV, PDF), unsupported types reject",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-05-004",
+      "category": "ARCHITECTURE",
+      "question": "Does the IPC file dialog handler use Electron's dialog.showOpenDialog correctly?",
+      "actionable_check": "Review handlers.ts for system:show-open-dialog handler implementation",
+      "evidence_required": ["handler code", "dialog API usage"],
+      "pass_criteria": "Handler imports dialog from electron, passes options, returns file paths or undefined on cancel",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-05-005",
+      "category": "ARCHITECTURE",
+      "question": "Is the preload bridge properly configured for attachment APIs?",
+      "actionable_check": "Review preload/index.ts for attachment-related API exposure",
+      "evidence_required": ["preload bridge code", "contextBridge.exposeInMainWorld usage"],
+      "pass_criteria": "Preload exposes showOpenDialog and blob storage methods via contextBridge",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-05-006",
+      "category": "TEST",
+      "question": "Do property-based tests verify validation logic invariants?",
+      "actionable_check": "Review attachment-validation.test.ts for property-based tests using fast-check",
+      "evidence_required": ["property test code", "invariants tested"],
+      "pass_criteria": "Property tests verify: all oversized files rejected regardless of MIME, all valid MIME + valid size accepted",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-05-007",
+      "category": "SPEC",
+      "question": "Does the preview strip component support multiple attachments with remove buttons?",
+      "actionable_check": "Review AttachmentPreviewStrip component for multi-attachment rendering and remove functionality",
+      "evidence_required": ["component code", "remove button handler"],
+      "pass_criteria": "Component renders multiple attachments, each with remove button, supports horizontal scroll",
+      "added_in_round": 1
+    }
+  ],
+
+  "mandatory_questions": [
+    {
+      "id": "VQ-05-DEAD",
+      "category": "QUALITY",
+      "question": "Is there any dead code introduced by this story?",
+      "actionable_check": "Search for unused functions, classes, imports in AttachmentButton/, AttachmentPreviewStrip/, hooks/useAttachments.ts, utils/attachment-validation.ts, ipc/blob-storage-handlers.ts",
+      "evidence_required": ["file paths", "unused symbol names"],
+      "pass_criteria": "No unused code in story scope",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-05-DUP",
+      "category": "QUALITY",
+      "question": "Are there any duplicate implementations?",
+      "actionable_check": "Check for similar logic to other components or utilities that could be shared",
+      "evidence_required": ["file paths", "duplicated logic description"],
+      "pass_criteria": "No duplicate implementations; follows existing patterns consistently",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-05-INT",
+      "category": "TEST",
+      "question": "Do integration tests validate the story's workflow?",
+      "actionable_check": "Verify validation logic is tested end-to-end; component integration verified",
+      "evidence_required": ["test file", "test function"],
+      "pass_criteria": "At least one test validates the complete file validation pipeline",
+      "added_in_round": 1
+    }
+  ]
+}
