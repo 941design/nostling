@@ -47,6 +47,7 @@ import {
 import { schedulePublicProfileDiscovery, discoverPublicProfile } from './public-profile-discovery';
 import { handleReceivedWrappedEvent } from './profile-receiver';
 import { triggerP2PConnectionsOnOnline, isP2PSignalEvent, routeP2PSignal } from './p2p-service-integration';
+import { UploadPipelineService } from '../media/upload-pipeline';
 import { BrowserWindow } from 'electron';
 import {
   generateMnemonic,
@@ -152,6 +153,9 @@ export class NostlingService {
   // Reconnection handling - restart subscriptions when relays reconnect
   private reconnectionRestartTimer: NodeJS.Timeout | null = null;
 
+  // Upload pipeline for Blossom media uploads
+  private uploadPipeline: UploadPipelineService | null = null;
+
   constructor(private readonly database: Database, private readonly secretStore: NostlingSecretStore, configDir: string, options: NostlingServiceOptions = {}) {
     this.online = Boolean(options.online);
     this.relayConfigManager = new RelayConfigManager(configDir);
@@ -170,6 +174,10 @@ export class NostlingService {
    */
   setMainWindow(window: BrowserWindow | null): void {
     this.mainWindow = window;
+  }
+
+  setUploadPipeline(pipeline: UploadPipelineService): void {
+    this.uploadPipeline = pipeline;
   }
 
   async listIdentities(): Promise<NostlingIdentity[]> {
@@ -1753,8 +1761,21 @@ export class NostlingService {
   private async flushOutgoingQueue(): Promise<void> {
     const queued = await this.getOutgoingQueue();
 
+    // Process pending media uploads before sending messages
+    if (this.uploadPipeline) {
+      await this.uploadPipeline.processPendingUploads();
+    }
+
     for (const message of queued) {
       try {
+        // Skip messages with incomplete media uploads
+        if (this.uploadPipeline && this.uploadPipeline.hasMediaAttachments(message.id)) {
+          if (!this.uploadPipeline.hasAllUploadsCompleted(message.id)) {
+            log('info', `Skipping message ${message.id}: media uploads not yet complete`);
+            continue;
+          }
+        }
+
         await this.markMessageSending(message.id);
 
         // Check if we have relay pool and valid npubs (real crypto path)

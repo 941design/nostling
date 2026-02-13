@@ -246,6 +246,13 @@ const api: RendererApi = {
         return ipcRenderer.invoke('nostling:avatar-api:search', params) as ReturnType<NostlingApi['avatarApi']['search']>;
       },
     },
+    media: {
+      onUploadProgress(callback: (progress: { messageId: string; blobHash: string; status: string; bytesUploaded: number; totalBytes: number; error?: string }) => void) {
+        const listener = (_: any, progress: any) => callback(progress);
+        ipcRenderer.on('nostling:media:upload-progress', listener);
+        return () => ipcRenderer.removeListener('nostling:media:upload-progress', listener);
+      },
+    },
   },
   blobStorage: {
     async storeBlob(filePath: string) {

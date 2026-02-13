@@ -1,0 +1,83 @@
+{
+  "story_id": "07",
+  "created_at": "2026-02-14T02:30:00Z",
+  "questions": [
+    {
+      "id": "VQ-07-001",
+      "question": "Does the UploadPipelineService correctly implement BUD-06 HTTP PUT upload with NIP-98 Authorization header containing the correct method, URL, and body hash?",
+      "acceptance_criteria": ["AC-018"],
+      "severity": 9,
+      "category": "correctness"
+    },
+    {
+      "id": "VQ-07-002",
+      "question": "Does the upload pipeline replace local-blob:<sha256> placeholders with actual remote URLs in the media_json column after successful upload, and does it correctly update message_media.remote_url?",
+      "acceptance_criteria": ["AC-019"],
+      "severity": 9,
+      "category": "correctness"
+    },
+    {
+      "id": "VQ-07-003",
+      "question": "Does the retry logic implement correct exponential backoff delays (1s, 2s, 4s, 8s, 30s max) with 5 max attempts, and correctly distinguish non-retryable errors (413, 415) from retryable errors?",
+      "acceptance_criteria": ["AC-021"],
+      "severity": 8,
+      "category": "correctness"
+    },
+    {
+      "id": "VQ-07-004",
+      "question": "Does partial failure handling work correctly - message not marked complete when any upload fails, per-attachment status tracking, and retryFailedUploads retries only failed attachments?",
+      "acceptance_criteria": ["AC-022"],
+      "severity": 8,
+      "category": "correctness"
+    },
+    {
+      "id": "VQ-07-005",
+      "question": "Does the concurrency limit correctly enforce maximum 2 concurrent uploads per identity, queuing additional uploads until slots free?",
+      "acceptance_criteria": ["AC-023"],
+      "severity": 7,
+      "category": "correctness"
+    },
+    {
+      "id": "VQ-07-006",
+      "question": "Does the flushOutgoingQueue integration correctly skip messages with incomplete media uploads while still processing text-only messages, extending (not replacing) the existing queue logic?",
+      "acceptance_criteria": ["AC-052"],
+      "severity": 9,
+      "category": "architecture"
+    },
+    {
+      "id": "VQ-07-007",
+      "question": "Does upload progress reporting correctly send IPC messages via nostling:media:upload-progress channel with status transitions (uploading → uploaded/failed) and correct byte counts?",
+      "acceptance_criteria": ["AC-049"],
+      "severity": 6,
+      "category": "correctness"
+    },
+    {
+      "id": "VQ-07-008",
+      "question": "Does upload cancellation correctly prevent further upload attempts and revert the upload status to pending, allowing future retry?",
+      "acceptance_criteria": ["AC-045"],
+      "severity": 7,
+      "category": "correctness"
+    },
+    {
+      "id": "VQ-07-009",
+      "question": "Does the upload pipeline correctly persist queued state across restarts by relying on database-backed upload_status, ensuring uploads can resume after app restart?",
+      "acceptance_criteria": ["AC-044"],
+      "severity": 7,
+      "category": "correctness"
+    },
+    {
+      "id": "VQ-07-DEAD",
+      "question": "Is there any dead code, unused imports, or unreachable code paths in the upload pipeline implementation or its integration points?",
+      "acceptance_criteria": [],
+      "severity": 5,
+      "category": "dead_code"
+    },
+    {
+      "id": "VQ-07-INT",
+      "question": "Are there sufficient integration tests covering the upload pipeline's interaction with the database, HTTP uploads, retry logic, placeholder replacement, and progress reporting?",
+      "acceptance_criteria": ["AC-018", "AC-019", "AC-021", "AC-022", "AC-023", "AC-049"],
+      "severity": 8,
+      "category": "test_coverage"
+    }
+  ]
+}

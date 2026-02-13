@@ -193,6 +193,7 @@ jest.mock('./nostling/service', () => ({
     stopPolling: jest.fn(),
     pollMessages: jest.fn(() => Promise.resolve(0)),
     setMainWindow: jest.fn(),
+    setUploadPipeline: jest.fn(),
     getSecretStore: jest.fn(() => ({})),
     triggerP2PConnections: jest.fn(() => Promise.resolve()),
     getRelayPool: jest.fn(() => null),

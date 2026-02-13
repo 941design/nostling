@@ -2,7 +2,7 @@
 import { initializePaths, getUserDataPath } from './paths';
 initializePaths();
 
-import { app, BrowserWindow, Menu, session } from 'electron';
+import { app, BrowserWindow, Menu } from 'electron';
 
 // On Linux in CI/test environment, configure password store to use gnome-libsecret
 // This must be called BEFORE app.whenReady() to take effect
@@ -54,7 +54,6 @@ import { registerBlossomHandlers } from './ipc/blossom-handlers';
 import { registerBlobStorageHandlers } from './ipc/blob-storage-handlers';
 import { BlossomServerService } from './blossom/BlossomServerService';
 import { BlobStorageService } from './blob-storage/BlobStorageService';
-import { triggerP2PConnectionsOnOnline } from './nostling/p2p-service-integration';
 let mainWindow: BrowserWindow | null = null;
 let config: AppConfig = loadConfig();
 setLogLevel(config.logLevel);
@@ -519,6 +518,57 @@ app.on('ready', async () => {
   const secretStore = createSecretStore();
   const configDir = getUserDataPath();
   nostlingService = new NostlingService(database, secretStore, configDir);
+
+  // Initialize and register Blossom server configuration handlers
+  const blossomServerService = new BlossomServerService();
+  await blossomServerService.initialize();
+  registerBlossomHandlers({ blossomServerService });
+
+  // Initialize blob storage service
+  const blobsDir = path.join(configDir, 'blobs');
+  blobStorageService = new BlobStorageService(blobsDir);
+  await blobStorageService.initialize();
+  registerBlobStorageHandlers({ blobStorageService });
+
+  // Initialize upload pipeline for Blossom media uploads
+  // Must be set BEFORE initialize() since flushOutgoingQueue needs it for media messages
+  const { UploadPipelineService } = await import('./media/upload-pipeline');
+  const uploadPipeline = new UploadPipelineService({
+    database,
+    getSecretKey: async (identityId: string) => {
+      const stmt = database.prepare('SELECT secret_ref FROM nostr_identities WHERE id = ? LIMIT 1');
+      stmt.bind([identityId]);
+      const hasRow = stmt.step();
+      const secretRef = hasRow ? (stmt.getAsObject().secret_ref as string) : null;
+      stmt.free();
+      if (!secretRef) throw new Error(`Identity not found: ${identityId}`);
+      const nsec = await getNostlingService().getSecretStore().getSecret(secretRef);
+      if (!nsec) throw new Error(`Secret not found for identity ${identityId}`);
+      const { deriveKeypair, isValidNsec } = require('./nostling/crypto');
+      if (isValidNsec(nsec)) {
+        return deriveKeypair(nsec).secretKey;
+      }
+      return new Uint8Array(Buffer.from(nsec.padEnd(32, '0').slice(0, 32), 'utf-8'));
+    },
+    selectHealthyServer: (identityPubkey: string) => blossomServerService.selectHealthyServer(identityPubkey),
+    getIdentityPubkey: (identityId: string) => {
+      const stmt = database.prepare('SELECT npub FROM nostr_identities WHERE id = ? LIMIT 1');
+      stmt.bind([identityId]);
+      const hasRow = stmt.step();
+      const npub = hasRow ? (stmt.getAsObject().npub as string) : null;
+      stmt.free();
+      if (!npub) throw new Error(`Identity not found: ${identityId}`);
+      const { npubToHex } = require('./nostling/crypto');
+      return npubToHex(npub);
+    },
+    onProgress: (progress) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('nostling:media:upload-progress', progress);
+      }
+    },
+  });
+  nostlingService.setUploadPipeline(uploadPipeline);
+
   await nostlingService.initialize();
 
   // Initialize image cache service
@@ -539,17 +589,6 @@ app.on('ready', async () => {
 
   // Register avatar API proxy handlers (bypass CORS for external avatar server)
   registerAvatarApiHandlers();
-
-  // Initialize and register Blossom server configuration handlers
-  const blossomServerService = new BlossomServerService();
-  await blossomServerService.initialize();
-  registerBlossomHandlers({ blossomServerService });
-
-  // Initialize blob storage service
-  const blobsDir = path.join(configDir, 'blobs');
-  blobStorageService = new BlobStorageService(blobsDir);
-  await blobStorageService.initialize();
-  registerBlobStorageHandlers({ blobStorageService });
 
   // Start message polling based on config (supplementary to streaming - 1m default)
   const pollingMs = pollingIntervalToMilliseconds(config.messagePollingInterval || '1m');
