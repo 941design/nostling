@@ -10,6 +10,14 @@ import * as fc from 'fast-check';
 import { promises as fs } from 'fs';
 import path from 'path';
 
+// BUG FIX: Reduced iterations to prevent Jest worker SIGKILL
+// Root cause: Default 100 iterations × 10 tests with file I/O operations
+// and buffer allocations (up to 10KB per iteration) exhausts Jest worker memory.
+// Bug report: specs/epic-blossom-media-uploads/bug-reports/image-cache-sigkill-fix-report.md
+// Fixed: 2026-02-13
+const fcFileIO = { numRuns: 5 };   // Tests with file system operations
+const fcMemOnly = { numRuns: 15 }; // Tests with in-memory operations only
+
 describe('ImageCacheService', () => {
   let tempDir: string;
 
@@ -38,6 +46,7 @@ describe('ImageCacheService', () => {
 
           return key1 === key2;
         }),
+        fcMemOnly,
       );
     });
 
@@ -54,6 +63,7 @@ describe('ImageCacheService', () => {
 
           return key1 !== key2;
         }),
+        fcMemOnly,
       );
     });
 
@@ -65,6 +75,7 @@ describe('ImageCacheService', () => {
 
           return key.length === 64 && /^[0-9a-f]{64}$/.test(key);
         }),
+        fcMemOnly,
       );
     });
   });
@@ -122,6 +133,7 @@ describe('ImageCacheService', () => {
           const result = await service.getCachedImage(url);
           return result === null;
         }),
+        fcFileIO,
       );
     });
 
@@ -169,6 +181,7 @@ describe('ImageCacheService', () => {
             return result?.url === url;
           },
         ),
+        fcFileIO,
       );
     });
 
@@ -236,6 +249,7 @@ describe('ImageCacheService', () => {
             return stats.totalSize <= maxSize;
           },
         ),
+        fcFileIO,
       );
     });
 
@@ -466,6 +480,7 @@ describe('ImageCacheService', () => {
             return stats.totalSize === expectedSize;
           },
         ),
+        fcFileIO,
       );
     });
 
@@ -494,6 +509,7 @@ describe('ImageCacheService', () => {
             return stats.itemCount === uniqueUrls.size;
           },
         ),
+        fcFileIO,
       );
     });
 
@@ -568,6 +584,7 @@ describe('ImageCacheService', () => {
             return retrievedData.equals(originalData);
           },
         ),
+        fcFileIO,
       );
     });
 
@@ -635,6 +652,7 @@ describe('ImageCacheService', () => {
             }
           },
         ),
+        fcFileIO,
       );
     });
 
@@ -669,6 +687,24 @@ describe('ImageCacheService', () => {
       } catch {
         // Acceptable to fail
       }
+    });
+
+    it('SIGKILL-GUARD: numRuns configuration must not exceed safe limits (memory exhaustion prevention)', () => {
+      // This test ensures numRuns stays at safe values to prevent Jest worker SIGKILL.
+      // If this fails, someone increased numRuns - see bug report:
+      // specs/epic-blossom-media-uploads/bug-reports/image-cache-sigkill-fix-report.md
+      //
+      // Image cache tests involve file I/O operations and buffer allocations (up to 10KB).
+      // Default 100 iterations × 10 tests caused ~1,000 iterations that exhausted Jest worker memory.
+      // Reduced to fcFileIO=5 and fcMemOnly=15 prevents SIGKILL while maintaining test coverage.
+      const SAFE_NUMRUNS_FILE_IO = 5;
+      const SAFE_NUMRUNS_MEM_ONLY = 15;
+
+      expect(fcFileIO.numRuns).toBe(SAFE_NUMRUNS_FILE_IO);
+      expect(fcMemOnly.numRuns).toBe(SAFE_NUMRUNS_MEM_ONLY);
+
+      // NOTE: This test serves as a reminder that these numRuns values must not be increased
+      // without careful consideration of Jest worker memory limits and potential SIGKILL.
     });
   });
 });

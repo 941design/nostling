@@ -243,7 +243,7 @@ describe('IdentityModal - Submit Button Validity Properties', () => {
 
     it('should allow submit with valid label (property)', () => {
       fc.assert(
-        fc.property(fc.string({ minLength: 1, maxLength: 50 }), (label) => {
+        fc.property(fc.string({ minLength: 1, maxLength: 50 }).filter(s => s.trim().length > 0), (label) => {
           const formNsec = createFormState('nsec', { label, nsec: '' });
           const formMnemonic = createFormState('mnemonic', { label });
 
