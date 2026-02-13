@@ -1,0 +1,10 @@
+{
+  "story_id": "08",
+  "created_at": "2026-02-14T03:30:00Z",
+  "test_results": {
+    "total": 2759,
+    "passing": 2758,
+    "failing": 0,
+    "skipped": 1
+  }
+}

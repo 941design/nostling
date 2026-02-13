@@ -1776,6 +1776,25 @@ export class NostlingService {
           }
         }
 
+        // Extract resolved imeta tags for media messages
+        let imetaTags: string[][] | undefined;
+        const mediaJson = this.getMediaJson(message.id);
+        if (mediaJson) {
+          const parsed = JSON.parse(mediaJson);
+          if (parsed.attachments && parsed.attachments.length > 0) {
+            imetaTags = parsed.attachments.map((a: { imeta: string[] }) => a.imeta);
+
+            // Safety check: abort if any placeholder remains (AC-051)
+            const hasPlaceholder = imetaTags!.some((tag: string[]) =>
+              tag.some((value: string) => value.includes('local-blob:'))
+            );
+            if (hasPlaceholder) {
+              log('error', `Message ${message.id}: refusing to publish - unresolved local-blob placeholder in imeta tags`);
+              continue;
+            }
+          }
+        }
+
         await this.markMessageSending(message.id);
 
         // Check if we have relay pool and valid npubs (real crypto path)
@@ -1785,8 +1804,8 @@ export class NostlingService {
           const senderPubkeyHex = npubToHex(message.senderNpub);
           const recipientPubkeyHex = npubToHex(message.recipientNpub);
 
-          // Encrypt and wrap message using NIP-17/59
-          const event = encryptNip17Message(message.content, senderSecretKey, recipientPubkeyHex);
+          // Encrypt and wrap message using NIP-17/59 (includes imeta tags if present)
+          const event = encryptNip17Message(message.content, senderSecretKey, recipientPubkeyHex, imetaTags);
 
           // Publish to relays
           const results = await this.relayPool.publish(event);
@@ -1815,6 +1834,18 @@ export class NostlingService {
         await this.handleRelayError(message.id, error);
       }
     }
+  }
+
+  private getMediaJson(messageId: string): string | null {
+    const stmt = this.database.prepare('SELECT media_json FROM nostr_messages WHERE id = ?');
+    stmt.bind([messageId]);
+    if (!stmt.step()) {
+      stmt.free();
+      return null;
+    }
+    const result = stmt.getAsObject().media_json as string | null;
+    stmt.free();
+    return result;
   }
 
   private async handleRelayError(messageId: string, error: unknown): Promise<void> {

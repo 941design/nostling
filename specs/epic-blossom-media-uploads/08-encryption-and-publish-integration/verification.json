@@ -1,0 +1,55 @@
+{
+  "story_id": "08",
+  "created_at": "2026-02-14T03:30:00Z",
+  "questions": [
+    {
+      "id": "VQ-08-001",
+      "question": "Does encryptNip17Message correctly include imeta tags in the kind:14 rumor event when extraTags are provided, and are they recoverable after decryption?",
+      "acceptance_criteria": ["AC-015"],
+      "severity": 9,
+      "category": "correctness"
+    },
+    {
+      "id": "VQ-08-002",
+      "question": "Does the flushOutgoingQueue method correctly validate that no local-blob: placeholders remain in imeta tags before publishing, and does it abort publish for messages with unresolved placeholders?",
+      "acceptance_criteria": ["AC-051"],
+      "severity": 9,
+      "category": "correctness"
+    },
+    {
+      "id": "VQ-08-003",
+      "question": "Do imeta tags remain encrypted inside the NIP-59 gift wrap event and not leak into the outer event's tags or content?",
+      "acceptance_criteria": ["AC-015"],
+      "severity": 9,
+      "category": "correctness"
+    },
+    {
+      "id": "VQ-08-004",
+      "question": "Does the getMediaJson helper correctly read the media_json column from the database and return null for messages without media?",
+      "acceptance_criteria": ["AC-015"],
+      "severity": 7,
+      "category": "correctness"
+    },
+    {
+      "id": "VQ-08-005",
+      "question": "Does decryptNip17Message correctly return the tags array from the decrypted rumor event, enabling incoming media tag parsing?",
+      "acceptance_criteria": ["AC-015"],
+      "severity": 7,
+      "category": "correctness"
+    },
+    {
+      "id": "VQ-08-DEAD",
+      "question": "Is there any dead code, unused imports, or unreachable code paths in the encryption/publish integration changes?",
+      "acceptance_criteria": [],
+      "severity": 4,
+      "category": "dead_code"
+    },
+    {
+      "id": "VQ-08-INT",
+      "question": "Are there sufficient tests covering the encryption boundary (imeta tag round-trip, placeholder validation, no leakage, backward compatibility)?",
+      "acceptance_criteria": ["AC-015", "AC-051"],
+      "severity": 8,
+      "category": "test_coverage"
+    }
+  ]
+}

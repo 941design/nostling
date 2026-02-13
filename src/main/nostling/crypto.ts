@@ -12,6 +12,7 @@ import { generateSecretKey, getPublicKey, finalizeEvent } from 'nostr-tools/pure
 import * as nip19 from 'nostr-tools/nip19';
 import * as nip04 from 'nostr-tools/nip04';
 import * as nip17 from 'nostr-tools/nip17';
+import * as nip59 from 'nostr-tools/nip59';
 import { log } from '../logging';
 
 // ============================================================================
@@ -463,7 +464,8 @@ export function buildKind4Event(
 export function encryptNip17Message(
   plaintext: string,
   senderSecretKey: Uint8Array,
-  recipientPubkeyHex: string
+  recipientPubkeyHex: string,
+  extraTags?: string[][]
 ): NostrEvent {
   if (!plaintext || plaintext.length === 0) {
     throw new Error('Message content cannot be empty');
@@ -473,7 +475,22 @@ export function encryptNip17Message(
     throw new Error('Invalid recipient public key');
   }
 
-  return nip17.wrapEvent(senderSecretKey, { publicKey: recipientPubkeyHex }, plaintext) as NostrEvent;
+  if (!extraTags || extraTags.length === 0) {
+    // No extra tags: use the standard NIP-17 wrapper
+    return nip17.wrapEvent(senderSecretKey, { publicKey: recipientPubkeyHex }, plaintext) as NostrEvent;
+  }
+
+  // With extra tags (e.g., imeta): construct kind:14 event manually and use nip59 lower-level wrapping
+  const event = {
+    kind: 14,
+    content: plaintext,
+    tags: [
+      ['p', recipientPubkeyHex],
+      ...extraTags,
+    ],
+  };
+
+  return nip59.wrapEvent(event, senderSecretKey, recipientPubkeyHex) as NostrEvent;
 }
 
 // ============================================================================
@@ -540,6 +557,7 @@ export async function decryptNip17Message(
   kind: number;
   eventId: string;
   timestamp: number;
+  tags?: string[][];
 } | null> {
   try {
     const rumor = nip17.unwrapEvent(wrappedEvent, recipientSecretKey);
@@ -553,7 +571,8 @@ export async function decryptNip17Message(
       senderPubkeyHex: rumor.pubkey,
       kind: rumor.kind,
       eventId: rumor.id,
-      timestamp: rumor.created_at
+      timestamp: rumor.created_at,
+      tags: rumor.tags,
     };
   } catch (error) {
     log('debug', `Failed to unwrap NIP-17 message: ${error instanceof Error ? error.message : 'unknown error'}`);

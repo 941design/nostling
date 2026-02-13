@@ -224,6 +224,81 @@ describe('NIP-17/59 Encryption', () => {
   });
 });
 
+describe('NIP-17/59 Encryption with imeta tags (Story 08)', () => {
+  it('round-trip preserves imeta tags through encryption', async () => {
+    const sender = generateKeypair();
+    const recipient = generateKeypair();
+    const plaintext = 'Check out this photo!';
+    const imetaTags = [
+      ['imeta', 'url https://blossom.example/abc123', 'm image/jpeg', 'size 12345', 'dim 800x600', 'blurhash LEHV6nWB', 'sha256 abc123'],
+      ['imeta', 'url https://blossom.example/def456', 'm application/pdf', 'size 67890', 'sha256 def456'],
+    ];
+
+    const wrappedEvent = encryptNip17Message(
+      plaintext,
+      sender.keypair.secretKey,
+      recipient.keypair.pubkeyHex,
+      imetaTags
+    );
+
+    expect(wrappedEvent.kind).toBe(1059);
+
+    const result = await decryptNip17Message(wrappedEvent, recipient.keypair.secretKey);
+
+    expect(result).not.toBeNull();
+    expect(result!.plaintext).toBe(plaintext);
+    expect(result!.senderPubkeyHex).toBe(sender.keypair.pubkeyHex);
+
+    // Verify imeta tags are preserved in decrypted rumor
+    expect(result!.tags).toBeDefined();
+    const imetaResults = result!.tags!.filter(t => t[0] === 'imeta');
+    expect(imetaResults).toHaveLength(2);
+    expect(imetaResults[0]).toContain('url https://blossom.example/abc123');
+    expect(imetaResults[1]).toContain('url https://blossom.example/def456');
+  });
+
+  it('imeta tags do not leak into outer gift wrap event', () => {
+    const sender = generateKeypair();
+    const recipient = generateKeypair();
+    const imetaTags = [
+      ['imeta', 'url https://blossom.example/secret', 'm image/png', 'size 99999', 'sha256 secret123'],
+    ];
+
+    const wrappedEvent = encryptNip17Message(
+      'Secret image',
+      sender.keypair.secretKey,
+      recipient.keypair.pubkeyHex,
+      imetaTags
+    );
+
+    // Outer gift wrap should only have 'p' tag (recipient), no imeta
+    const outerImetaTags = wrappedEvent.tags.filter(t => t[0] === 'imeta');
+    expect(outerImetaTags).toHaveLength(0);
+
+    // Verify imeta content is not in the outer event's encrypted content as plaintext
+    expect(wrappedEvent.content).not.toContain('blossom.example');
+    expect(wrappedEvent.content).not.toContain('secret123');
+  });
+
+  it('no extra tags defaults to standard NIP-17 wrapping', async () => {
+    const sender = generateKeypair();
+    const recipient = generateKeypair();
+    const plaintext = 'Text only message';
+
+    // Without extra tags
+    const event1 = encryptNip17Message(plaintext, sender.keypair.secretKey, recipient.keypair.pubkeyHex);
+    // With empty array
+    const event2 = encryptNip17Message(plaintext, sender.keypair.secretKey, recipient.keypair.pubkeyHex, []);
+
+    // Both should decrypt correctly
+    const result1 = await decryptNip17Message(event1, recipient.keypair.secretKey);
+    const result2 = await decryptNip17Message(event2, recipient.keypair.secretKey);
+
+    expect(result1!.plaintext).toBe(plaintext);
+    expect(result2!.plaintext).toBe(plaintext);
+  });
+});
+
 describe('Backward Compatibility: NIP-04', () => {
   /**
    * Existing NIP-04 functions must continue to work unchanged.

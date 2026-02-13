@@ -649,4 +649,93 @@ describe('NostlingService', () => {
     expect(stmt.getAsObject().media_json).toBeNull();
     stmt.free();
   });
+
+  describe('placeholder validation before publish (AC-015, AC-051)', () => {
+    it('should not publish message with unresolved local-blob placeholders', async () => {
+      const identity = await service.createIdentity({ label: 'Sender', nsec: 'secret', npub: 'npub-placeholder1' });
+      const contact = await service.addContact({ identityId: identity.id, npub: 'npub-placeholder2' });
+
+      // Create message while offline (flush won't run yet)
+      const message = await service.sendMessage({
+        identityId: identity.id,
+        contactId: contact.id,
+        plaintext: 'Photo attached',
+        attachments: [{
+          hash: 'abc123',
+          name: 'photo.jpg',
+          mimeType: 'image/jpeg',
+          sizeBytes: 5000,
+          dimensions: { width: 800, height: 600 },
+          blurhash: 'LEHV6nWB',
+        }],
+      });
+
+      // Verify media_json has unresolved placeholder
+      const mediaStmt = database.prepare('SELECT media_json FROM nostr_messages WHERE id = ?');
+      mediaStmt.bind([message.id]);
+      mediaStmt.step();
+      const mediaJson = mediaStmt.getAsObject().media_json as string;
+      mediaStmt.free();
+      expect(mediaJson).toContain('local-blob:abc123');
+
+      // Go online to trigger flushOutgoingQueue
+      await service.setOnline(true);
+
+      // Verify message was NOT published - placeholder validation aborted via `continue`
+      const statusStmt = database.prepare('SELECT status FROM nostr_messages WHERE id = ?');
+      statusStmt.bind([message.id]);
+      statusStmt.step();
+      const status = statusStmt.getAsObject().status as string;
+      statusStmt.free();
+      expect(status).toBe('queued'); // NOT 'sent' - placeholder prevented publish
+
+      // Message should still be in outgoing queue
+      const queue = await service.getOutgoingQueue();
+      expect(queue.some(m => m.id === message.id)).toBe(true);
+
+      // Verify error was logged
+      expect(log).toHaveBeenCalledWith(
+        'error',
+        expect.stringContaining('refusing to publish - unresolved local-blob placeholder')
+      );
+    });
+
+    it('should publish message after placeholders are resolved', async () => {
+      const identity = await service.createIdentity({ label: 'Sender', nsec: 'secret', npub: 'npub-resolved1' });
+      const contact = await service.addContact({ identityId: identity.id, npub: 'npub-resolved2' });
+
+      // Create message with attachment - sendMessage will try to flush
+      // but placeholder blocks publish, so message stays queued
+      const message = await service.sendMessage({
+        identityId: identity.id,
+        contactId: contact.id,
+        plaintext: 'Resolved photo',
+        attachments: [{
+          hash: 'resolved123',
+          name: 'photo.jpg',
+          mimeType: 'image/jpeg',
+          sizeBytes: 5000,
+        }],
+      });
+
+      // Manually resolve the placeholder in media_json (simulating upload pipeline)
+      const stmt = database.prepare('SELECT media_json FROM nostr_messages WHERE id = ?');
+      stmt.bind([message.id]);
+      stmt.step();
+      const originalJson = stmt.getAsObject().media_json as string;
+      stmt.free();
+
+      const resolvedJson = originalJson.replace('local-blob:resolved123', 'https://blossom.example/resolved123');
+      database.run('UPDATE nostr_messages SET media_json = ? WHERE id = ?', [resolvedJson, message.id]);
+
+      // Verify placeholder is resolved
+      const checkStmt = database.prepare('SELECT media_json FROM nostr_messages WHERE id = ?');
+      checkStmt.bind([message.id]);
+      checkStmt.step();
+      const updatedJson = checkStmt.getAsObject().media_json as string;
+      checkStmt.free();
+      expect(updatedJson).toContain('https://blossom.example/resolved123');
+      expect(updatedJson).not.toContain('local-blob:');
+    });
+  });
 });
