@@ -185,6 +185,7 @@ export interface NostlingMessage {
   isRead: boolean; // Whether the message has been read (always true for outgoing)
   kind?: number; // Nostr event kind (e.g., 4 for DM, 14 for NIP-17). Undefined for legacy messages.
   wasGiftWrapped?: boolean; // Whether the message was received via NIP-59 gift wrap. Undefined for legacy messages.
+  mediaJson?: string; // JSON-encoded attachment metadata with imeta tags
 }
 
 export interface NostlingRelayEndpoint {
@@ -228,10 +229,20 @@ export interface AddContactRequest {
   alias?: string;
 }
 
+export interface AttachmentData {
+  hash: string;
+  name: string;
+  mimeType: string;
+  sizeBytes: number;
+  dimensions?: { width: number; height: number };
+  blurhash?: string;
+}
+
 export interface SendNostrMessageRequest {
   identityId: string;
   contactId: string;
   plaintext: string;
+  attachments?: AttachmentData[];
 }
 
 /**

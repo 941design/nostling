@@ -533,4 +533,120 @@ describe('NostlingService', () => {
     const messages = await service.listMessages(identity.id, contact.id);
     expect(messages[0].wasGiftWrapped).toBeUndefined();
   });
+
+  it('should construct message with attachments, populating media_json and message_media (AC-012, AC-013, AC-014)', async () => {
+    const identity = await service.createIdentity({ label: 'Sender', nsec: 'secret', npub: 'npub-sender' });
+    const contact = await service.addContact({ identityId: identity.id, npub: 'npub-recipient' });
+
+    const attachments = [
+      { hash: 'aaa111', name: 'photo.jpg', mimeType: 'image/jpeg', sizeBytes: 2048576, dimensions: { width: 1920, height: 1080 }, blurhash: 'LEHV6n' },
+      { hash: 'bbb222', name: 'document.pdf', mimeType: 'application/pdf', sizeBytes: 102400 },
+      { hash: 'ccc333', name: 'song.mp3', mimeType: 'audio/mpeg', sizeBytes: 5242880 },
+    ];
+
+    const message = await service.sendMessage({
+      identityId: identity.id,
+      contactId: contact.id,
+      plaintext: 'Check these files',
+      attachments,
+    });
+
+    expect(message).toBeDefined();
+    expect(message.mediaJson).toBeDefined();
+
+    // Verify media_json structure
+    const mediaJson = JSON.parse(message.mediaJson!);
+    expect(mediaJson.attachments).toHaveLength(3);
+
+    // Verify order preserved (AC-014)
+    expect(mediaJson.attachments[0].hash).toBe('aaa111');
+    expect(mediaJson.attachments[1].hash).toBe('bbb222');
+    expect(mediaJson.attachments[2].hash).toBe('ccc333');
+
+    // Verify imeta tag format (AC-012, AC-013)
+    const firstImeta = mediaJson.attachments[0].imeta;
+    expect(firstImeta[0]).toBe('imeta');
+    expect(firstImeta).toContain('url local-blob:aaa111');
+    expect(firstImeta).toContain('m image/jpeg');
+    expect(firstImeta).toContain('size 2048576');
+    expect(firstImeta).toContain('dim 1920x1080');
+    expect(firstImeta).toContain('blurhash LEHV6n');
+    expect(firstImeta).toContain('sha256 aaa111');
+
+    // Verify non-image omits dim/blurhash
+    const secondImeta = mediaJson.attachments[1].imeta;
+    expect(secondImeta).toContain('url local-blob:bbb222');
+    expect(secondImeta).toContain('m application/pdf');
+    expect(secondImeta.find((e: string) => e.startsWith('dim '))).toBeUndefined();
+    expect(secondImeta.find((e: string) => e.startsWith('blurhash '))).toBeUndefined();
+
+    // Verify message_media junction rows in database
+    const stmt = database.prepare('SELECT blob_hash, placeholder_key, upload_status FROM message_media WHERE message_id = ? ORDER BY ROWID');
+    stmt.bind([message.id]);
+    const rows: Array<{ blob_hash: string; placeholder_key: string; upload_status: string }> = [];
+    while (stmt.step()) {
+      rows.push(stmt.getAsObject() as { blob_hash: string; placeholder_key: string; upload_status: string });
+    }
+    stmt.free();
+
+    expect(rows).toHaveLength(3);
+    expect(rows[0]).toEqual({ blob_hash: 'aaa111', placeholder_key: 'local-blob:aaa111', upload_status: 'pending' });
+    expect(rows[1]).toEqual({ blob_hash: 'bbb222', placeholder_key: 'local-blob:bbb222', upload_status: 'pending' });
+    expect(rows[2]).toEqual({ blob_hash: 'ccc333', placeholder_key: 'local-blob:ccc333', upload_status: 'pending' });
+
+    // Verify media_json column is stored in database
+    const msgStmt = database.prepare('SELECT media_json FROM nostr_messages WHERE id = ?');
+    msgStmt.bind([message.id]);
+    expect(msgStmt.step()).toBe(true);
+    const dbMediaJson = msgStmt.getAsObject().media_json as string;
+    msgStmt.free();
+    expect(JSON.parse(dbMediaJson).attachments).toHaveLength(3);
+  });
+
+  it('should allow sending message with only attachments and no text', async () => {
+    const identity = await service.createIdentity({ label: 'Sender', nsec: 'secret', npub: 'npub-sender2' });
+    const contact = await service.addContact({ identityId: identity.id, npub: 'npub-recipient2' });
+
+    const message = await service.sendMessage({
+      identityId: identity.id,
+      contactId: contact.id,
+      plaintext: '',
+      attachments: [{ hash: 'ddd444', name: 'file.png', mimeType: 'image/png', sizeBytes: 1024 }],
+    });
+
+    expect(message).toBeDefined();
+    expect(message.content).toBe('');
+    expect(message.mediaJson).toBeDefined();
+  });
+
+  it('should reject message with no text and no attachments', async () => {
+    const identity = await service.createIdentity({ label: 'Sender', nsec: 'secret', npub: 'npub-sender3' });
+    const contact = await service.addContact({ identityId: identity.id, npub: 'npub-recipient3' });
+
+    await expect(service.sendMessage({
+      identityId: identity.id,
+      contactId: contact.id,
+      plaintext: '',
+    })).rejects.toThrow('Message body or attachments required');
+  });
+
+  it('should not populate media_json when sending text-only message', async () => {
+    const identity = await service.createIdentity({ label: 'Sender', nsec: 'secret', npub: 'npub-sender4' });
+    const contact = await service.addContact({ identityId: identity.id, npub: 'npub-recipient4' });
+
+    const message = await service.sendMessage({
+      identityId: identity.id,
+      contactId: contact.id,
+      plaintext: 'just text',
+    });
+
+    expect(message.mediaJson).toBeUndefined();
+
+    // Verify database
+    const stmt = database.prepare('SELECT media_json FROM nostr_messages WHERE id = ?');
+    stmt.bind([message.id]);
+    expect(stmt.step()).toBe(true);
+    expect(stmt.getAsObject().media_json).toBeNull();
+    stmt.free();
+  });
 });

@@ -3,6 +3,7 @@ import { Database } from 'sql.js';
 import { BoundedSet } from './bounded-set';
 import {
   AddContactRequest,
+  AttachmentData,
   CreateIdentityRequest,
   NostlingContact,
   NostlingContactState,
@@ -14,6 +15,7 @@ import {
   NostlingRelayEndpoint,
   RelayConfigResult,
 } from '../../shared/types';
+import { buildMediaJson } from '../media/imeta-builder';
 import { log } from '../logging';
 import { NostlingSecretStore } from './secret-store';
 import { RelayConfigManager, DEFAULT_RELAYS } from './relay-config-manager';
@@ -578,10 +580,13 @@ export class NostlingService {
     return counts;
   }
 
-  async sendMessage(request: { identityId: string; contactId: string; plaintext: string }): Promise<NostlingMessage> {
+  async sendMessage(request: { identityId: string; contactId: string; plaintext: string; attachments?: AttachmentData[] }): Promise<NostlingMessage> {
     return this.withErrorLogging('send message', async () => {
-      if (!request.plaintext || !request.plaintext.trim()) {
-        throw new Error('Message body is required');
+      const hasAttachments = request.attachments && request.attachments.length > 0;
+      const hasText = request.plaintext && request.plaintext.trim().length > 0;
+
+      if (!hasText && !hasAttachments) {
+        throw new Error('Message body or attachments required');
       }
 
       const contact = this.getContact(request.contactId);
@@ -594,7 +599,8 @@ export class NostlingService {
         contactId: request.contactId,
         senderNpub: this.getIdentityNpub(request.identityId),
         recipientNpub: contact.npub,
-        plaintext: request.plaintext,
+        plaintext: request.plaintext || '',
+        attachments: request.attachments,
       });
     });
   }
@@ -1671,17 +1677,22 @@ export class NostlingService {
     senderNpub: string;
     recipientNpub: string;
     plaintext: string;
+    attachments?: AttachmentData[];
   }): Promise<NostlingMessage> {
     const now = new Date().toISOString();
     const id = randomUUID();
+    const hasAttachments = options.attachments && options.attachments.length > 0;
     const status: NostlingMessageStatus = this.online ? 'sending' : 'queued';
     const kind = 14; // NIP-17 private direct message (will be wrapped in kind:1059)
     const wasGiftWrapped = true; // Outgoing messages always use NIP-59 gift wrap
 
+    // Build media_json if attachments present
+    const mediaJson = hasAttachments ? buildMediaJson(options.attachments!) : null;
+
     // Store plaintext for display; encryption happens at publish time
     // (The 'ciphertext' column actually stores displayable content)
     this.database.run(
-      'INSERT INTO nostr_messages (id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read, kind, was_gift_wrapped) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO nostr_messages (id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read, kind, was_gift_wrapped, media_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
         id,
         options.identityId,
@@ -1696,8 +1707,25 @@ export class NostlingService {
         1, // Outgoing messages are always "read"
         kind,
         1, // wasGiftWrapped = true (SQLite uses 0/1 for boolean)
+        mediaJson,
       ]
     );
+
+    // Insert message_media junction rows for each attachment
+    if (hasAttachments) {
+      for (const attachment of options.attachments!) {
+        this.database.run(
+          'INSERT INTO message_media (message_id, blob_hash, remote_url, placeholder_key, upload_status) VALUES (?, ?, ?, ?, ?)',
+          [
+            id,
+            attachment.hash,
+            null, // remote_url populated after upload
+            `local-blob:${attachment.hash}`,
+            'pending',
+          ]
+        );
+      }
+    }
 
     this.bumpContactLastMessage(options.contactId, now);
 
@@ -1718,6 +1746,7 @@ export class NostlingService {
       isRead: true,
       kind,
       wasGiftWrapped,
+      mediaJson: mediaJson ?? undefined,
     };
   }
 

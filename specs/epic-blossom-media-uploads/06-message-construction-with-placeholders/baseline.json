@@ -1,0 +1,12 @@
+{
+  "story_id": "06",
+  "created_at": "2026-02-14T01:15:00Z",
+  "status": "ready",
+  "test_results": {
+    "total": 2705,
+    "passing": 2704,
+    "failing": 0,
+    "skipped": 1
+  },
+  "git_ref": "4588eee"
+}

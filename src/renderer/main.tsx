@@ -26,6 +26,7 @@ import {
 } from '@chakra-ui/react';
 import {
   AppStatus,
+  AttachmentData,
   NostlingContact,
   NostlingIdentity,
   NostlingMessage,
@@ -953,7 +954,7 @@ interface ConversationPaneProps {
   identity: NostlingIdentity | null;
   contact: NostlingContact | null;
   messages: NostlingMessage[];
-  onSend: (plaintext: string) => Promise<boolean>;
+  onSend: (plaintext: string, attachments?: AttachmentData[]) => Promise<boolean>;
 }
 
 function ConversationPane({
@@ -983,7 +984,7 @@ function ConversationPane({
     });
   }, []);
 
-  const canSend = Boolean(identity && contact && draft.trim().length > 0 && !isSending);
+  const canSend = Boolean(identity && contact && (draft.trim().length > 0 || attachments.length > 0) && !isSending);
   const canAttach = Boolean(identity && contact && !isSending);
 
   const handleMessageHover = (message: NostlingMessage | null) => {
@@ -1004,9 +1005,20 @@ function ConversationPane({
     if (!canSend) return;
     setIsSending(true);
     setSendError(null);
-    const success = await onSend(draft.trim());
+    const attachmentData = attachments.length > 0
+      ? attachments.map((a) => ({
+          hash: a.hash,
+          name: a.name,
+          mimeType: a.type,
+          sizeBytes: a.size,
+          dimensions: a.dimensions,
+          blurhash: a.blurhash,
+        }))
+      : undefined;
+    const success = await onSend(draft.trim(), attachmentData);
     if (success) {
       setDraft('');
+      clearAttachments();
     } else {
       setSendError('Message failed to send. Check your connection and try again.');
     }
@@ -2107,13 +2119,14 @@ function App({ onThemeChange }: AppProps) {
     await nostling.clearContactAlias(contactId);
   };
 
-  const handleSendMessage = async (plaintext: string) => {
+  const handleSendMessage = async (plaintext: string, attachments?: AttachmentData[]) => {
     if (!selectedIdentityId || !selectedContactId) return false;
 
     const message = await nostling.sendMessage({
       identityId: selectedIdentityId,
       contactId: selectedContactId,
       plaintext,
+      attachments,
     });
 
     return Boolean(message);
