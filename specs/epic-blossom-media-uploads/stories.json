@@ -387,7 +387,7 @@
       "complexity": "medium",
       "mock_dependencies": [],
       "introduces_mocks": [],
-      "status": "pending",
+      "status": "done",
       "notes": "Testable by fast-forwarding time or manually triggering cleanup. Verify blob deletion after retention period, quota enforcement, LRU ordering, and multi-identity retention. Use low quota (10 MB) for easier testing."
     }
   ],

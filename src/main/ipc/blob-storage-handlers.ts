@@ -29,4 +29,14 @@ export function registerBlobStorageHandlers(dependencies: BlobStorageIpcDependen
   ipcMain.handle('blob-storage:get-blob', async (_, hash: string) => {
     return blobStorageService.getBlob(hash);
   });
+
+  // Manual cleanup trigger
+  ipcMain.handle('nostling:media:cleanup', async (_, options?: { retentionDays?: number; quotaBytes?: number }) => {
+    return blobStorageService.runCleanup(options?.retentionDays, options?.quotaBytes);
+  });
+
+  // Get storage usage
+  ipcMain.handle('nostling:media:storage-usage', async () => {
+    return blobStorageService.getStorageUsage();
+  });
 }

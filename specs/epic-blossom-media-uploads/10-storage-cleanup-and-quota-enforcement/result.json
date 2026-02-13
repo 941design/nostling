@@ -1,0 +1,39 @@
+{
+  "story_id": "10",
+  "story_name": "storage-cleanup-and-quota-enforcement",
+  "status": "verified",
+  "acceptance_criteria": ["AC-034", "AC-035", "AC-046"],
+  "implementation_summary": {
+    "changes": [
+      {
+        "file": "src/main/blob-storage/BlobStorageService.ts",
+        "description": "Added getStorageUsage(), runCleanup(retentionDays, quotaBytes, nowMs), deleteExpiredBlobs(), and evictToQuota() methods. Cleanup deletes uploaded blobs past retention period, enforces quota via LRU eviction of oldest uploaded blobs, respects multi-identity retention (never deletes blobs with pending/uploading references)."
+      },
+      {
+        "file": "src/main/ipc/blob-storage-handlers.ts",
+        "description": "Added nostling:media:cleanup IPC handler for manual cleanup trigger with configurable retentionDays and quotaBytes. Added nostling:media:storage-usage IPC handler."
+      }
+    ],
+    "tests_added": [
+      "src/main/blob-storage/BlobStorageService.test.ts: +13 tests covering getStorageUsage, expired blob deletion, retention period, multi-identity retention, quota LRU eviction, pending blob protection, boundary conditions, orphaned blobs, uploading status protection, same-identity multi-message retention"
+    ],
+    "test_results": {
+      "total": 2823,
+      "passed": 2822,
+      "skipped": 1,
+      "failed": 0,
+      "suites": 124
+    }
+  },
+  "verification": {
+    "round": 1,
+    "status": "passed",
+    "results": [
+      { "id": "VQ-10-001", "question": "deleteExpiredBlobs SQL correctness", "status": "PASS" },
+      { "id": "VQ-10-002", "question": "evictToQuota LRU ordering and protection", "status": "PASS" },
+      { "id": "VQ-10-003", "question": "IPC handler wiring", "status": "PASS" },
+      { "id": "VQ-10-DEAD", "question": "Dead code and unused artifacts", "status": "PASS" },
+      { "id": "VQ-10-INT", "question": "Edge case test coverage", "status": "PASS", "note": "Remediated: added 4 edge case tests (boundary, orphan, uploading status, same-identity multi-message)" }
+    ]
+  }
+}

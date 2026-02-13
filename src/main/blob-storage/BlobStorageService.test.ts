@@ -635,4 +635,275 @@ describe('BlobStorageService', () => {
       await expect(service.storeBlob(nonExistentPath)).rejects.toThrow();
     });
   });
+
+  describe('Storage cleanup and quota enforcement (Story 10)', () => {
+    // Helper: store a test blob and mark it as uploaded in message_media
+    async function storeAndUpload(
+      svc: BlobStorageService,
+      name: string,
+      content: string,
+      uploadedAtUnix: number,
+      messageId: string = `msg-${name}`
+    ): Promise<string> {
+      const filePath = path.join(testDir, name);
+      await fs.writeFile(filePath, content);
+      const result = await svc.storeBlob(filePath);
+
+      const db = require('../database/connection').getDatabase();
+      // Mark uploaded_at in media_blobs
+      db.run('UPDATE media_blobs SET uploaded_at = ? WHERE hash = ?', [uploadedAtUnix, result.hash]);
+
+      // Ensure nostr_messages row exists (FK constraint)
+      db.run(
+        "INSERT OR IGNORE INTO nostr_messages (id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, timestamp, status, direction, is_read) VALUES (?, 'id1', 'c1', 'npub1', 'npub2', 'text', datetime('now'), 'sent', 'outgoing', 1)",
+        [messageId]
+      );
+
+      // Add message_media reference
+      db.run(
+        "INSERT INTO message_media (message_id, blob_hash, upload_status) VALUES (?, ?, 'uploaded')",
+        [messageId, result.hash]
+      );
+
+      return result.hash;
+    }
+
+    describe('getStorageUsage (AC-035)', () => {
+      it('returns 0 when no blobs stored', () => {
+        expect(service.getStorageUsage()).toBe(0);
+      });
+
+      it('returns total size of all blobs', async () => {
+        const f1 = path.join(testDir, 'a.txt');
+        const f2 = path.join(testDir, 'b.txt');
+        await fs.writeFile(f1, 'hello'); // 5 bytes
+        await fs.writeFile(f2, 'world!!!'); // 8 bytes
+        await service.storeBlob(f1);
+        await service.storeBlob(f2);
+        expect(service.getStorageUsage()).toBe(13);
+      });
+    });
+
+    describe('deleteExpiredBlobs (AC-034)', () => {
+      it('deletes uploaded blobs past retention period', async () => {
+        const now = Date.now();
+        const eightDaysAgo = Math.floor(now / 1000) - (8 * 24 * 60 * 60);
+
+        const hash = await storeAndUpload(service, 'old.txt', 'old-content', eightDaysAgo);
+
+        const deleted = await service.runCleanup(7, 500 * 1024 * 1024, now);
+        expect(deleted).toBe(1);
+
+        const blob = await service.getBlob(hash);
+        expect(blob).toBeNull();
+      });
+
+      it('retains uploaded blobs within retention period', async () => {
+        const now = Date.now();
+        const threeDaysAgo = Math.floor(now / 1000) - (3 * 24 * 60 * 60);
+
+        const hash = await storeAndUpload(service, 'recent.txt', 'recent-content', threeDaysAgo);
+
+        const deleted = await service.runCleanup(7, 500 * 1024 * 1024, now);
+        expect(deleted).toBe(0);
+
+        const blob = await service.getBlob(hash);
+        expect(blob).not.toBeNull();
+      });
+
+      it('retains blobs that have not been uploaded yet', async () => {
+        const filePath = path.join(testDir, 'pending.txt');
+        await fs.writeFile(filePath, 'pending-content');
+        const result = await service.storeBlob(filePath);
+
+        // uploaded_at is null (not uploaded yet)
+        const deleted = await service.runCleanup(7, 500 * 1024 * 1024);
+        expect(deleted).toBe(0);
+
+        const blob = await service.getBlob(result.hash);
+        expect(blob).not.toBeNull();
+      });
+    });
+
+    describe('multi-identity retention (AC-046)', () => {
+      it('retains blob when any message_media reference is still pending', async () => {
+        const now = Date.now();
+        const eightDaysAgo = Math.floor(now / 1000) - (8 * 24 * 60 * 60);
+
+        // Store blob and create uploaded reference for Identity A
+        const hash = await storeAndUpload(service, 'shared.txt', 'shared-content', eightDaysAgo, 'msg-a');
+
+        const db = require('../database/connection').getDatabase();
+        // Add second reference for Identity B (still pending)
+        db.run(
+          "INSERT OR IGNORE INTO nostr_messages (id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, timestamp, status, direction, is_read) VALUES ('msg-b', 'id2', 'c2', 'npub3', 'npub4', 'text', datetime('now'), 'queued', 'outgoing', 0)"
+        );
+        db.run(
+          "INSERT INTO message_media (message_id, blob_hash, upload_status) VALUES ('msg-b', ?, 'pending')",
+          [hash]
+        );
+
+        // Cleanup should NOT delete because msg-b reference is 'pending'
+        const deleted = await service.runCleanup(7, 500 * 1024 * 1024, now);
+        expect(deleted).toBe(0);
+
+        const blob = await service.getBlob(hash);
+        expect(blob).not.toBeNull();
+      });
+
+      it('deletes blob when all message_media references are uploaded', async () => {
+        const now = Date.now();
+        const eightDaysAgo = Math.floor(now / 1000) - (8 * 24 * 60 * 60);
+
+        const hash = await storeAndUpload(service, 'multi.txt', 'multi-content', eightDaysAgo, 'msg-x');
+
+        const db = require('../database/connection').getDatabase();
+        // Add second uploaded reference
+        db.run(
+          "INSERT OR IGNORE INTO nostr_messages (id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, timestamp, status, direction, is_read) VALUES ('msg-y', 'id2', 'c2', 'npub3', 'npub4', 'text', datetime('now'), 'sent', 'outgoing', 1)"
+        );
+        db.run(
+          "INSERT INTO message_media (message_id, blob_hash, upload_status) VALUES ('msg-y', ?, 'uploaded')",
+          [hash]
+        );
+
+        // Both references are 'uploaded', blob past retention → delete
+        const deleted = await service.runCleanup(7, 500 * 1024 * 1024, now);
+        expect(deleted).toBe(1);
+
+        const blob = await service.getBlob(hash);
+        expect(blob).toBeNull();
+      });
+    });
+
+    describe('edge cases', () => {
+      it('retains blob uploaded at exactly the retention boundary', async () => {
+        const now = Date.now();
+        // Exactly 7 days ago (at the cutoff) — should NOT be deleted (uses strict <)
+        const exactlySeven = Math.floor(now / 1000) - (7 * 24 * 60 * 60);
+
+        const hash = await storeAndUpload(service, 'boundary.txt', 'boundary-content', exactlySeven);
+
+        const deleted = await service.runCleanup(7, 500 * 1024 * 1024, now);
+        expect(deleted).toBe(0);
+
+        const blob = await service.getBlob(hash);
+        expect(blob).not.toBeNull();
+      });
+
+      it('deletes orphaned blob with no message_media references', async () => {
+        const now = Date.now();
+        const eightDaysAgo = Math.floor(now / 1000) - (8 * 24 * 60 * 60);
+
+        // Store blob and manually set uploaded_at, but do NOT add any message_media row
+        const filePath = path.join(testDir, 'orphan.txt');
+        await fs.writeFile(filePath, 'orphan-content');
+        const result = await service.storeBlob(filePath);
+
+        const db = require('../database/connection').getDatabase();
+        db.run('UPDATE media_blobs SET uploaded_at = ? WHERE hash = ?', [eightDaysAgo, result.hash]);
+
+        // No message_media references at all → NOT EXISTS subquery is vacuously true → deletable
+        const deleted = await service.runCleanup(7, 500 * 1024 * 1024, now);
+        expect(deleted).toBe(1);
+
+        const blob = await service.getBlob(result.hash);
+        expect(blob).toBeNull();
+      });
+
+      it('retains blob with uploading status in message_media', async () => {
+        const now = Date.now();
+        const eightDaysAgo = Math.floor(now / 1000) - (8 * 24 * 60 * 60);
+
+        const filePath = path.join(testDir, 'uploading.txt');
+        await fs.writeFile(filePath, 'uploading-content');
+        const result = await service.storeBlob(filePath);
+
+        const db = require('../database/connection').getDatabase();
+        db.run('UPDATE media_blobs SET uploaded_at = ? WHERE hash = ?', [eightDaysAgo, result.hash]);
+
+        // Create message_media with 'uploading' status
+        db.run(
+          "INSERT OR IGNORE INTO nostr_messages (id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, timestamp, status, direction, is_read) VALUES ('msg-upl', 'id1', 'c1', 'npub1', 'npub2', 'text', datetime('now'), 'queued', 'outgoing', 0)"
+        );
+        db.run(
+          "INSERT INTO message_media (message_id, blob_hash, upload_status) VALUES ('msg-upl', ?, 'uploading')",
+          [result.hash]
+        );
+
+        const deleted = await service.runCleanup(7, 500 * 1024 * 1024, now);
+        expect(deleted).toBe(0);
+
+        expect(await service.getBlob(result.hash)).not.toBeNull();
+      });
+
+      it('retains blob referenced by same identity across multiple messages when any is pending', async () => {
+        const now = Date.now();
+        const eightDaysAgo = Math.floor(now / 1000) - (8 * 24 * 60 * 60);
+
+        // Store blob with one uploaded reference
+        const hash = await storeAndUpload(service, 'same-id.txt', 'same-id-content', eightDaysAgo, 'msg-s1');
+
+        const db = require('../database/connection').getDatabase();
+        // Second message from same identity, still pending
+        db.run(
+          "INSERT OR IGNORE INTO nostr_messages (id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, timestamp, status, direction, is_read) VALUES ('msg-s2', 'id1', 'c1', 'npub1', 'npub2', 'text', datetime('now'), 'queued', 'outgoing', 0)"
+        );
+        db.run(
+          "INSERT INTO message_media (message_id, blob_hash, upload_status) VALUES ('msg-s2', ?, 'pending')",
+          [hash]
+        );
+
+        const deleted = await service.runCleanup(7, 500 * 1024 * 1024, now);
+        expect(deleted).toBe(0);
+
+        expect(await service.getBlob(hash)).not.toBeNull();
+      });
+    });
+
+    describe('quota enforcement with LRU eviction (AC-035)', () => {
+      it('evicts oldest uploaded blobs when quota exceeded', async () => {
+        const now = Date.now();
+        const twoDaysAgo = Math.floor(now / 1000) - (2 * 24 * 60 * 60);
+        const oneDayAgo = Math.floor(now / 1000) - (1 * 24 * 60 * 60);
+
+        // Store two blobs: old (5 bytes) and new (5 bytes) = 10 bytes total
+        const oldHash = await storeAndUpload(service, 'old-q.txt', 'aaaaa', twoDaysAgo, 'msg-old');
+        const newHash = await storeAndUpload(service, 'new-q.txt', 'bbbbb', oneDayAgo, 'msg-new');
+
+        expect(service.getStorageUsage()).toBe(10);
+
+        // Set quota to 6 bytes - need to evict oldest to fit
+        const deleted = await service.runCleanup(30, 6, now); // High retention so only quota applies
+        expect(deleted).toBe(1);
+
+        // Old blob evicted (LRU), new blob retained
+        expect(await service.getBlob(oldHash)).toBeNull();
+        expect(await service.getBlob(newHash)).not.toBeNull();
+      });
+
+      it('never evicts unuploaded blobs even when over quota', async () => {
+        const now = Date.now();
+        const oneDayAgo = Math.floor(now / 1000) - (1 * 24 * 60 * 60);
+
+        // Store uploaded blob (5 bytes)
+        await storeAndUpload(service, 'uploaded-q.txt', 'xxxxx', oneDayAgo, 'msg-up');
+
+        // Store unuploaded blob (5 bytes) - no uploaded_at, no message_media
+        const pendingFile = path.join(testDir, 'pending-q.txt');
+        await fs.writeFile(pendingFile, 'yyyyy');
+        const pendingResult = await service.storeBlob(pendingFile);
+
+        expect(service.getStorageUsage()).toBe(10);
+
+        // Quota 3 bytes - needs eviction but only uploaded are eligible
+        const deleted = await service.runCleanup(30, 3, now);
+        expect(deleted).toBe(1); // Only the uploaded one
+
+        // Pending blob still exists
+        expect(await service.getBlob(pendingResult.hash)).not.toBeNull();
+        expect(service.getStorageUsage()).toBe(5); // Only pending remains
+      });
+    });
+  });
 });

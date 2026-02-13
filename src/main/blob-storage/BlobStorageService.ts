@@ -512,4 +512,122 @@ export class BlobStorageService {
 
     return true;
   }
+
+  /**
+   * Get total storage used by all blobs in bytes.
+   */
+  getStorageUsage(): number {
+    if (!this.db) {
+      throw new Error('BlobStorageService not initialized');
+    }
+    const result = this.db.exec('SELECT COALESCE(SUM(size_bytes), 0) FROM media_blobs');
+    return result.length > 0 ? (result[0].values[0][0] as number) : 0;
+  }
+
+  /**
+   * Run cleanup: delete uploaded blobs past retention period and enforce quota.
+   *
+   * @param retentionDays - Days to retain uploaded blobs before deletion (default 7)
+   * @param quotaBytes - Maximum total blob storage in bytes (default 500 MB)
+   * @param nowMs - Current time in milliseconds (injectable for testing)
+   * @returns Number of blobs deleted
+   */
+  async runCleanup(
+    retentionDays: number = 7,
+    quotaBytes: number = 500 * 1024 * 1024,
+    nowMs: number = Date.now()
+  ): Promise<number> {
+    if (!this.db) {
+      throw new Error('BlobStorageService not initialized');
+    }
+
+    let deleted = 0;
+
+    // Phase 1: Delete uploaded blobs past retention period
+    deleted += await this.deleteExpiredBlobs(retentionDays, nowMs);
+
+    // Phase 2: Enforce quota via LRU eviction of uploaded blobs
+    deleted += await this.evictToQuota(quotaBytes);
+
+    return deleted;
+  }
+
+  /**
+   * Delete blobs whose upload completed more than retentionDays ago,
+   * but only if ALL message_media references for this blob are in 'uploaded' status.
+   * Blobs with any pending/uploading reference are retained.
+   */
+  private async deleteExpiredBlobs(retentionDays: number, nowMs: number): Promise<number> {
+    const cutoffTimestamp = Math.floor(nowMs / 1000) - (retentionDays * 24 * 60 * 60);
+
+    // Find blobs that:
+    // 1. Have been uploaded (uploaded_at is not null and before cutoff)
+    // 2. Have NO message_media references with status != 'uploaded'
+    const result = this.db!.exec(
+      `SELECT mb.hash FROM media_blobs mb
+       WHERE mb.uploaded_at IS NOT NULL
+         AND mb.uploaded_at < ?
+         AND NOT EXISTS (
+           SELECT 1 FROM message_media mm
+           WHERE mm.blob_hash = mb.hash
+             AND mm.upload_status != 'uploaded'
+         )`,
+      [cutoffTimestamp]
+    );
+
+    if (result.length === 0 || result[0].values.length === 0) {
+      return 0;
+    }
+
+    let deleted = 0;
+    for (const row of result[0].values) {
+      const hash = row[0] as string;
+      if (await this.deleteBlob(hash)) {
+        deleted++;
+      }
+    }
+    return deleted;
+  }
+
+  /**
+   * Evict oldest uploaded blobs (by uploaded_at) until storage is within quota.
+   * Only evicts blobs where ALL message_media references are 'uploaded'.
+   * Never evicts unuploaded (pending/uploading) blobs.
+   */
+  private async evictToQuota(quotaBytes: number): Promise<number> {
+    let currentUsage = this.getStorageUsage();
+    if (currentUsage <= quotaBytes) {
+      return 0;
+    }
+
+    // Get uploaded blobs ordered by uploaded_at ASC (oldest first = LRU)
+    const result = this.db!.exec(
+      `SELECT mb.hash, mb.size_bytes FROM media_blobs mb
+       WHERE mb.uploaded_at IS NOT NULL
+         AND NOT EXISTS (
+           SELECT 1 FROM message_media mm
+           WHERE mm.blob_hash = mb.hash
+             AND mm.upload_status != 'uploaded'
+         )
+       ORDER BY mb.uploaded_at ASC`
+    );
+
+    if (result.length === 0 || result[0].values.length === 0) {
+      return 0;
+    }
+
+    let deleted = 0;
+    for (const row of result[0].values) {
+      if (currentUsage <= quotaBytes) break;
+
+      const hash = row[0] as string;
+      const sizeBytes = row[1] as number;
+
+      if (await this.deleteBlob(hash)) {
+        currentUsage -= sizeBytes;
+        deleted++;
+      }
+    }
+    return deleted;
+  }
 }
