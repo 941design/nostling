@@ -50,6 +50,8 @@ import { ImageCacheService } from './image-cache/image-cache-service';
 import { registerImageCacheHandlers } from './ipc/image-cache-handlers';
 import { registerP2PIpcHandlers } from './ipc/p2p-handlers';
 import { registerAvatarApiHandlers } from './ipc/avatar-api-handlers';
+import { registerBlossomHandlers } from './ipc/blossom-handlers';
+import { BlossomServerService } from './blossom/BlossomServerService';
 import { triggerP2PConnectionsOnOnline } from './nostling/p2p-service-integration';
 let mainWindow: BrowserWindow | null = null;
 let config: AppConfig = loadConfig();
@@ -527,6 +529,11 @@ app.on('ready', async () => {
 
   // Register avatar API proxy handlers (bypass CORS for external avatar server)
   registerAvatarApiHandlers();
+
+  // Initialize and register Blossom server configuration handlers
+  const blossomServerService = new BlossomServerService();
+  await blossomServerService.initialize();
+  registerBlossomHandlers({ blossomServerService });
 
   // Start message polling based on config (supplementary to streaming - 1m default)
   const pollingMs = pollingIntervalToMilliseconds(config.messagePollingInterval || '1m');

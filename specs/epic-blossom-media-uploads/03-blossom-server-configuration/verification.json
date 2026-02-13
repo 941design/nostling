@@ -1,0 +1,110 @@
+{
+  "created_at": "2026-02-13T21:10:00Z",
+  "story_id": "03",
+  "story_title": "Blossom Server Configuration",
+
+  "questions": [
+    {
+      "id": "VQ-03-001",
+      "category": "SECURITY",
+      "question": "Are HTTP URLs rejected and only HTTPS URLs accepted?",
+      "actionable_check": "Search for tests verifying http:// URLs are rejected; inspect addServer validation logic",
+      "evidence_required": ["test file path showing HTTP rejection", "addServer validation code snippet"],
+      "pass_criteria": "Tests exist that verify http:// URLs throw error, https:// URLs succeed; validation code checks URL prefix",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-03-002",
+      "category": "TEST",
+      "question": "Do property-based tests verify health check timeout behavior?",
+      "actionable_check": "Search for tests that create unresponsive server and verify 3s timeout",
+      "evidence_required": ["test file path", "test fixture for HTTP server", "timeout verification"],
+      "pass_criteria": "Test exists using local HTTP server fixture that delays >3s; verifies checkHealth returns unhealthy within 3.5s",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-03-003",
+      "category": "TEST",
+      "question": "Are server selection fallback scenarios tested?",
+      "actionable_check": "Search for tests that configure multiple servers with different health states and verify fallback",
+      "evidence_required": ["test file path", "test scenario description"],
+      "pass_criteria": "Tests exist for: first server healthy (returns it), first unhealthy second healthy (returns second), all unhealthy (returns null)",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-03-004",
+      "category": "ARCHITECTURE",
+      "question": "Does BlossomServerService follow database access patterns?",
+      "actionable_check": "Review service to verify it uses getDatabase() pattern and raw sql.js API (not Knex for queries)",
+      "evidence_required": ["service file path", "database access pattern"],
+      "pass_criteria": "Service uses getDatabase() from connection.ts; uses db.exec() and db.run() for queries; follows BlobStorageService pattern",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-03-005",
+      "category": "TEST",
+      "question": "Are duplicate URL prevention tests comprehensive?",
+      "actionable_check": "Search for tests that add same URL twice for same identity and verify error",
+      "evidence_required": ["test file path", "test name"],
+      "pass_criteria": "Test exists that adds server, then attempts to add same URL again, verifies error thrown",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-03-006",
+      "category": "TEST",
+      "question": "Are reordering edge cases tested?",
+      "actionable_check": "Search for tests verifying reorder with invalid URLs, duplicates, missing servers",
+      "evidence_required": ["test file path", "test names for edge cases"],
+      "pass_criteria": "Tests exist for: reorder with URL not in list (throws), reorder with duplicates (throws), reorder preserves count",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-03-007",
+      "category": "SPEC",
+      "question": "Does the implementation satisfy AC-024 (per-identity server list)?",
+      "actionable_check": "Review database schema and service to verify servers are isolated per identity",
+      "evidence_required": ["migration file showing identity_pubkey column", "test showing isolation"],
+      "pass_criteria": "blossom_servers table has identity_pubkey column; tests verify servers for identity A don't appear in identity B's list",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-03-008",
+      "category": "SPEC",
+      "question": "Does the implementation satisfy AC-026 (health check before upload)?",
+      "actionable_check": "Verify checkHealth method uses HEAD request with 3s timeout",
+      "evidence_required": ["checkHealth implementation", "timeout configuration"],
+      "pass_criteria": "checkHealth uses HEAD request (not GET); timeout set to 3000ms; tests verify timeout behavior",
+      "added_in_round": 1
+    }
+  ],
+
+  "mandatory_questions": [
+    {
+      "id": "VQ-03-DEAD",
+      "category": "QUALITY",
+      "question": "Is there any dead code introduced by this story?",
+      "actionable_check": "Search for unused functions, classes, imports in src/main/blossom/, src/main/ipc/blossom-handlers.ts, src/renderer/api/blossom-api.ts, src/renderer/components/BlossomServerSettings/",
+      "evidence_required": ["file paths", "unused symbol names"],
+      "pass_criteria": "No unused code in story scope",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-03-DUP",
+      "category": "QUALITY",
+      "question": "Are there any duplicate implementations?",
+      "actionable_check": "Check for similar logic to other services that could be shared (e.g., IPC handler patterns, database access)",
+      "evidence_required": ["file paths", "duplicated logic description"],
+      "pass_criteria": "No duplicate implementations; follows existing patterns consistently",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-03-INT",
+      "category": "TEST",
+      "question": "Do integration tests validate the story's workflow?",
+      "actionable_check": "Verify integration test exists that exercises complete workflow: add servers → reorder → check health → select healthy",
+      "evidence_required": ["test file", "test function", "flow description"],
+      "pass_criteria": "At least one integration test covers the happy path end-to-end including health check and fallback",
+      "added_in_round": 1
+    }
+  ]
+}

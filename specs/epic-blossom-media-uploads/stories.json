@@ -115,7 +115,7 @@
           "permanent": true
         }
       ],
-      "status": "pending",
+      "status": "in_progress",
       "notes": "Testable with test HTTP servers simulating healthy/unhealthy endpoints. Verify persistence via DB queries and UI state after restart."
     },
     {
