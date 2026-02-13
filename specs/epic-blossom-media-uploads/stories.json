@@ -1,0 +1,408 @@
+{
+  "epic_name": "blossom-media-uploads",
+  "created_at": "2026-02-13T00:00:00Z",
+  "updated_at": "2026-02-13T16:01:30.449Z",
+  "total_stories": 10,
+  "stories": [
+    {
+      "id": "01",
+      "name": "database-schema-and-migrations",
+      "title": "Implement database schema for media support",
+      "description": "Create database migration adding `media_blobs` table, `message_media` junction table, and `media_json` column to `nostr_messages`. This provides the foundational data layer for content-addressed blob storage and message-media associations.",
+      "acceptance_criteria": [
+        "AC-036",
+        "AC-037",
+        "AC-038"
+      ],
+      "scope": {
+        "includes": [
+          "Migration file 20260213_add_media_support.ts",
+          "media_blobs table with hash PK, mime_type, size_bytes, dimensions_json, blurhash, local_path, uploaded_at, created_at",
+          "message_media junction table with FKs, remote_url, placeholder_key, upload_status",
+          "Index on message_media.upload_status",
+          "media_json column on nostr_messages table",
+          "Migration rollback support"
+        ],
+        "excludes": [
+          "Data access layer or repository classes",
+          "Actual file I/O or blob storage",
+          "UI components"
+        ]
+      },
+      "complexity": "low",
+      "mock_dependencies": [],
+      "introduces_mocks": [],
+      "status": "done",
+      "notes": "Foundation story with no dependencies. Testable via direct database schema queries after migration."
+    },
+    {
+      "id": "02",
+      "name": "local-blob-storage-and-hashing",
+      "title": "Implement local blob storage with streaming SHA-256 hashing",
+      "description": "Implement content-addressed blob storage at {userData}/blobs/ with streaming SHA-256 hashing. Includes file persistence keyed by hash, metadata extraction (MIME type, size, dimensions, blurhash for images), and EXIF stripping for images. Deduplication is automatic via hash-based storage.",
+      "acceptance_criteria": [
+        "AC-008",
+        "AC-009",
+        "AC-010",
+        "AC-011",
+        "AC-033",
+        "AC-041",
+        "AC-048"
+      ],
+      "scope": {
+        "includes": [
+          "Streaming SHA-256 hasher (no full-file buffering)",
+          "Blob storage service (save, retrieve, delete by hash)",
+          "Storage location {userData}/blobs/<hash>",
+          "MIME type detection",
+          "Image dimension extraction",
+          "Blurhash generation for images only",
+          "Mandatory EXIF stripping with failure handling",
+          "Database persistence to media_blobs table",
+          "Deduplication via hash-keyed storage"
+        ],
+        "excludes": [
+          "Upload pipeline integration",
+          "UI components",
+          "Message queue integration",
+          "Storage cleanup and quota enforcement (separate story)"
+        ]
+      },
+      "complexity": "medium",
+      "mock_dependencies": [],
+      "introduces_mocks": [],
+      "status": "pending",
+      "notes": "Can be tested independently with known test files. Verify hash accuracy, storage location, metadata extraction, and EXIF stripping with exiftool."
+    },
+    {
+      "id": "03",
+      "name": "blossom-server-configuration",
+      "title": "Implement per-identity Blossom server configuration",
+      "description": "Add per-identity Blossom server list configuration with UI for adding, removing, and reordering servers. Includes persistence, health check (HEAD request with 3s timeout), and server fallback logic. No default servers - users must configure manually.",
+      "acceptance_criteria": [
+        "AC-024",
+        "AC-025",
+        "AC-026",
+        "AC-027",
+        "AC-042"
+      ],
+      "scope": {
+        "includes": [
+          "Database schema for per-identity server list (URL + label)",
+          "Identity settings UI section for Blossom servers",
+          "Add/remove/reorder server UI controls",
+          "Server health check (HEAD request, 3s timeout)",
+          "Server selection and fallback logic",
+          "TLS requirement validation (reject http:// URLs)",
+          "Clear prompts when no server configured",
+          "Persistence across restarts"
+        ],
+        "excludes": [
+          "Upload implementation",
+          "NIP-98 authentication",
+          "Integration with message queue"
+        ]
+      },
+      "complexity": "medium",
+      "mock_dependencies": [],
+      "introduces_mocks": [],
+      "test_fixtures": [
+        {
+          "fixture_id": "FIXTURE-03-001",
+          "description": "Local HTTP server for health check testing",
+          "interface": "HTTP server responding to HEAD requests",
+          "reason": "Test health check and fallback logic without real Blossom infrastructure",
+          "permanent": true
+        }
+      ],
+      "status": "pending",
+      "notes": "Testable with test HTTP servers simulating healthy/unhealthy endpoints. Verify persistence via DB queries and UI state after restart."
+    },
+    {
+      "id": "04",
+      "name": "nip98-authentication",
+      "title": "Implement NIP-98 HTTP authentication for Blossom uploads",
+      "description": "Implement NIP-98 authentication token generation for Blossom HTTP requests. Generates kind 27235 Nostr events signed by active identity containing HTTP method, URL, and body hash. Tokens are short-lived (60s validity) and generated per-request.",
+      "acceptance_criteria": [
+        "AC-039",
+        "AC-040"
+      ],
+      "scope": {
+        "includes": [
+          "NIP-98 token generator (kind 27235 event)",
+          "Event tags with HTTP method, URL, SHA-256 body hash",
+          "Event signing with active identity key",
+          "Base64 Authorization header formatting",
+          "60-second validity window enforcement",
+          "Per-request token generation (no caching)"
+        ],
+        "excludes": [
+          "Actual HTTP upload implementation",
+          "Blossom server integration",
+          "File hashing (uses existing blob hash)"
+        ]
+      },
+      "complexity": "low",
+      "mock_dependencies": [],
+      "introduces_mocks": [],
+      "status": "pending",
+      "notes": "Unit testable with mock identity keys. Verify token structure, signature validity, timestamp freshness, and uniqueness across requests."
+    },
+    {
+      "id": "05",
+      "name": "attachment-ui-file-selection",
+      "title": "Implement attachment UI with file selection and validation",
+      "description": "Add paperclip button to message input, file picker dialog integration, drag-and-drop support, and file validation (size limit 25 MB, supported MIME types). Includes preview strip with thumbnails/icons, file metadata display, and remove buttons. Does not send messages yet - focuses on attachment preparation.",
+      "acceptance_criteria": [
+        "AC-001",
+        "AC-002",
+        "AC-003",
+        "AC-004",
+        "AC-006",
+        "AC-007"
+      ],
+      "scope": {
+        "includes": [
+          "Paperclip button in message input area",
+          "Button disabled state (matches Send button conditions)",
+          "OS native file picker integration",
+          "Drag-and-drop zone with visual feedback",
+          "File size validation (25 MB default max)",
+          "MIME type validation with supported types list",
+          "Error toasts for rejection (size/type)",
+          "Attachment preview strip UI component",
+          "Image thumbnail generation (max 120px height)",
+          "MIME type icon for non-images",
+          "File name and size display",
+          "Remove (X) button per attachment",
+          "Multiple attachment support with horizontal scroll",
+          "Integration with blob storage (trigger hash + save)"
+        ],
+        "excludes": [
+          "Send functionality (Story 06)",
+          "Upload pipeline",
+          "Progress indicators",
+          "Message queue integration"
+        ]
+      },
+      "complexity": "medium",
+      "mock_dependencies": [],
+      "introduces_mocks": [],
+      "status": "pending",
+      "notes": "Testable via Playwright in dual-instance environment. Verify button states, file picker, drag-and-drop, validation rejections, and preview display. Use browser_take_screenshot for visual verification."
+    },
+    {
+      "id": "06",
+      "name": "message-construction-with-placeholders",
+      "title": "Implement message construction with local-blob placeholders",
+      "description": "Extend message send flow to construct Nostr events with imeta tags containing local-blob:<sha256> placeholders. Store message-media associations and queue messages with pending uploads. Text input remains functional for captions alongside attachments.",
+      "acceptance_criteria": [
+        "AC-005",
+        "AC-012",
+        "AC-013",
+        "AC-014"
+      ],
+      "scope": {
+        "includes": [
+          "Send button triggers message construction with attachments",
+          "Enter key support for send with attachments",
+          "NIP-94 imeta tag generation per attachment",
+          "Placeholder format: url local-blob:<sha256>",
+          "Metadata tags: m (MIME), size, dim (images), blurhash (images), sha256",
+          "Attachment ordering preservation in imeta tags",
+          "media_json column population in nostr_messages",
+          "message_media junction table entries",
+          "Message queued with status queued",
+          "Preview strip clears after send",
+          "Caption support (message body alongside attachments)"
+        ],
+        "excludes": [
+          "Upload implementation",
+          "Encryption (happens at publish time, Story 08)",
+          "Message rendering in conversation (Story 09)"
+        ]
+      },
+      "complexity": "medium",
+      "mock_dependencies": [],
+      "introduces_mocks": [],
+      "status": "pending",
+      "notes": "Testable by verifying queued message structure in database. Confirm imeta tags, placeholders, metadata, and junction table associations. Use test files with known hashes."
+    },
+    {
+      "id": "07",
+      "name": "upload-pipeline-blossom-integration",
+      "title": "Implement upload pipeline with Blossom BUD-06 integration",
+      "description": "Implement blob upload to Blossom servers using HTTP PUT with NIP-98 authentication. Includes upload timing (immediate if online, deferred if offline), placeholder replacement on success, retry logic with exponential backoff, partial failure handling, concurrency limiting (2 per identity), and IPC progress reporting. Integrates with existing message queue flush logic.",
+      "acceptance_criteria": [
+        "AC-016",
+        "AC-017",
+        "AC-018",
+        "AC-019",
+        "AC-020",
+        "AC-021",
+        "AC-022",
+        "AC-023",
+        "AC-043",
+        "AC-044",
+        "AC-045",
+        "AC-049",
+        "AC-052"
+      ],
+      "scope": {
+        "includes": [
+          "Upload trigger on Send (if online) or connectivity restore",
+          "BUD-06 HTTP PUT upload with NIP-98 Authorization header",
+          "Server health check before upload attempt",
+          "URL extraction from server response",
+          "Placeholder replacement in queued event (local-blob -> remote URL)",
+          "message_media.remote_url update",
+          "Retry with exponential backoff (1s, 2s, 4s, 8s, 30s max, 5 attempts)",
+          "Per-attachment upload status tracking",
+          "Partial failure handling (message not published until all uploads succeed)",
+          "Retry only failed attachments on manual retry",
+          "Concurrency limit (2 uploads per identity)",
+          "Upload cancellation support",
+          "Resume after app restart (queued state persistence)",
+          "IPC progress updates (nostling:media:upload-progress)",
+          "Integration with existing queue flush logic (extension not replacement)",
+          "Server rejection error messages (413, 415 HTTP codes)"
+        ],
+        "excludes": [
+          "Encryption (Story 08)",
+          "UI rendering of upload states (Story 09)",
+          "Storage cleanup (Story 10)"
+        ]
+      },
+      "complexity": "high",
+      "mock_dependencies": [],
+      "introduces_mocks": [],
+      "test_fixtures": [
+        {
+          "fixture_id": "FIXTURE-07-001",
+          "description": "Local BUD-06 compliant Blossom server for upload testing",
+          "interface": "HTTP server implementing BUD-06 PUT endpoint with NIP-98 verification",
+          "reason": "Cannot use production Blossom servers in CI/CD - need controllable test environment with failure simulation",
+          "permanent": true
+        }
+      ],
+      "status": "pending",
+      "notes": "High complexity due to retry logic, concurrency, and queue integration. Use local Blossom test server with configurable responses (success, timeout, rejection). Verify upload timing, NIP-98 headers, retry intervals, partial failure, concurrency limits, and cancellation."
+    },
+    {
+      "id": "08",
+      "name": "encryption-and-publish-integration",
+      "title": "Integrate placeholder resolution with NIP-17/59 encryption and publish",
+      "description": "Ensure placeholders are replaced before NIP-17/59 encryption and publish. Validate that no local-blob: placeholders appear in published relay events. Messages remain queued until all uploads complete and placeholders are resolved.",
+      "acceptance_criteria": [
+        "AC-015",
+        "AC-051"
+      ],
+      "scope": {
+        "includes": [
+          "Pre-publish validation: all placeholders must be resolved",
+          "Integration with existing NIP-17/59 encryption flow",
+          "Publish only after all uploads succeed and URLs replaced",
+          "Abort publish if any placeholder remains (safety check)",
+          "Update message status to sent after successful publish",
+          "imeta tags encrypted inside NIP-59 sealed event alongside message content"
+        ],
+        "excludes": [
+          "Upload implementation (Story 07)",
+          "Encryption implementation (reuse existing)",
+          "UI rendering (Story 09)"
+        ]
+      },
+      "complexity": "medium",
+      "mock_dependencies": [],
+      "introduces_mocks": [],
+      "status": "pending",
+      "notes": "Critical constraint story - MUST verify no placeholder leakage. Use relay inspector in dual-instance environment to capture published events, decrypt, and confirm real URLs only. Can test independently by mocking upload completion."
+    },
+    {
+      "id": "09",
+      "name": "media-rendering-in-conversation",
+      "title": "Implement media rendering for outgoing and incoming messages",
+      "description": "Render media attachments in conversation UI with proper state handling. Outgoing: local preview from blob storage, upload progress bar, status transitions (queued → uploading → sending → sent → error), retry button on error. Incoming: fetch from URL, cache in existing image cache, blurhash placeholder, click-to-expand lightbox for images, download links for non-images. Support both NIP-94 imeta and legacy NIP-92 url tags.",
+      "acceptance_criteria": [
+        "AC-028",
+        "AC-029",
+        "AC-030",
+        "AC-031",
+        "AC-032",
+        "AC-050"
+      ],
+      "scope": {
+        "includes": [
+          "Outgoing message bubble with local blob preview",
+          "Upload progress bar overlay on thumbnail",
+          "Status icon transitions (clock → progress → spinner → checkmark → warning)",
+          "Retry button on error state",
+          "Inline image thumbnail for sent messages",
+          "Click-to-expand lightbox for images",
+          "Download link for non-image files (name, size, MIME icon)",
+          "Incoming media fetch from URL in imeta tags",
+          "URL-keyed cache for received media (existing image cache)",
+          "Blurhash placeholder rendering while loading/offline",
+          "NIP-92 url tag parsing for backward compatibility",
+          "NIP-94 imeta tag parsing"
+        ],
+        "excludes": [
+          "Upload pipeline (Story 07)",
+          "Storage cleanup (Story 10)"
+        ]
+      },
+      "complexity": "high",
+      "mock_dependencies": [],
+      "introduces_mocks": [],
+      "status": "pending",
+      "notes": "Complex UI story with multiple states. Test with dual-instance environment: Instance A sends with attachment, verify local preview and upload progress. Instance B receives, verify fetch, cache, and blurhash. Use browser_take_screenshot for state verification."
+    },
+    {
+      "id": "10",
+      "name": "storage-cleanup-and-quota-enforcement",
+      "title": "Implement blob storage cleanup and quota enforcement",
+      "description": "Implement blob cleanup policy: remove uploaded blobs after 7-day retention grace period (configurable). Enforce storage quota (default 500 MB, configurable) with LRU eviction of already-uploaded blobs. Retain blobs referenced by multiple identities until all references resolved.",
+      "acceptance_criteria": [
+        "AC-034",
+        "AC-035",
+        "AC-046"
+      ],
+      "scope": {
+        "includes": [
+          "Cleanup scheduler (triggered periodically or on-demand)",
+          "7-day retention grace period after upload (configurable)",
+          "Uploaded blob deletion from disk and media_blobs table",
+          "Storage quota calculation (total blob storage size)",
+          "LRU eviction of uploaded blobs when quota exceeded",
+          "Multi-identity blob retention (retain if any identity still references)",
+          "Never evict unuploaded (queued) blobs",
+          "Configuration for retention period and quota limit",
+          "IPC channel for manual cleanup trigger (nostling:media:cleanup)"
+        ],
+        "excludes": [
+          "Initial blob storage (Story 02)",
+          "Upload pipeline (Story 07)"
+        ]
+      },
+      "complexity": "medium",
+      "mock_dependencies": [],
+      "introduces_mocks": [],
+      "status": "pending",
+      "notes": "Testable by fast-forwarding time or manually triggering cleanup. Verify blob deletion after retention period, quota enforcement, LRU ordering, and multi-identity retention. Use low quota (10 MB) for easier testing."
+    }
+  ],
+  "story_order": [
+    "01",
+    "02",
+    "03",
+    "04",
+    "05",
+    "06",
+    "07",
+    "08",
+    "09",
+    "10"
+  ],
+  "dependency_notes": "Stories are designed to be independent vertical slices. Story 01 (database schema) is the foundation but other stories can proceed in parallel using the schema definition. Story 07 (upload pipeline) is the most complex and integrates components from Stories 02 (blob storage), 03 (server config), and 04 (NIP-98 auth), but can be implemented and tested independently using test fixtures for the Blossom server. Story 08 (encryption integration) depends on upload completion events but uses the existing encryption implementation. Story 09 (UI rendering) can be developed in parallel with backend stories by using test data with various message states.",
+  "mock_resolution_plan": "No temporary mocks used. External dependencies (Blossom server, HTTP endpoints) are handled via permanent test fixtures (FIXTURE-03-001, FIXTURE-07-001) which provide BUD-06 compliant test doubles for CI/CD and development. These fixtures are permanent testing infrastructure and do not require resolution."
+}

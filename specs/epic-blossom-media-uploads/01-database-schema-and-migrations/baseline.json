@@ -1,0 +1,38 @@
+{
+  "created_at": "2026-02-13T15:15:00Z",
+  "status": "ready",
+  "story_id": "01",
+  "checks": {
+    "compiles": {
+      "passed": true,
+      "command": "npm run build (via pretest)",
+      "evidence": "Exit code 0, TypeScript compilation successful, migrations map generated"
+    },
+    "tests_pass": {
+      "passed": true,
+      "command": "npm test",
+      "evidence": "2588/2589 tests pass, 1 skipped, 0 failed",
+      "failing_tests": []
+    },
+    "coverage": {
+      "value": null,
+      "threshold": null,
+      "passed": true
+    },
+    "dependencies": {
+      "passed": true,
+      "command": "npm install (pre-verified)",
+      "evidence": "All dependencies installed and functional"
+    }
+  },
+  "test_snapshot": {
+    "total": 2589,
+    "passing": 2588,
+    "failing": 0,
+    "skipped": 1,
+    "coverage_percent": null,
+    "time_seconds": 30.493
+  },
+  "blocking_issues": [],
+  "notes": "Baseline captured after fixing 3 pre-existing test failures: (1) label validation whitespace filter, (2) profile receiver P003 timeout, (3) image-cache SIGKILL. Worker SIGKILL warning is from separate avatar-api-handlers IPC leak, not a blocking issue."
+}

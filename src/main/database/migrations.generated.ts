@@ -19,6 +19,7 @@ import * as migration9 from './migrations/20251219100000_add_p2p_replay_protecti
 import * as migration10 from './migrations/20251219200000_add_message_kind';
 import * as migration11 from './migrations/20251220100000_add_message_was_gift_wrapped';
 import * as migration12 from './migrations/20251221100000_create_relay_sync_state';
+import * as migration13 from './migrations/20260213000000_add_media_support';
 
 export interface Migration {
   up: (knex: any) => Promise<void>;
@@ -39,6 +40,7 @@ export const MIGRATIONS_MAP: Record<string, Migration> = {
   '20251219200000_add_message_kind': migration10,
   '20251220100000_add_message_was_gift_wrapped': migration11,
   '20251221100000_create_relay_sync_state': migration12,
+  '20260213000000_add_media_support': migration13,
 };
 
 export const MIGRATION_NAMES: string[] = [
@@ -55,4 +57,5 @@ export const MIGRATION_NAMES: string[] = [
   '20251219200000_add_message_kind',
   '20251220100000_add_message_was_gift_wrapped',
   '20251221100000_create_relay_sync_state',
+  '20260213000000_add_media_support',
 ];
