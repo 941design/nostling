@@ -24,4 +24,9 @@ export function registerBlobStorageHandlers(dependencies: BlobStorageIpcDependen
   ipcMain.handle('blob-storage:store-blob', async (_, filePath: string) => {
     return blobStorageService.storeBlob(filePath);
   });
+
+  // Get blob metadata and verify file exists
+  ipcMain.handle('blob-storage:get-blob', async (_, hash: string) => {
+    return blobStorageService.getBlob(hash);
+  });
 }

@@ -738,4 +738,105 @@ describe('NostlingService', () => {
       expect(updatedJson).not.toContain('local-blob:');
     });
   });
+
+  describe('incoming media tag storage (AC-031, AC-050)', () => {
+    it('should store imeta tags as mediaJson for incoming messages', async () => {
+      const identity = await service.createIdentity({ label: 'Receiver', nsec: 'secret', npub: 'npub-recv1' });
+      const contact = await service.addContact({ identityId: identity.id, npub: 'npub-send1' });
+
+      const msg = await service.ingestIncomingMessage({
+        identityId: identity.id,
+        senderNpub: 'npub-send1',
+        recipientNpub: 'npub-recv1',
+        content: 'Check this image',
+        eventId: 'evt-media-1',
+        kind: 14,
+        wasGiftWrapped: true,
+        tags: [
+          ['p', 'recipient-hex'],
+          ['imeta', 'url https://blossom.example/abc123', 'm image/jpeg', 'size 50000', 'dim 800x600', 'blurhash LEHV6n', 'sha256 abc123'],
+        ],
+      });
+
+      expect(msg).not.toBeNull();
+      expect(msg!.mediaJson).toBeDefined();
+
+      const parsed = JSON.parse(msg!.mediaJson!);
+      expect(parsed.tags).toHaveLength(1); // Only imeta tags stored, not 'p' tags
+      expect(parsed.tags[0][0]).toBe('imeta');
+      expect(parsed.tags[0]).toContain('url https://blossom.example/abc123');
+    });
+
+    it('should store NIP-92 url tags as mediaJson for incoming messages', async () => {
+      const identity = await service.createIdentity({ label: 'Receiver2', nsec: 'secret2', npub: 'npub-recv2' });
+      const contact = await service.addContact({ identityId: identity.id, npub: 'npub-send2' });
+
+      const msg = await service.ingestIncomingMessage({
+        identityId: identity.id,
+        senderNpub: 'npub-send2',
+        recipientNpub: 'npub-recv2',
+        content: 'Legacy media',
+        eventId: 'evt-media-2',
+        kind: 14,
+        wasGiftWrapped: true,
+        tags: [
+          ['p', 'recipient-hex'],
+          ['url', 'https://example.com/image.jpg'],
+        ],
+      });
+
+      expect(msg).not.toBeNull();
+      expect(msg!.mediaJson).toBeDefined();
+
+      const parsed = JSON.parse(msg!.mediaJson!);
+      expect(parsed.tags).toHaveLength(1); // Only url tags stored, not 'p' tags
+      expect(parsed.tags[0][0]).toBe('url');
+      expect(parsed.tags[0][1]).toBe('https://example.com/image.jpg');
+    });
+
+    it('should not store mediaJson when no media tags present', async () => {
+      const identity = await service.createIdentity({ label: 'Receiver3', nsec: 'secret3', npub: 'npub-recv3' });
+      const contact = await service.addContact({ identityId: identity.id, npub: 'npub-send3' });
+
+      const msg = await service.ingestIncomingMessage({
+        identityId: identity.id,
+        senderNpub: 'npub-send3',
+        recipientNpub: 'npub-recv3',
+        content: 'Plain text message',
+        eventId: 'evt-text-1',
+        kind: 14,
+        wasGiftWrapped: true,
+        tags: [
+          ['p', 'recipient-hex'],
+        ],
+      });
+
+      expect(msg).not.toBeNull();
+      expect(msg!.mediaJson).toBeUndefined();
+    });
+
+    it('should include mediaJson in listMessages results', async () => {
+      const identity = await service.createIdentity({ label: 'Receiver4', nsec: 'secret4', npub: 'npub-recv4' });
+      const contact = await service.addContact({ identityId: identity.id, npub: 'npub-send4' });
+
+      await service.ingestIncomingMessage({
+        identityId: identity.id,
+        senderNpub: 'npub-send4',
+        recipientNpub: 'npub-recv4',
+        content: 'Media message',
+        eventId: 'evt-media-3',
+        kind: 14,
+        wasGiftWrapped: true,
+        tags: [
+          ['imeta', 'url https://blossom.example/def456', 'm image/png', 'size 30000'],
+        ],
+      });
+
+      const messages = await service.listMessages(identity.id, contact.id);
+      const mediaMsg = messages.find(m => m.eventId === 'evt-media-3');
+      expect(mediaMsg).toBeDefined();
+      expect(mediaMsg!.mediaJson).toBeDefined();
+      expect(mediaMsg!.mediaJson).toContain('imeta');
+    });
+  });
 });

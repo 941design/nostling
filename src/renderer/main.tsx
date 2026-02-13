@@ -51,6 +51,8 @@ import { EmojiPicker, useEmojiInsertion } from './components/EmojiPicker';
 import { AttachmentButton } from './components/AttachmentButton/AttachmentButton';
 import { AttachmentPreviewStrip } from './components/AttachmentPreviewStrip/AttachmentPreviewStrip';
 import { useAttachments } from './hooks/useAttachments';
+import { useUploadProgress } from './hooks/useUploadProgress';
+import { MediaAttachments } from './components/MediaAttachments';
 import { parseMessageContent } from './utils/linkify';
 import { toaster } from './components/ui/toaster';
 import { createThemeSystem, getThemeIdForIdentity, getSemanticColors } from './themes/useTheme';
@@ -871,6 +873,8 @@ function MessageBubble({
   onMouseLeave,
   onInfoClick,
   showWarningIcon,
+  uploadProgress,
+  onRetry,
 }: {
   message: NostlingMessage;
   isOwn: boolean;
@@ -878,6 +882,8 @@ function MessageBubble({
   onMouseLeave?: () => void;
   onInfoClick?: () => void;
   showWarningIcon?: boolean;
+  uploadProgress?: import('./hooks/useUploadProgress').MessageUploadProgress;
+  onRetry?: () => void;
 }) {
   const colors = useThemeColors();
   const [isHovered, setIsHovered] = useState(false);
@@ -933,6 +939,16 @@ function MessageBubble({
           content={message.content}
           textColor={isOwn ? colors.ownBubbleText : colors.text}
         />
+        {message.mediaJson && (
+          <MediaAttachments
+            mediaJson={message.mediaJson}
+            messageId={message.id}
+            messageStatus={message.status}
+            isOwn={isOwn}
+            uploadProgress={uploadProgress}
+            onRetry={onRetry}
+          />
+        )}
         {showWarningIcon && (message.wasGiftWrapped === false || (message.wasGiftWrapped === undefined && message.kind === 4)) && (
           <Box
             position="absolute"
@@ -974,6 +990,7 @@ function ConversationPane({
   const listRef = useRef<HTMLDivElement | null>(null);
   const { insertEmoji, textareaRef } = useEmojiInsertion(draft, setDraft);
   const { attachments, addAttachment, removeAttachment, clearAttachments } = useAttachments();
+  const uploadProgressMap = useUploadProgress();
   const [isDragOver, setIsDragOver] = useState(false);
 
   // Fetch showMessageInfo and showWarningIcon config settings on mount
@@ -986,6 +1003,12 @@ function ConversationPane({
 
   const canSend = Boolean(identity && contact && (draft.trim().length > 0 || attachments.length > 0) && !isSending);
   const canAttach = Boolean(identity && contact && !isSending);
+
+  const handleRetry = useCallback((messageId: string) => {
+    if (identity) {
+      window.api.nostling?.messages?.retry(identity.id).catch(() => {});
+    }
+  }, [identity]);
 
   const handleMessageHover = (message: NostlingMessage | null) => {
     if (message) {
@@ -1151,6 +1174,8 @@ function ConversationPane({
                   onMouseLeave={() => handleMessageHover(null)}
                   onInfoClick={showMessageInfo ? () => setInfoModalMessage(message) : undefined}
                   showWarningIcon={showWarningIcon}
+                  uploadProgress={uploadProgressMap.get(message.id)}
+                  onRetry={message.status === 'error' && message.mediaJson ? () => handleRetry(message.id) : undefined}
                 />
               </Fragment>
             );

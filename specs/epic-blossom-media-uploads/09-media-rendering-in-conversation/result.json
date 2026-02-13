@@ -1,0 +1,68 @@
+{
+  "story_id": "09",
+  "story_name": "media-rendering-in-conversation",
+  "status": "verified",
+  "acceptance_criteria": ["AC-028", "AC-029", "AC-030", "AC-031", "AC-032", "AC-050"],
+  "implementation_summary": {
+    "changes": [
+      {
+        "file": "src/main/nostling/service.ts",
+        "description": "Added media_json to MessageRow interface and mapMessageRow. Updated all 5 SELECT queries to include media_json column. Extended ingestIncomingMessage to accept tags and store imeta/url tags as mediaJson for incoming messages. Pass dmResult.tags from processGiftWrapEvent."
+      },
+      {
+        "file": "src/main/ipc/blob-storage-handlers.ts",
+        "description": "Added blob-storage:get-blob IPC handler for renderer to read blob metadata by hash"
+      },
+      {
+        "file": "src/preload/index.ts",
+        "description": "Added blobStorage.getBlob to preload bridge"
+      },
+      {
+        "file": "src/shared/types.ts",
+        "description": "Added getBlob method to BlobStorageApi interface"
+      },
+      {
+        "file": "src/renderer/utils/media-parser.ts",
+        "description": "Extended parseMediaJson to handle incoming format ({tags: [...]}) in addition to outgoing format ({attachments: [...]})"
+      },
+      {
+        "file": "src/renderer/hooks/useUploadProgress.ts",
+        "description": "Created hook that tracks upload progress from IPC events, provides per-message progress data"
+      },
+      {
+        "file": "src/renderer/components/MediaAttachments/MediaAttachments.tsx",
+        "description": "Created component rendering media in message bubbles: ImageAttachment (with CachedImage, blurhash placeholder, lightbox), FileAttachment (icon, name, size, download link), upload progress bar, error state with retry, local blob URL resolution"
+      },
+      {
+        "file": "src/renderer/main.tsx",
+        "description": "Integrated MediaAttachments into MessageBubble, added useUploadProgress hook in ConversationPane, added handleRetry function, passed uploadProgress and onRetry props"
+      }
+    ],
+    "tests_added": [
+      "src/renderer/utils/media-parser.test.ts: +2 tests for incoming format parsing (imeta tags, NIP-92 url tags)",
+      "src/main/nostling/service.test.ts: +4 tests for incoming media tag storage (imeta, url, no-media, listMessages)",
+      "src/renderer/hooks/useUploadProgress.test.ts: +6 tests for progress aggregation logic",
+      "src/renderer/components/MediaAttachments/MediaAttachments.test.ts: +15 tests for rendering decisions per AC"
+    ],
+    "test_results": {
+      "total": 2810,
+      "passed": 2809,
+      "skipped": 1,
+      "failed": 0,
+      "suites": 124
+    }
+  },
+  "verification": {
+    "round": 1,
+    "status": "passed",
+    "questions": {
+      "VQ-09-001": "PASS - parseMediaJson dual format handling correct",
+      "VQ-09-002": "PASS - Tag filtering correct (imeta/url only, excludes p tags)",
+      "VQ-09-003": "PASS - All 5 SELECT queries include media_json",
+      "VQ-09-004": "PASS - MediaAttachments component correctly implemented",
+      "VQ-09-005": "PASS - Blurhash rendering correct with performance limits",
+      "VQ-09-006": "PASS - No dead code",
+      "VQ-09-INT": "PASS - After remediation: +21 tests for component logic and progress aggregation"
+    }
+  }
+}

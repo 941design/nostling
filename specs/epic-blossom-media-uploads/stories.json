@@ -188,7 +188,7 @@
       "complexity": "medium",
       "mock_dependencies": [],
       "introduces_mocks": [],
-      "status": "pending",
+      "status": "done",
       "notes": "Testable via Playwright in dual-instance environment. Verify button states, file picker, drag-and-drop, validation rejections, and preview display. Use browser_take_screenshot for visual verification."
     },
     {
@@ -225,7 +225,7 @@
       "complexity": "medium",
       "mock_dependencies": [],
       "introduces_mocks": [],
-      "status": "pending",
+      "status": "done",
       "notes": "Testable by verifying queued message structure in database. Confirm imeta tags, placeholders, metadata, and junction table associations. Use test files with known hashes."
     },
     {
@@ -354,7 +354,7 @@
       "complexity": "high",
       "mock_dependencies": [],
       "introduces_mocks": [],
-      "status": "pending",
+      "status": "done",
       "notes": "Complex UI story with multiple states. Test with dual-instance environment: Instance A sends with attachment, verify local preview and upload progress. Instance B receives, verify fetch, cache, and blurhash. Use browser_take_screenshot for state verification."
     },
     {

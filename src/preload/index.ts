@@ -258,6 +258,9 @@ const api: RendererApi = {
     async storeBlob(filePath: string) {
       return ipcRenderer.invoke('blob-storage:store-blob', filePath) as Promise<{ hash: string; metadata: any; deduplicated: boolean }>;
     },
+    async getBlob(hash: string) {
+      return ipcRenderer.invoke('blob-storage:get-blob', hash) as Promise<{ hash: string; mimeType: string; sizeBytes: number; localPath: string; dimensions?: { width: number; height: number }; blurhash?: string } | null>;
+    },
   },
 };
 

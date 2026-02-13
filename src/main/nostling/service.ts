@@ -113,6 +113,7 @@ interface MessageRow {
   is_read: boolean;
   kind: number | null;
   was_gift_wrapped: number | null; // SQLite stores boolean as 0/1
+  media_json: string | null;
 }
 
 interface NostrKind4Filter extends Filter {
@@ -540,7 +541,7 @@ export class NostlingService {
 
   async listMessages(identityId: string, contactId: string): Promise<NostlingMessage[]> {
     const stmt = this.database.prepare(
-      'SELECT id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read, kind, was_gift_wrapped FROM nostr_messages WHERE identity_id = ? AND contact_id = ? ORDER BY timestamp ASC'
+      'SELECT id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read, kind, was_gift_wrapped, media_json FROM nostr_messages WHERE identity_id = ? AND contact_id = ? ORDER BY timestamp ASC'
     );
     stmt.bind([identityId, contactId]);
 
@@ -624,6 +625,7 @@ export class NostlingService {
     errorDetail?: string;
     kind?: number;  // Nostr event kind (e.g., 4 for DM)
     wasGiftWrapped?: boolean;  // Whether message was received via NIP-59 gift wrap
+    tags?: string[][];  // Rumor tags (may contain imeta/url media tags)
   }): Promise<NostlingMessage | null> {
     return this.withErrorLogging('ingest incoming message', async () => {
       if (options.decryptionFailed) {
@@ -657,8 +659,18 @@ export class NostlingService {
       const now = options.timestamp || new Date().toISOString();
       const id = randomUUID();
 
+      // Build mediaJson from incoming tags if imeta or url tags present
+      let incomingMediaJson: string | null = null;
+      if (options.tags) {
+        const imetaTags = options.tags.filter(t => t[0] === 'imeta');
+        const urlTags = options.tags.filter(t => t[0] === 'url' && t.length >= 2);
+        if (imetaTags.length > 0 || urlTags.length > 0) {
+          incomingMediaJson = JSON.stringify({ tags: options.tags.filter(t => t[0] === 'imeta' || t[0] === 'url') });
+        }
+      }
+
       this.database.run(
-        'INSERT INTO nostr_messages (id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read, kind, was_gift_wrapped) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO nostr_messages (id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read, kind, was_gift_wrapped, media_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [
           id,
           options.identityId,
@@ -673,6 +685,7 @@ export class NostlingService {
           0, // Incoming messages start as unread
           options.kind ?? null,
           options.wasGiftWrapped === undefined ? null : options.wasGiftWrapped ? 1 : 0,
+          incomingMediaJson,
         ]
       );
 
@@ -697,6 +710,7 @@ export class NostlingService {
         isRead: false,
         kind: options.kind,
         wasGiftWrapped: options.wasGiftWrapped,
+        mediaJson: incomingMediaJson ?? undefined,
       };
     });
   }
@@ -708,10 +722,10 @@ export class NostlingService {
   async getOutgoingQueue(identityId?: string): Promise<NostlingMessage[]> {
     const stmt = identityId
       ? this.database.prepare(
-          "SELECT id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read, kind, was_gift_wrapped FROM nostr_messages WHERE direction = 'outgoing' AND status IN ('queued', 'sending') AND identity_id = ? ORDER BY timestamp ASC"
+          "SELECT id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read, kind, was_gift_wrapped, media_json FROM nostr_messages WHERE direction = 'outgoing' AND status IN ('queued', 'sending') AND identity_id = ? ORDER BY timestamp ASC"
         )
       : this.database.prepare(
-          "SELECT id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read, kind, was_gift_wrapped FROM nostr_messages WHERE direction = 'outgoing' AND status IN ('queued', 'sending') ORDER BY timestamp ASC"
+          "SELECT id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read, kind, was_gift_wrapped, media_json FROM nostr_messages WHERE direction = 'outgoing' AND status IN ('queued', 'sending') ORDER BY timestamp ASC"
         );
 
     if (identityId) {
@@ -753,7 +767,7 @@ export class NostlingService {
 
     // First, collect the IDs of messages to retry
     const selectStmt = this.database.prepare(
-      `SELECT id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read, kind, was_gift_wrapped FROM nostr_messages ${whereClause}`
+      `SELECT id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read, kind, was_gift_wrapped, media_json FROM nostr_messages ${whereClause}`
     );
 
     if (identityId) {
@@ -1599,6 +1613,7 @@ export class NostlingService {
           timestamp: new Date(dmResult.timestamp * 1000).toISOString(),
           kind: 14, // NIP-17 private DM
           wasGiftWrapped: true,
+          tags: dmResult.tags,
         });
 
         log('info', `Received NIP-17 DM from ${dmResult.senderPubkeyHex.slice(0, 8)}...`);
@@ -1896,6 +1911,7 @@ export class NostlingService {
       isRead: Boolean(row.is_read),
       kind: row.kind ?? undefined,
       wasGiftWrapped: row.was_gift_wrapped === null ? undefined : Boolean(row.was_gift_wrapped),
+      mediaJson: row.media_json ?? undefined,
     };
   }
 
@@ -1959,7 +1975,7 @@ export class NostlingService {
 
   private getOutgoingMessageRow(messageId: string): MessageRow {
     const stmt = this.database.prepare(
-      "SELECT id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read, kind, was_gift_wrapped FROM nostr_messages WHERE id = ? AND direction = 'outgoing' LIMIT 1"
+      "SELECT id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read, kind, was_gift_wrapped, media_json FROM nostr_messages WHERE id = ? AND direction = 'outgoing' LIMIT 1"
     );
     stmt.bind([messageId]);
     const hasRow = stmt.step();
