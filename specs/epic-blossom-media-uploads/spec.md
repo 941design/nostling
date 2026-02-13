@@ -1,3 +1,9 @@
+---
+epic: blossom-media-uploads
+created: 2026-02-13T00:00:00Z
+status: initializing
+---
+
 # Blossom Media Uploads
 
 ## Problem Statement
@@ -171,10 +177,69 @@ Content-addressed media uploads to user-configured Blossom servers, integrated w
 - Blob storage on disk is unencrypted (consistent with existing SQLite database); OS-level disk encryption is assumed
 - Blossom server TLS is required (no HTTP fallback)
 
+## Implementation Clarifications
+
+The following clarifications were established during specification validation:
+
+### Encryption and Placeholder Timing
+- Messages are stored **unencrypted** in the queue with `local-blob:` placeholders
+- NIP-17/59 encryption happens **at publish time** after all uploads complete and placeholders are resolved
+- This ensures placeholders never appear in encrypted relay content
+
+### Database Schema Integration
+- Add `media_json` column to `nostr_messages` table to store attachment metadata alongside message content
+- New tables `media_blobs` and `message_media` provide content-addressed storage and message associations
+- Migration file: `20260213_add_media_support.ts`
+
+### NIP Compatibility
+- **Outgoing**: Use NIP-94 `imeta` tags exclusively for modern compatibility
+- **Incoming**: Accept both NIP-94 `imeta` tags and legacy NIP-92 `url` tags for backward compatibility
+- Tag parser must handle both formats gracefully
+
+### Retry Policy
+- Match existing message publish retry behavior for consistency:
+  - Initial delay: 1 second
+  - Backoff multiplier: 2x
+  - Maximum delay: 30 seconds
+  - Maximum attempts: 5
+- After 5 failed attempts, mark as permanent error with retry button for manual retry
+
+### Media Cache Strategy
+- **Received media**: Use existing URL-keyed image cache (same as profile images)
+- **Outgoing attachments**: Use content-addressed `{userData}/blobs/` storage
+- This maintains separation between cached remote content and local pending uploads
+
+### IPC Channels
+Following the `nostling:domain:action` pattern:
+- `nostling:media:attach` - Attach file from renderer
+- `nostling:media:upload-progress` - Progress updates (main → renderer)
+- `nostling:media:cancel-upload` - Cancel in-progress upload
+- `nostling:media:cleanup` - Trigger blob cleanup
+
+### EXIF Stripping Failure
+- Abort **at file selection** with immediate error toast
+- Attachment is not added to preview; user must fix or choose different file
+- This prevents queuing messages with problematic images
+
+### Blossom Server Configuration
+- No default server suggestion; users must configure manually
+- Identity settings UI provides clear prompts for adding first server
+- No hardcoded defaults or environment variable overrides (users provide their own trusted servers)
+
+### Blurhash Generation
+- Generated for **image files only** (JPEG, PNG, GIF, WebP)
+- Skipped for video, audio, and document attachments
+- Used as placeholder while media loads or when offline
+
+### Upload Concurrency
+- Limit: **2 concurrent blob uploads per identity** (total across all messages and attachments)
+- Prevents bandwidth saturation while allowing reasonable parallelism
+- Additional uploads queue until slots become available
+
 ## Error Handling and Edge Cases
 
 - Server-side size/type rejection must produce a clear error message in the UI (e.g., "Server rejected file type" or "File too large for server").
-- If EXIF stripping fails, abort the upload and surface an error.
+- If EXIF stripping fails, reject at file selection with error toast (see Implementation Clarifications above).
 - If the app closes mid-upload, resume on next launch using the queued state and existing blobs.
 - Allow user to cancel an in-progress upload; canceled uploads revert to `queued` and can be retried.
 

@@ -44,6 +44,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Service layer: updated message processing and subscription filters for dual-protocol support
 
 ### Fixed
+- **Image Cache Service Test Reliability**: Reduced property test iterations to prevent Jest worker SIGKILL
+  - Reduced iterations from default 100 to 5-15 based on operation cost (file I/O vs in-memory)
+  - Total iteration reduction: ~1,000 → ~100 iterations (90% reduction)
+  - Prevents Jest worker memory exhaustion from large buffer allocations (up to 10KB) and file I/O operations
+  - Test execution time improved: isolated run completes in 2.5s without SIGKILL
+  - Added regression guard test to prevent accidental numRuns increases
+  - Bug report: specs/epic-blossom-media-uploads/bug-reports/image-cache-sigkill-fix-report.md
+- Reduced property test iteration count (numRuns) in profile-receiver.test.ts P003 to prevent intermittent timeouts on ARM64 systems with expensive NIP-59 crypto operations
 - **Relay Auto-Reconnection (Severity: Critical)**: Relay WebSocket connections now automatically reconnect after connection drops
   - Implements exponential backoff reconnection strategy (1s, 2s, 4s, 8s, 16s, 30s cap)
   - Reconnection timers properly cleared on successful reconnection to prevent resource leaks
@@ -71,6 +79,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added `.catch()` to all WebRTC promise chains (createOffer, setLocalDescription, createAnswer, setRemoteDescription)
   - Includes session ID and phase information in all failure logs
   - Bug report: bug-reports/bug-006-error-logging.md
+- **Label Validation Property Test (Test Suite)**: Fixed intermittent test failures in identity modal label validation
+  - Property test generator could produce whitespace-only strings (e.g., `" "`, `"\t"`) that validation correctly rejects
+  - Added `.filter(s => s.trim().length > 0)` to constrain generator to valid labels only
+  - Test now passes consistently (previously failed randomly depending on fast-check seed)
+  - Affects CI/CD reliability only - no production code changes
+  - Bug report: specs/epic-blossom-media-uploads/bug-reports/label-validation-whitespace-test-fix-report.md
 
 ### Added
 - **YAML Configuration Format**: Migrated configuration files from JSON to YAML format
