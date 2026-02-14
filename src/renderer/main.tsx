@@ -2190,6 +2190,21 @@ function App({ onThemeChange }: AppProps) {
     return () => clearInterval(interval);
   }, [nostling.identities, nostling.refreshUnreadCounts]);
 
+  // BUG FIX: Auto-mark messages as read when they arrive in already-open conversation
+  // Root cause: markMessagesRead only fires on contact selection change (onSelectContact)
+  // Bug report: bug-reports/unread-badge-not-clearing-report.md
+  // Date: 2026-02-14
+  useEffect(() => {
+    if (
+      selectedIdentityId &&
+      selectedContactId &&
+      nostling.unreadCounts[selectedIdentityId]?.[selectedContactId] &&
+      nostling.unreadCounts[selectedIdentityId][selectedContactId] > 0
+    ) {
+      void nostling.markMessagesRead(selectedIdentityId, selectedContactId);
+    }
+  }, [selectedIdentityId, selectedContactId, nostling.unreadCounts, nostling.markMessagesRead]);
+
   // Compute unread conversation counts per identity (number of distinct contacts with unread > 0)
   // Only show counts for non-selected identities
   const unreadConversationCounts = useMemo(() => {

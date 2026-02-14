@@ -44,6 +44,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Service layer: updated message processing and subscription filters for dual-protocol support
 
 ### Fixed
+- **Unread Badge Not Clearing on Conversation Open**: Fixed unread message badge persisting after opening conversation
+  - When messages arrived while a conversation was already open, the badge remained visible showing unread count
+  - Messages stayed marked as unread (`is_read = 0`) even though user was actively viewing the conversation
+  - Root cause: `markMessagesRead` only fired on contact selection change via `onSelectContact` callback, not when new messages arrived in already-selected conversation
+  - Added `useEffect` that auto-marks messages as read when unread count increases for currently-selected contact
+  - Badge now clears immediately when messages arrive in open conversation
+  - Existing behavior preserved: clicking contact with unread messages still marks them read
+  - Added 4 regression tests covering auto-mark behavior, edge cases, and backward compatibility
+  - Bug report: bug-reports/unread-badge-not-clearing-report.md
+  - Fixed: 2026-02-14
 - **Footer Missing Relay Connection Status**: Fixed footer not showing relay disconnection indicator
   - Footer displayed idle/synced messages ("Preening peacefully", "Nostling idle") even when all relays disconnected
   - Users had no visible indication of connectivity loss unless navigating to relay configuration view
