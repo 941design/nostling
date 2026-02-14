@@ -342,9 +342,9 @@ This sequence is a prerequisite for all test scenarios below.
    make dev-dual
    ```
 
-2. Complete pre-test setup (create identities + contacts). Verify both instances show relay connected (footer status).
+2. Complete pre-test setup (create identities + contacts). Verify both instances show idle/synced themed footer messages (e.g., "Nostling idle", "Preening peacefully").
 
-3. **Instance B** -- Note the current footer status (should indicate connected relay).
+3. **Instance B** -- Note the current footer status (should show idle/synced themed message like "Nostling idle" or "Flock in harmony").
 
 4. **Stop the relay**:
    ```bash
@@ -387,7 +387,7 @@ This sequence is a prerequisite for all test scenarios below.
 
 - Message is queued locally during relay outage.
 - After relay recovery, the message is published and delivered.
-- Both instances show reconnected relay status in the footer.
+- Both instances show normal themed footer messages (idle/synced) after reconnection.
 
 ---
 
@@ -400,7 +400,7 @@ This sequence is a prerequisite for all test scenarios below.
 
 1. Complete pre-test setup. Both instances should show the relay as connected.
 
-2. **Both instances** -- Take screenshots. Verify footer shows connected relay status.
+2. **Both instances** -- Take screenshots. Verify footer shows idle/synced themed messages (e.g., "Nostling idle", "Preening peacefully") indicating normal operation.
 
 3. **Stop the relay**:
    ```bash
@@ -409,7 +409,7 @@ This sequence is a prerequisite for all test scenarios below.
 
 4. **Wait** 15 seconds for disconnection detection.
 
-5. **Both instances** -- Take screenshots. Verify footer shows disconnected/error relay status.
+5. **Both instances** -- Take screenshots. Verify footer shows offline-themed messages (e.g., "offline", "savanna unreachable", "flock distant") indicating relay disconnection.
 
 6. **Restart the relay**:
    ```bash
@@ -418,7 +418,7 @@ This sequence is a prerequisite for all test scenarios below.
 
 7. **Wait** 15 seconds for reconnection.
 
-8. **Both instances** -- Take screenshots. Verify footer shows connected status again.
+8. **Both instances** -- Take screenshots. Verify footer shows idle/synced themed messages again (e.g., "Nostling idle", "Flock in harmony").
 
 9. **Log check** -- Both instances should show:
    ```
@@ -428,7 +428,8 @@ This sequence is a prerequisite for all test scenarios below.
 
 #### Expected Result
 
-- Footer status transitions: connected -> disconnected -> connected.
+- Footer status transitions: idle/synced themed messages -> offline-themed messages -> idle/synced themed messages.
+- Offline-themed messages appear when all relays are disconnected (priority 4.5: after errors/sending/queued, before synced/idle).
 - Reconnection is automatic (no user intervention).
 - Log entries confirm the full disconnect/reconnect cycle.
 

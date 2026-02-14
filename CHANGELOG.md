@@ -44,6 +44,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Service layer: updated message processing and subscription filters for dual-protocol support
 
 ### Fixed
+- **Footer Missing Relay Connection Status**: Fixed footer not showing relay disconnection indicator
+  - Footer displayed idle/synced messages ("Preening peacefully", "Nostling idle") even when all relays disconnected
+  - Users had no visible indication of connectivity loss unless navigating to relay configuration view
+  - Root cause: Footer status text function `getNostlingStatusTextThemed()` did not consume relay connection status tracked in renderer state
+  - Footer now shows offline-themed messages ("offline", "savanna unreachable", "flock distant") when all relays disconnected
+  - Relay disconnection status has priority 4.5: lower than errors/sending/queued (active operations take precedence), higher than synced/idle
+  - Backward compatible: optional `relayStatus` parameter preserves existing behavior when omitted
+  - Added 6 regression tests covering disconnection scenarios, priority order, and backward compatibility
+  - Bug report: bug-reports/footer-missing-relay-status-report.md
+  - Fixed: 2026-02-14
 - **Blossom Upload URL Construction (Media Attachments)**: Fixed unreachable blob URLs when Blossom server runs in Docker or behind reverse proxy
   - Server-reported URLs containing internal hostnames (e.g., `http://blossom-server:3001/blob/<hash>`) caused `ERR_NAME_NOT_RESOLVED` in client
   - Upload pipeline now constructs blob URLs from client-configured server URL instead of trusting server response

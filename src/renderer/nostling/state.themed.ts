@@ -43,7 +43,7 @@ export interface QueueSummary {
  *   Invariants:
  *     - Result is never empty string
  *     - Message counts are preserved in result (when > 0)
- *     - Priority order (highest to lowest): no bridge > errors > sending > queued > synced > idle
+ *     - Priority order (highest to lowest): no bridge > errors > sending > queued > relay disconnected > synced > idle
  *     - For states with counts, count appears before themed status (e.g., "3 [themed-status]")
  *
  *   Properties:
@@ -61,6 +61,8 @@ export interface QueueSummary {
  *        Select random themed message for 'sending' status
  *     4. If queued > 0 → return "{queued} {themed-queued-message} ({themed-offline-message})"
  *        Select random themed message for 'queued' status
+ *        Select random themed message for 'offline' queue state
+ *     4.5. If relayStatus provided and all relays disconnected → return "{themed-offline-message}"
  *        Select random themed message for 'offline' queue state
  *     5. If lastActivity exists (non-null/undefined) → return "{themed-synced-message}"
  *        Select random themed message for 'synced' queue state
@@ -86,7 +88,11 @@ export interface QueueSummary {
  *     Input: { hasBridge: true, queueSummary: { queued: 0, sending: 0, errors: 0 } }
  *     Output: "Nostling idle" (or another 'idle' alternative)
  */
-export function getNostlingStatusTextThemed(hasBridge: boolean, queueSummary: QueueSummary): string {
+export function getNostlingStatusTextThemed(
+  hasBridge: boolean,
+  queueSummary: QueueSummary,
+  relayStatus?: Record<string, string>
+): string {
   const config = getThemedMessagesConfig();
 
   // Priority 1: Bridge unavailable (no theming for unavailable state)
@@ -113,6 +119,19 @@ export function getNostlingStatusTextThemed(hasBridge: boolean, queueSummary: Qu
     // Must access directly to avoid ambiguity with updatePhases
     const themedOffline = randomSelect(config.nostlingQueueStates.offline);
     return `${queueSummary.queued} ${themedQueued} (${themedOffline})`;
+  }
+
+  // BUG FIX: footer-missing-relay-status
+  // Root cause: Footer status text did not consume relay connection status
+  // Bug report: bug-reports/footer-missing-relay-status-report.md
+  // Date: 2026-02-14
+  // Priority 4.5: Relay disconnection (all relays not connected)
+  // Higher priority than synced/idle, lower priority than active operations
+  if (relayStatus && Object.keys(relayStatus).length > 0) {
+    const allDisconnected = Object.values(relayStatus).every(status => status !== 'connected');
+    if (allDisconnected) {
+      return randomSelect(config.nostlingQueueStates.offline);
+    }
   }
 
   // Priority 5: Synced state (has last activity)

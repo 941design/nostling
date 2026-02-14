@@ -349,11 +349,11 @@ Status indicators:
 **So that** I know which relays are working
 
 **Acceptance Criteria:**
-- ✅ Green dot: connected
-- ✅ Yellow dot: connecting/reconnecting
-- ✅ Red dot: disconnected/error
+- ✅ Green dot: connected (in relay configuration view)
+- ✅ Yellow dot: connecting/reconnecting (in relay configuration view)
+- ✅ Red dot: disconnected/error (in relay configuration view)
 - ✅ Tooltip shows status text or error
-- ✅ Footer summary: "X relays · Y connected · Z failed"
+- ✅ Footer themed messages reflect relay connectivity (shows offline when all relays disconnected)
 - ✅ Auto-reconnection on network recovery
 
 **Implementation:** `src/main/nostling/relay-pool.ts`, IPC status updates
@@ -413,9 +413,11 @@ Status indicators:
 - ✅ Update status: "Standing tall" (up to date), "Pecking up" (downloading), "Eyes peeled" (checking)
 - ✅ Nostling queue: "Flock gathered" (queued), "Wings spread" (sending)
 - ✅ Error states: "Ruffled feathers" (errors), "Head in sand" (offline)
+- ✅ Relay connectivity: "offline", "savanna unreachable", "flock distant" (when all relays disconnected)
 - ✅ 2-3 alternatives per status type
 - ✅ Random selection on each display
 - ✅ Preserves dynamic content (versions, percentages, counts)
+- ✅ Priority order: errors > sending > queued > relay disconnected > synced > idle
 
 **Implementation:** `src/main/utils/themed.ts`, `src/main/state/themed.ts`, `themed-messages.json`
 

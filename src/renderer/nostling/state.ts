@@ -80,7 +80,7 @@ type UnreadCountsMap = Record<string, Record<string, number>>;
 // Type for tracking contacts with newly arrived messages (for flash animation)
 type NewlyArrivedMap = Record<string, Set<string>>; // identityId -> Set<contactId>
 
-export function useNostlingState() {
+export function useNostlingState(relayStatus?: Record<string, string>) {
   const hasBridge = Boolean(window.api?.nostling);
   const [identities, setIdentities] = useState<NostlingIdentity[]>([]);
   const [contacts, setContacts] = useState<ContactMap>({});
@@ -556,12 +556,26 @@ export function useNostlingState() {
    * Now delegates to getNostlingStatusTextThemed() which provides themed
    * message alternatives while preserving message counts and state priority.
    *
+   * BUG FIX: footer-missing-relay-status
+   * Now includes relay status to show disconnection state in footer.
+   * Bug report: bug-reports/footer-missing-relay-status-report.md
+   * Date: 2026-02-14
+   *
    * Note: Uses value-based comparison of queueSummary fields to prevent
-   * unnecessary re-selection of random themed messages.
+   * unnecessary re-selection of random themed messages. For relayStatus,
+   * we only track whether any relay is connected (not the full object)
+   * to avoid re-selecting random messages when relay status changes.
    */
+  const hasConnectedRelay = useMemo(() => {
+    if (!relayStatus || Object.keys(relayStatus).length === 0) {
+      return true; // No relay info = assume connected (preserves existing behavior)
+    }
+    return Object.values(relayStatus).some(status => status === 'connected');
+  }, [relayStatus]);
+
   const nostlingStatusText = useMemo(() => {
-    return getNostlingStatusTextThemed(hasBridge, queueSummary);
-  }, [hasBridge, queueSummary.queued, queueSummary.sending, queueSummary.errors, queueSummary.lastActivity]);
+    return getNostlingStatusTextThemed(hasBridge, queueSummary, relayStatus);
+  }, [hasBridge, queueSummary.queued, queueSummary.sending, queueSummary.errors, queueSummary.lastActivity, hasConnectedRelay]);
 
   return {
     hasBridge,

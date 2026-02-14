@@ -458,6 +458,7 @@ Provide secure, encrypted direct messaging with offline queueing, emoji support,
 * `flushOutgoingQueue()` - Publish all queued messages when relays connected
 * `retryFailedMessage(messageId)` - Re-attempt send for error status
 * Queue status display in footer: "X queued (offline)", "X sending", "Nostling synced"
+* Relay connectivity status integrated into themed messages (priority 4.5: after queue operations, before idle/synced)
 
 **FR-4: Message Status Tracking**
 * Database field `status: 'queued' | 'sending' | 'sent' | 'error'`
@@ -530,7 +531,7 @@ Manage WebSocket connections to Nostr relays with per-identity configuration, re
 
 **Status monitoring:**
 * Real-time status per relay: connecting, connected, disconnected, error
-* Footer summary: "X relays · Y connected · Z failed"
+* Footer status messages reflect relay connectivity (shows offline-themed messages when all relays disconnected)
 * Visual indicators in relay manager UI (green/yellow/red dots)
 * Tooltip shows error message for failed relays
 
@@ -726,7 +727,7 @@ Provide consistent, themeable UI components with accessibility support and respo
 * Header: App title, identity selector, hamburger menu, relay status
 * Sidebar: Identity list (chat view) or contact list (context-dependent)
 * Main area: Conversation pane (chat view) or sub-panels (identities, contacts, themes, about)
-* Footer: Version, update status, outgoing message queue status, relay connection count
+* Footer: Version, update status, themed status messages (integrates queue state and relay connectivity)
 
 **View modes:**
 * `chat`: Default view with conversation pane and contact list
@@ -1674,7 +1675,7 @@ For verifying messaging behavior and UI changes:
 
 * App installs and starts on macOS 12+ and supported Linux distributions
 * Layout visible: header, footer, sidebar, main area
-* Footer displays version, update status, relay status, queue status
+* Footer displays version, update status, and themed status messages (integrates relay connectivity and queue state)
 * Database created automatically on first run
 * Migrations execute successfully
 

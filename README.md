@@ -49,8 +49,9 @@ Throughout the app, status messages use playful ostrich-themed language instead 
 - Update status: "Standing tall" (up to date), "Pecking up" (downloading), "Eyes peeled" (checking)
 - Nostling queue: "Flock gathered" (messages queued), "Wings spread" (sending), "Nestling in" (receiving)
 - Error states: "Ruffled feathers" (errors), "Head in sand" (offline)
+- Relay connectivity: "offline", "savanna unreachable", "flock distant" (when all relays disconnected)
 
-Each status type randomly selects from 2-3 themed alternatives on every display, keeping the experience fresh while preserving all dynamic content like versions, progress percentages, and error details.
+Each status type randomly selects from 2-3 themed alternatives on every display, keeping the experience fresh while preserving all dynamic content like versions, progress percentages, and error details. The footer intelligently prioritizes active operations (errors, sending, queued messages) over connectivity status, ensuring you always see the most relevant information.
 
 ### Theme Customization
 
@@ -437,7 +438,8 @@ YAML files include helpful comments explaining each configuration option. The JS
 Relay WebSocket connections automatically reconnect when dropped (network interruption, relay restart). No user action required.
 
 - **Reconnection strategy**: Exponential backoff (1s, 2s, 4s, 8s, 16s, 30s max)
-- **Status indicators**: Yellow dot shows "reconnecting", green when connected
+- **Status indicators**: Yellow dot shows "reconnecting", green when connected (visible in relay configuration view)
+- **Footer status**: Shows offline-themed messages ("offline", "savanna unreachable", "flock distant") when all relays are disconnected
 - **Message queue**: Messages queued during disconnection are automatically retried after reconnection
 - **Subscriptions**: Automatically restarted after successful reconnection
 

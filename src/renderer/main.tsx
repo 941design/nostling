@@ -1862,7 +1862,6 @@ interface AppProps {
 function App({ onThemeChange }: AppProps) {
   const colors = useThemeColors();
   const { status, updateState, refresh, restart, download } = useStatus();
-  const nostling = useNostlingState();
   const { widthPx: sidebarWidth, isDragging: isSidebarResizing, handleDragStart: handleSidebarResizeStart } = useSidebarWidth();
   const [selectedIdentityId, setSelectedIdentityId] = useState<string | null>(null);
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
@@ -1898,6 +1897,12 @@ function App({ onThemeChange }: AppProps) {
   // Relay state management (per-identity)
   const [currentRelays, setCurrentRelays] = useState<NostlingRelayEndpoint[]>([]);
   const [relayStatus, setRelayStatus] = useState<Record<string, string>>({});
+
+  // BUG FIX: footer-missing-relay-status
+  // Wire relayStatus into useNostlingState so footer can display relay disconnection
+  // Bug report: bug-reports/footer-missing-relay-status-report.md
+  // Date: 2026-02-14
+  const nostling = useNostlingState(relayStatus);
   const [hoverInfo, setHoverInfo] = useState<string | null>(null);
   const [conflictModalOpen, setConflictModalOpen] = useState(false);
   const [conflictMessage, setConflictMessage] = useState('');
