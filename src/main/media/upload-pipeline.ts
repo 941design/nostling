@@ -272,10 +272,34 @@ export class UploadPipelineService {
             if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
               try {
                 const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
-                const remoteUrl = body.url || body.nurl;
-                if (!remoteUrl) {
-                  reject(new Error('Server response missing URL'));
+
+                // BUG FIX: Construct URL from client-configured server URL instead of trusting server-provided hostname
+                // Root cause: Server returns its own hostname (e.g., Docker internal name) which may be unreachable from client
+                // Bug report: bug-reports/blossom-url-docker-hostname-report.md
+                // Fixed: 2026-02-14
+
+                // Extract blob hash from response (prefer sha256 field, fallback to parsing URL)
+                let hash = body.sha256;
+                if (!hash) {
+                  const serverUrl = body.url || body.nurl;
+                  if (!serverUrl) {
+                    reject(new Error('Server response missing URL and sha256'));
+                    return;
+                  }
+                  // Extract hash from URL path: try /blob(s)/<hash> pattern first, then last path segment
+                  let match = serverUrl.match(/\/blobs?\/([^/?]+)/);
+                  if (!match) {
+                    // Fallback: extract last path segment (e.g., /blob1 -> blob1)
+                    match = serverUrl.match(/\/([^/?]+)(?:[?#].*)?$/);
+                  }
+                  hash = match ? match[1] : null;
+                }
+
+                if (!hash) {
+                  reject(new Error('Could not extract blob hash from server response'));
                 } else {
+                  // Construct URL using client-configured server base URL
+                  const remoteUrl = `${server.url}/blob/${hash}`;
                   resolve(remoteUrl);
                 }
               } catch {

@@ -8,12 +8,16 @@ Run two Nostling instances and control each via Playwright MCP.
 make dev-dual
 ```
 
-This builds the app, starts the local strfry relay, sets up display/keyring (Linux), launches two Electron instances with CDP debugging, and prints the MCP config snippet to add to your `.mcp.json`.
+This builds the app, starts the local strfry relay and Blossom server, sets up display/keyring (Linux), launches two Electron instances with CDP debugging, and prints the MCP config snippet to add to your `.mcp.json`.
 
-| Instance | CDP Port | Data Directory |
-|----------|----------|----------------|
-| A | 9222 | `/tmp/nostling-a` |
-| B | 9223 | `/tmp/nostling-b` |
+| Component | Port/Location | Purpose |
+|-----------|---------------|---------|
+| Instance A | CDP: 9222 | First Nostling instance |
+| Instance B | CDP: 9223 | Second Nostling instance |
+| Strfry Relay | ws://localhost:8080 | Local Nostr relay |
+| Blossom Server | http://localhost:3001 | Media upload server |
+| Data A | `/tmp/nostling-a` | Instance A storage |
+| Data B | `/tmp/nostling-b` | Instance B storage |
 
 ## Prerequisites
 

@@ -447,6 +447,17 @@ Relay WebSocket connections automatically reconnect when dropped (network interr
 3. Check firewall/network settings allow WebSocket connections
 4. Review logs for connection errors (see Log Files section)
 
+### Media Upload Issues
+
+**Images not loading after upload:**
+If uploaded images show as broken/unloadable, verify the Blossom server URL configuration matches how your client reaches the server:
+
+- **Problem**: Blossom server running in Docker with internal hostname (e.g., `blossom-server`)
+- **Symptom**: Upload succeeds but images fail to load with `ERR_NAME_NOT_RESOLVED`
+- **Solution**: Configure Blossom server URL using the hostname/port reachable from your client (e.g., `http://localhost:3001` instead of `http://blossom-server:3001`)
+
+The upload pipeline constructs blob retrieval URLs from your configured server URL, not the server's self-reported hostname.
+
 ## Log Files
 
 Logs are written to:

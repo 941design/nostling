@@ -86,8 +86,8 @@ Content-addressed media uploads to user-configured Blossom servers, integrated w
 - On connectivity restoration (relay connected + Blossom server reachable):
   1. Select target Blossom server(s) from identity-level configuration
   2. Upload the locally stored blob using BUD-06 HTTP PUT with NIP-98 auth
-  3. On successful upload, obtain the public URL from the server response
-  4. Replace `local-blob:<sha256>` placeholder(s) in the queued event with the real URL(s) and full metadata tags
+  3. On successful upload, construct the public blob URL from the client-configured server URL and the blob hash (server response provides hash for verification)
+  4. Replace `local-blob:<sha256>` placeholder(s) in the queued event with the constructed URL(s) and full metadata tags
   5. Publish the updated event via the normal NIP-17/59 encryption and relay publish flow
 - If upload fails, mark the message status as `error` with a descriptive reason
 - Retry with exponential backoff, consistent with the existing message queue retry behavior

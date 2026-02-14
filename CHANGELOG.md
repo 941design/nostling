@@ -44,6 +44,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Service layer: updated message processing and subscription filters for dual-protocol support
 
 ### Fixed
+- **Blossom Upload URL Construction (Media Attachments)**: Fixed unreachable blob URLs when Blossom server runs in Docker or behind reverse proxy
+  - Server-reported URLs containing internal hostnames (e.g., `http://blossom-server:3001/blob/<hash>`) caused `ERR_NAME_NOT_RESOLVED` in client
+  - Upload pipeline now constructs blob URLs from client-configured server URL instead of trusting server response
+  - URLs built as `${configuredServerUrl}/blob/${hash}` using hash extracted from server response
+  - Fixes broken image loading in dual-instance Docker dev environment and production deployments with hostname mismatches
+  - Root cause: Server response reflects its own view of hostname, which differs from client's network context
+  - Added regression test verifying client-constructed URLs over server-provided hostnames
+  - Bug report: bug-reports/blossom-url-docker-hostname-report.md
 - **Image Cache Service Test Reliability**: Reduced property test iterations to prevent Jest worker SIGKILL
   - Reduced iterations from default 100 to 5-15 based on operation cost (file I/O vs in-memory)
   - Total iteration reduction: ~1,000 → ~100 iterations (90% reduction)

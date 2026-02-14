@@ -190,7 +190,8 @@ describe('UploadPipelineService', () => {
       stmt.free();
 
       expect(row.upload_status).toBe('uploaded');
-      expect(row.remote_url).toMatch(/^https:\/\/blossom\.example\.com\/blobs\//);
+      // URL should be constructed from client-configured server URL, not server-provided hostname
+      expect(row.remote_url).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/blob\//);
     });
 
     it('should return empty array when no pending uploads', async () => {
@@ -241,7 +242,8 @@ describe('UploadPipelineService', () => {
       stmt.free();
 
       expect(mediaJson).not.toContain('local-blob:');
-      expect(mediaJson).toContain('blossom.example.com');
+      // URL should be constructed from client-configured server URL
+      expect(mediaJson).toMatch(/http:\/\/127\.0\.0\.1:\d+\/blob\//);
     });
   });
 
@@ -602,6 +604,66 @@ describe('UploadPipelineService', () => {
       expect(failedUpdate).toBeDefined();
       expect(failedUpdate!.messageId).toBe('msg1');
       expect(failedUpdate!.blobHash).toBe('hash1');
+    });
+  });
+
+  describe('bug: blossom-url-docker-hostname', () => {
+    it('should construct blob URL from configured server URL, not server-reported hostname', async () => {
+      // BUG: Upload pipeline uses server-returned URL which may contain Docker
+      // internal hostname (e.g., http://blossom-server:3001/blob/<hash>) instead
+      // of client-configured URL (e.g., http://localhost:3001/blob/<hash>).
+      // This causes ERR_NAME_NOT_RESOLVED when images try to load.
+      //
+      // Bug report: bug-reports/blossom-url-docker-hostname-report.md
+      // Expected: URL constructed from client-configured server URL
+      // Actual: URL taken directly from server response
+
+      // Mock server that returns different hostname in response
+      const serverWithDockerHostname = http.createServer((req, res) => {
+        const chunks: Buffer[] = [];
+        req.on('data', (chunk: Buffer) => chunks.push(chunk));
+        req.on('end', () => {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          // Server returns Docker internal hostname in response
+          res.end(JSON.stringify({ url: 'http://blossom-server:3001/blob/abc123' }));
+        });
+      });
+
+      await new Promise<void>((resolve) => {
+        serverWithDockerHostname.listen(0, '127.0.0.1', () => resolve());
+      });
+
+      const addr = serverWithDockerHostname.address();
+      const dockerMockPort = typeof addr === 'object' && addr ? addr.port : 0;
+      const clientConfiguredUrl = `http://127.0.0.1:${dockerMockPort}`;
+
+      createTestBlob('hash1', 'blob-content-1');
+      createTestMessage('msg1', 'id1', 'c1');
+      createTestMessageMedia('msg1', 'hash1');
+
+      const deps = makeDeps({
+        selectHealthyServer: jest.fn(async () => ({ url: clientConfiguredUrl })) as UploadDependencies['selectHealthyServer'],
+      });
+
+      const pipeline = new UploadPipelineService(deps);
+      await pipeline.processPendingUploads();
+
+      // Check stored remote_url
+      const stmt = database.prepare('SELECT remote_url FROM message_media WHERE message_id = ?');
+      stmt.bind(['msg1']);
+      stmt.step();
+      const row = stmt.getAsObject() as { remote_url: string };
+      stmt.free();
+
+      // BUG: Currently stores http://blossom-server:3001/blob/abc123
+      // EXPECTED: Should store http://127.0.0.1:<port>/blob/abc123
+      expect(row.remote_url).toMatch(/^http:\/\/127\.0\.0\.1:/);
+      expect(row.remote_url).not.toContain('blossom-server');
+
+      await new Promise<void>((resolve) => {
+        serverWithDockerHostname.closeAllConnections();
+        serverWithDockerHostname.close(() => resolve());
+      });
     });
   });
 });
