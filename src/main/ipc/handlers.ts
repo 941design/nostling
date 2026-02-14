@@ -425,6 +425,35 @@ export function registerHandlers(dependencies: {
 
       return { success: true, id };
     });
+
+    ipcMain.handle('test:insert-blossom-server', async (_, args: {
+      identityId: string;
+      url: string;
+      label: string;
+    }) => {
+      const { getDatabase } = await import('../database/connection');
+      const db = getDatabase();
+      if (!db) throw new Error('Database not available');
+
+      // Look up identity npub and convert to hex pubkey
+      const stmt = db.prepare('SELECT npub FROM nostr_identities WHERE id = ? LIMIT 1');
+      stmt.bind([args.identityId]);
+      if (!stmt.step()) {
+        stmt.free();
+        throw new Error(`Identity not found: ${args.identityId}`);
+      }
+      const npub = stmt.getAsObject().npub as string;
+      stmt.free();
+
+      const { npubToHex } = await import('../nostling/crypto');
+      const identityPubkey = npubToHex(npub);
+
+      db.run(
+        'INSERT OR IGNORE INTO blossom_servers (identity_pubkey, url, label, position) VALUES (?, ?, ?, 0)',
+        [identityPubkey, args.url, args.label]
+      );
+      return { success: true };
+    });
   }
 
   // BUG FIX: Legacy IPC handlers for backward compatibility

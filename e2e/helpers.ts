@@ -174,3 +174,96 @@ export async function ensureIdentityExists(page: Page, label = 'Test Identity'):
   const newIdentity = page.locator('[data-testid^="identity-item-"]').first();
   await newIdentity.click();
 }
+
+/**
+ * Inserts a blossom server config directly into the database via test IPC.
+ * Bypasses HTTPS validation that BlossomServerService.addServer() enforces.
+ * Accepts identityId (not pubkey) — the handler resolves the hex pubkey internally.
+ */
+export async function setupBlossomServer(
+  page: Page,
+  identityId: string,
+  serverUrl: string,
+  label = 'Test Blossom'
+): Promise<void> {
+  await page.evaluate(
+    ({ identityId, url, label }) => {
+      return (window as any).api.test.insertBlossomServer({ identityId, url, label });
+    },
+    { identityId, url: serverUrl, label }
+  );
+}
+
+/**
+ * Polls message list until a message with status 'sent' is found.
+ * Returns the matching message or throws on timeout.
+ */
+export async function waitForMessageSent(
+  page: Page,
+  identityId: string,
+  contactId: string,
+  timeout = 30000
+): Promise<any> {
+  const startTime = Date.now();
+
+  while (Date.now() - startTime < timeout) {
+    const messages: any[] = await page.evaluate(
+      ({ identityId, contactId }) => {
+        return (window as any).api.nostling.messages.list(identityId, contactId);
+      },
+      { identityId, contactId }
+    );
+
+    const sentMsg = messages.find(
+      (m: any) => m.direction === 'outgoing' && m.status === 'sent'
+    );
+    if (sentMsg) return sentMsg;
+
+    await page.waitForTimeout(1000);
+  }
+
+  throw new Error(`Timeout waiting for message status 'sent' after ${timeout}ms`);
+}
+
+/**
+ * Polls message list until an outgoing message has media_json with remote URLs
+ * (not local-blob: placeholders), indicating the upload pipeline has completed.
+ * Returns the matching message or throws on timeout.
+ */
+export async function waitForMediaUploadComplete(
+  page: Page,
+  identityId: string,
+  contactId: string,
+  timeout = 60000
+): Promise<any> {
+  const startTime = Date.now();
+
+  while (Date.now() - startTime < timeout) {
+    const messages: any[] = await page.evaluate(
+      ({ identityId, contactId }) => {
+        return (window as any).api.nostling.messages.list(identityId, contactId);
+      },
+      { identityId, contactId }
+    );
+
+    const uploadedMsg = messages.find((m: any) => {
+      if (m.direction !== 'outgoing' || !m.mediaJson) return false;
+      try {
+        const parsed = JSON.parse(m.mediaJson);
+        if (!parsed.attachments || parsed.attachments.length === 0) return false;
+        return parsed.attachments.every((a: any) => {
+          const urlTag = a.imeta?.find((tag: string) => tag.startsWith('url '));
+          return urlTag && !urlTag.includes('local-blob:');
+        });
+      } catch {
+        return false;
+      }
+    });
+
+    if (uploadedMsg) return uploadedMsg;
+
+    await page.waitForTimeout(1000);
+  }
+
+  throw new Error(`Timeout waiting for media upload complete after ${timeout}ms`);
+}

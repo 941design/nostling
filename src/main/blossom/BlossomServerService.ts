@@ -15,6 +15,7 @@
 
 import { Database } from 'sql.js';
 import { getDatabase } from '../database/connection';
+import http from 'http';
 import https from 'https';
 
 export interface BlossomServer {
@@ -336,6 +337,7 @@ export class BlossomServerService {
    */
   async checkHealth(url: string): Promise<HealthCheckResult> {
     const startTime = Date.now();
+    const transport = url.startsWith('https://') ? https : http;
 
     return new Promise((resolve) => {
       const timeout = setTimeout(() => {
@@ -347,7 +349,7 @@ export class BlossomServerService {
       }, 3000);
 
       try {
-        const req = https.request(
+        const req = transport.request(
           url,
           {
             method: 'HEAD',

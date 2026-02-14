@@ -8,6 +8,8 @@
 import { Database } from 'sql.js';
 import { readFile } from 'fs/promises';
 import { createHash } from 'crypto';
+import http from 'http';
+import https from 'https';
 import { log } from '../logging';
 import { generateNip98Token } from '../blossom/Nip98AuthService';
 
@@ -239,30 +241,68 @@ export class UploadPipelineService {
     const { authorizationHeader } = generateNip98Token(secretKey, uploadUrl, 'PUT', bodyHash);
 
     // HTTP PUT to Blossom server (BUD-06)
-    const response = await fetch(uploadUrl, {
-      method: 'PUT',
-      headers: {
-        'Authorization': authorizationHeader,
-        'Content-Type': upload.mimeType,
-        'Content-Length': String(upload.sizeBytes),
-      },
-      body: blobData,
+    // Uses Node.js http/https modules for reliable DNS resolution in Electron
+    // (Electron's fetch uses Chromium's network stack with separate DNS resolver)
+    const transport = uploadUrl.startsWith('https://') ? https : http;
+
+    return new Promise<string>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        req.destroy();
+        reject(new Error('Upload timed out after 30 seconds'));
+      }, 30000);
+
+      const req = transport.request(
+        uploadUrl,
+        {
+          method: 'PUT',
+          headers: {
+            'Authorization': authorizationHeader,
+            'Content-Type': upload.mimeType,
+            'Content-Length': String(blobData.length),
+          },
+          timeout: 30000,
+        },
+        (res) => {
+          clearTimeout(timeout);
+          const chunks: Buffer[] = [];
+
+          res.on('data', (chunk: Buffer) => chunks.push(chunk));
+
+          res.on('end', () => {
+            if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+              try {
+                const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+                const remoteUrl = body.url || body.nurl;
+                if (!remoteUrl) {
+                  reject(new Error('Server response missing URL'));
+                } else {
+                  resolve(remoteUrl);
+                }
+              } catch {
+                reject(new Error('Failed to parse upload response'));
+              }
+            } else {
+              const statusText = res.statusMessage || 'Upload failed';
+              reject(new Error(`${res.statusCode}: ${statusText}`));
+            }
+          });
+        }
+      );
+
+      req.on('error', (error) => {
+        clearTimeout(timeout);
+        reject(error);
+      });
+
+      req.on('timeout', () => {
+        req.destroy();
+        clearTimeout(timeout);
+        reject(new Error('Upload timed out after 30 seconds'));
+      });
+
+      req.write(blobData);
+      req.end();
     });
-
-    if (!response.ok) {
-      const statusText = response.statusText || 'Upload failed';
-      throw new Error(`${response.status}: ${statusText}`);
-    }
-
-    // Extract URL from response
-    const responseBody = await response.json() as { url?: string; nurl?: string };
-    const remoteUrl = responseBody.url || responseBody.nurl;
-
-    if (!remoteUrl) {
-      throw new Error('Server response missing URL');
-    }
-
-    return remoteUrl;
   }
 
   /**

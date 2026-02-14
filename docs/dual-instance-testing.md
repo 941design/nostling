@@ -577,6 +577,116 @@ This sequence is a prerequisite for all test scenarios below.
 
 ---
 
+### T11: Media Upload and Cross-Instance Delivery
+
+**Verifies**: Blossom upload pipeline, placeholder replacement, NIP-94 imeta encryption, cross-instance image rendering.
+**Source**: Blossom media uploads epic (stories 01–10).
+**Prerequisites**: `make dev-dual` (includes blossom server on port 3001), identities + contacts set up per pre-test.
+
+#### Steps
+
+1. **Instance A** -- Configure blossom server for Alice's identity:
+   ```js
+   await window.api.test.insertBlossomServer({
+     identityId: '<alice-identity-id>',
+     url: 'http://localhost:3001',
+     label: 'Dev Blossom'
+   })
+   ```
+
+2. **Instance A** -- Store the test image blob:
+   ```js
+   const blob = await window.api.blobStorage.storeBlob('/path/to/e2e/fixtures/test-image.png')
+   ```
+   Record `blob.hash`, `blob.metadata.mimeType`, `blob.metadata.sizeBytes`, `blob.metadata.dimensions`.
+
+3. **Instance A** -- Send message with image attachment:
+   ```js
+   await window.api.nostling.messages.send({
+     identityId: '<alice-identity-id>',
+     contactId: '<bob-contact-id-on-A>',
+     plaintext: 'Image test [t11]',
+     attachments: [{
+       hash: blob.hash,
+       name: 'test-image.png',
+       mimeType: blob.metadata.mimeType,
+       sizeBytes: blob.metadata.sizeBytes,
+       dimensions: blob.metadata.dimensions
+     }]
+   })
+   ```
+
+4. **Wait** 30 seconds for upload pipeline processing and relay delivery.
+
+5. **Instance A** -- Take screenshot. Verify the sent message shows an image thumbnail.
+
+6. **Instance A** -- Verify message status and placeholder replacement:
+   ```js
+   const messages = await window.api.nostling.messages.list('<alice-identity-id>', '<bob-contact-id-on-A>')
+   const sent = messages.find(m => m.content.includes('[t11]'))
+   // sent.status should be 'sent'
+   // JSON.parse(sent.mediaJson) should contain remote URL, not 'local-blob:'
+   ```
+
+7. **Instance B** -- Take screenshot. Verify the received message shows the image.
+
+8. **Log check** -- Instance A:
+   ```
+   grep "Upload.*complete\|marked as sent" /tmp/nostling-a.log
+   ```
+
+#### Expected Result
+
+- Image uploaded to blossom server successfully.
+- `local-blob:` placeholder replaced with remote `http://localhost:3001/blob/<hash>` URL in `mediaJson`.
+- Message status transitions: `queued` → `sent`.
+- Image visible in both instances' conversation views.
+
+---
+
+### T12: Non-Image File Attachment
+
+**Verifies**: File attachment type detection, MIME icon display, non-image attachment handling.
+**Source**: Blossom media uploads epic (stories 01, 03).
+**Prerequisites**: Same as T11.
+
+#### Steps
+
+1. **Instance A** -- Store a text file blob (create a temp text file first or use any non-image file):
+   ```js
+   // Create a temporary text file path that exists on disk
+   const blob = await window.api.blobStorage.storeBlob('/path/to/some-text-file.txt')
+   ```
+
+2. **Instance A** -- Send message with file attachment:
+   ```js
+   await window.api.nostling.messages.send({
+     identityId: '<alice-identity-id>',
+     contactId: '<bob-contact-id-on-A>',
+     plaintext: 'File test [t12]',
+     attachments: [{
+       hash: blob.hash,
+       name: 'document.txt',
+       mimeType: blob.metadata.mimeType,
+       sizeBytes: blob.metadata.sizeBytes
+     }]
+   })
+   ```
+
+3. **Wait** 30 seconds.
+
+4. **Instance A** -- Take screenshot. Verify the sent message shows a file attachment indicator (icon, filename, size) rather than an image thumbnail.
+
+5. **Instance B** -- Take screenshot. Verify the received message shows the file attachment.
+
+#### Expected Result
+
+- Non-image file is stored and uploaded without image-specific processing (no dimensions, no blurhash).
+- File attachment renders with file icon and name/size, not as an image thumbnail.
+- Message delivery works end-to-end for non-image attachments.
+
+---
+
 ## Automation Outlook
 
 At a later stage, these test scenarios could be automated as Playwright e2e tests. This requires extending the current test infrastructure with:

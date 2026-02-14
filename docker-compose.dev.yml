@@ -8,5 +8,20 @@ services:
       - ./strfry.conf:/etc/strfry.conf:ro
       - strfry-data:/app/strfry-db
 
+  blossom-server:
+    image: node:20-alpine
+    container_name: nostling-dev-blossom
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./e2e/blossom-server.js:/app/blossom-server.js:ro
+      - blossom-data:/data
+    environment:
+      - BLOSSOM_PORT=3001
+      - BLOSSOM_DATA_DIR=/data
+    command: ["node", "/app/blossom-server.js"]
+    restart: unless-stopped
+
 volumes:
   strfry-data:
+  blossom-data:

@@ -49,7 +49,8 @@ function handlePut(req, res) {
     fs.writeFileSync(filePath, body);
     blobs.set(digest, { path: filePath, mime: contentType, size });
 
-    const url = `http://blossom-server:${PORT}/blob/${digest}`;
+    const BASE_URL = process.env.BLOSSOM_BASE_URL || `http://localhost:${PORT}`;
+    const url = `${BASE_URL}/blob/${digest}`;
     sendJson(res, 200, { url, sha256: digest, size, mime: contentType });
   });
 }

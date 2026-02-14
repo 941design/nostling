@@ -276,6 +276,13 @@ const testApi = {
     }) {
       return ipcRenderer.invoke('test:inject-profile', args);
     },
+    async insertBlossomServer(args: {
+      identityId: string;
+      url: string;
+      label: string;
+    }) {
+      return ipcRenderer.invoke('test:insert-blossom-server', args);
+    },
   },
 };
 

@@ -10,6 +10,7 @@ services:
     environment:
       - BLOSSOM_PORT=3001
       - BLOSSOM_DATA_DIR=/data
+      - BLOSSOM_BASE_URL=http://blossom-server:3001
     command: ["node", "/app/blossom-server.js"]
     restart: unless-stopped
 
