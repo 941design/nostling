@@ -124,6 +124,46 @@ Repeat with `/tmp/nostling-b` and port `9223` for the second instance.
 | `--disable-gpu` | Avoids GPU issues in virtual framebuffer (Linux) |
 | `--disable-dev-shm-usage` | Prevents shared memory issues in constrained environments (Linux) |
 
+## Troubleshooting
+
+### gnome-keyring not unlocked (`SECURE_STORAGE_UNAVAILABLE`)
+
+Identity creation fails with `SECURE_STORAGE_UNAVAILABLE` when gnome-keyring exists but isn't properly unlocked. The `dev-dual.sh` script skips keyring setup when `DBUS_SESSION_BUS_ADDRESS` is already set, but an existing D-Bus session doesn't guarantee the keyring is unlocked.
+
+Fix: kill all keyring processes and restart fresh:
+
+```bash
+pkill gnome-keyring-daemon
+echo "" | gnome-keyring-daemon -r -d --unlock --components=secrets
+```
+
+Then relaunch the instances.
+
+### Docker compose starts the e2e test container
+
+Running `docker compose -f docker-compose.e2e.yml up -d` starts all services including `nostling-e2e-test`, which runs its own Electron processes and interferes with the dual-instance setup. Stop it explicitly:
+
+```bash
+docker stop nostling-e2e-test
+```
+
+Or start only the needed services:
+
+```bash
+docker compose -f docker-compose.e2e.yml up -d nostr-relay blossom-server
+```
+
+### Playwright MCP contexts go stale after instance restart
+
+After killing and relaunching Electron instances, the Playwright MCP servers hold dead browser contexts. All tool calls fail with `Target page, context or browser has been closed`. Call `browser_close` on both MCP servers to force reconnection:
+
+```
+playwright-a: browser_close
+playwright-b: browser_close
+```
+
+The next tool call will automatically reconnect to the new CDP endpoint.
+
 ## Known Issues
 
 1. **Accessibility snapshots unreliable with Chakra UI** — Playwright MCP's `browser_snapshot` frequently returns empty YAML after re-renders. Use `browser_take_screenshot` or `browser_evaluate` as fallbacks.

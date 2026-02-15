@@ -11,9 +11,16 @@ import { runMigrations } from '../database/migrations';
 import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
-import sharp from 'sharp';
 import { createHash } from 'crypto';
 import fc from 'fast-check';
+import * as imageProcessing from './image-processing';
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const jpeg = require('jpeg-js');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { PNG } = require('pngjs');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const piexif = require('piexifjs');
 
 // Mock electron app module
 jest.mock('electron', () => {
@@ -38,6 +45,84 @@ jest.mock('electron', () => {
 });
 
 const { app } = require('electron');
+
+// ---------------------------------------------------------------------------
+// Pure-JS test fixture helpers
+// ---------------------------------------------------------------------------
+
+/** Create a solid-color PNG file. */
+async function createTestPng(
+  filePath: string, width: number, height: number,
+  r = 128, g = 128, b = 128, a = 255,
+): Promise<void> {
+  const png = new PNG({ width, height });
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = (width * y + x) << 2;
+      png.data[idx] = r;
+      png.data[idx + 1] = g;
+      png.data[idx + 2] = b;
+      png.data[idx + 3] = a;
+    }
+  }
+  const buffer = PNG.sync.write(png);
+  await fs.writeFile(filePath, buffer);
+}
+
+/** Create a solid-color JPEG file. */
+async function createTestJpeg(
+  filePath: string, width: number, height: number,
+  r = 128, g = 128, b = 128,
+): Promise<void> {
+  const frameData = Buffer.alloc(width * height * 4);
+  for (let i = 0; i < width * height; i++) {
+    frameData[i * 4] = r;
+    frameData[i * 4 + 1] = g;
+    frameData[i * 4 + 2] = b;
+    frameData[i * 4 + 3] = 255;
+  }
+  const encoded = jpeg.encode({ data: frameData, width, height }, 90);
+  await fs.writeFile(filePath, encoded.data);
+}
+
+/** Create a JPEG file with EXIF metadata inserted. */
+async function createTestJpegWithExif(
+  filePath: string, width: number, height: number,
+  exifObj: Record<string, Record<string, unknown>>,
+): Promise<void> {
+  // Create plain JPEG first
+  const frameData = Buffer.alloc(width * height * 4);
+  for (let i = 0; i < width * height; i++) {
+    frameData[i * 4] = 200;
+    frameData[i * 4 + 1] = 100;
+    frameData[i * 4 + 2] = 50;
+    frameData[i * 4 + 3] = 255;
+  }
+  const encoded = jpeg.encode({ data: frameData, width, height }, 90);
+
+  // Insert EXIF data
+  const exifStr = piexif.dump(exifObj);
+  const binaryStr = encoded.data.toString('latin1');
+  const withExif = piexif.insert(exifStr, binaryStr);
+  await fs.writeFile(filePath, Buffer.from(withExif, 'latin1'));
+}
+
+/** Check whether a JPEG buffer contains any EXIF data. */
+function hasExifData(buffer: Buffer): boolean {
+  try {
+    const binaryStr = buffer.toString('latin1');
+    const exifData = piexif.load(binaryStr);
+    // Check if any IFD has entries
+    for (const ifd of ['0th', 'Exif', 'GPS', '1st']) {
+      if (exifData[ifd] && Object.keys(exifData[ifd]).length > 0) {
+        return true;
+      }
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
 
 describe('BlobStorageService', () => {
   let testDir: string;
@@ -180,14 +265,7 @@ describe('BlobStorageService', () => {
   describe('MIME Type Detection', () => {
     it('detects PNG image', async () => {
       const filePath = path.join(testDir, 'test.png');
-      await sharp({
-        create: {
-          width: 100,
-          height: 100,
-          channels: 4,
-          background: { r: 255, g: 0, b: 0, alpha: 1 }
-        }
-      }).png().toFile(filePath);
+      await createTestPng(filePath, 100, 100, 255, 0, 0);
 
       const result = await service.storeBlob(filePath);
       expect(result.metadata.mimeType).toBe('image/png');
@@ -195,14 +273,7 @@ describe('BlobStorageService', () => {
 
     it('detects JPEG image', async () => {
       const filePath = path.join(testDir, 'test.jpg');
-      await sharp({
-        create: {
-          width: 100,
-          height: 100,
-          channels: 3,
-          background: { r: 0, g: 255, b: 0 }
-        }
-      }).jpeg().toFile(filePath);
+      await createTestJpeg(filePath, 100, 100, 0, 255, 0);
 
       const result = await service.storeBlob(filePath);
       expect(result.metadata.mimeType).toBe('image/jpeg');
@@ -223,14 +294,7 @@ describe('BlobStorageService', () => {
       const height = 240;
       const filePath = path.join(testDir, 'sized.png');
 
-      await sharp({
-        create: {
-          width,
-          height,
-          channels: 4,
-          background: { r: 100, g: 150, b: 200, alpha: 1 }
-        }
-      }).png().toFile(filePath);
+      await createTestPng(filePath, width, height, 100, 150, 200);
 
       const result = await service.storeBlob(filePath);
       expect(result.metadata.dimensions).toEqual({ width, height });
@@ -238,14 +302,7 @@ describe('BlobStorageService', () => {
 
     it('generates blurhash for images', async () => {
       const filePath = path.join(testDir, 'blurhash.png');
-      await sharp({
-        create: {
-          width: 200,
-          height: 150,
-          channels: 4,
-          background: { r: 50, g: 100, b: 200, alpha: 1 }
-        }
-      }).png().toFile(filePath);
+      await createTestPng(filePath, 200, 150, 50, 100, 200);
 
       const result = await service.storeBlob(filePath);
       expect(result.metadata.blurhash).toBeDefined();
@@ -265,46 +322,28 @@ describe('BlobStorageService', () => {
 
   describe('EXIF Stripping', () => {
     it('strips EXIF from JPEG images', async () => {
-      // Create JPEG with EXIF metadata
       const filePath = path.join(testDir, 'with-exif.jpg');
-      await sharp({
-        create: {
-          width: 100,
-          height: 100,
-          channels: 3,
-          background: { r: 200, g: 100, b: 50 }
-        }
-      })
-      .jpeg()
-      .withMetadata({
-        exif: {
-          IFD0: {
-            Copyright: 'Test Copyright',
-            Make: 'Test Camera',
-          }
-        }
-      })
-      .toFile(filePath);
+      await createTestJpegWithExif(filePath, 100, 100, {
+        '0th': {
+          [piexif.ImageIFD.Copyright]: 'Test Copyright',
+          [piexif.ImageIFD.Make]: 'Test Camera',
+        },
+      });
+
+      // Verify the source file has EXIF
+      const sourceBuf = await fs.readFile(filePath);
+      expect(hasExifData(sourceBuf)).toBe(true);
 
       const result = await service.storeBlob(filePath);
 
       // Verify stored blob has no EXIF
-      const storedImage = sharp(result.metadata.localPath);
-      const storedMetadata = await storedImage.metadata();
-
-      expect(storedMetadata.exif).toBeUndefined();
+      const storedBuf = await fs.readFile(result.metadata.localPath);
+      expect(hasExifData(storedBuf)).toBe(false);
     });
 
     it('handles images without EXIF gracefully', async () => {
       const filePath = path.join(testDir, 'no-exif.png');
-      await sharp({
-        create: {
-          width: 50,
-          height: 50,
-          channels: 4,
-          background: { r: 128, g: 128, b: 128, alpha: 1 }
-        }
-      }).png().toFile(filePath);
+      await createTestPng(filePath, 50, 50);
 
       const result = await service.storeBlob(filePath);
       expect(result.metadata.hash).toBeDefined();
@@ -323,57 +362,15 @@ describe('BlobStorageService', () => {
       expect(result.metadata.blurhash).toBeUndefined();
     });
 
-    it('throws error when sharp fails during rotate (EXIF stripping)', async () => {
-      // Create valid JPEG
-      const filePath = path.join(testDir, 'sharp-fail.jpg');
-      await sharp({
-        create: {
-          width: 100,
-          height: 100,
-          channels: 3,
-          background: { r: 200, g: 100, b: 50 }
-        }
-      }).jpeg().toFile(filePath);
+    it('throws error when image processing fails', async () => {
+      const filePath = path.join(testDir, 'process-fail.jpg');
+      await createTestJpeg(filePath, 100, 100);
 
-      // Spy on sharp instance's rotate method
-      const rotateSpy = jest.spyOn(sharp.prototype as any, 'rotate').mockImplementation(() => {
-        throw new Error('Sharp rotate failed');
-      });
+      jest.spyOn(imageProcessing, 'processImage').mockRejectedValueOnce(
+        new Error('decode failed'),
+      );
 
       await expect(service.storeBlob(filePath)).rejects.toThrow('Failed to process image');
-
-      rotateSpy.mockRestore();
-    });
-
-    it('throws error when sharp metadata extraction fails', async () => {
-      // Create valid JPEG to ensure MIME detection treats it as image
-      const filePath = path.join(testDir, 'metadata-fail.jpg');
-      await sharp({
-        create: {
-          width: 50,
-          height: 50,
-          channels: 3,
-          background: { r: 128, g: 128, b: 128 }
-        }
-      }).jpeg().toFile(filePath);
-
-      // Spy on sharp instance's metadata method
-      // We need it to succeed first for MIME detection, then fail for extractImageMetadata
-      let callCount = 0;
-      const metadataSpy = jest.spyOn(sharp.prototype as any, 'metadata').mockImplementation(async function(this: any) {
-        callCount++;
-        if (callCount === 1) {
-          // First call: MIME detection - succeed
-          return { format: 'jpeg' };
-        } else {
-          // Second call: extractImageMetadata - fail
-          throw new Error('Metadata extraction failed');
-        }
-      });
-
-      await expect(service.storeBlob(filePath)).rejects.toThrow('Failed to process image');
-
-      metadataSpy.mockRestore();
     });
   });
 
@@ -565,14 +562,7 @@ describe('BlobStorageService', () => {
       const height = 300;
       const filePath = path.join(testDir, 'complete-image.png');
 
-      await sharp({
-        create: {
-          width,
-          height,
-          channels: 4,
-          background: { r: 255, g: 128, b: 64, alpha: 1 }
-        }
-      }).png().toFile(filePath);
+      await createTestPng(filePath, width, height, 255, 128, 64);
 
       // Store
       const stored = await service.storeBlob(filePath);
@@ -585,11 +575,6 @@ describe('BlobStorageService', () => {
       expect(retrieved).not.toBeNull();
       expect(retrieved!.dimensions).toEqual({ width, height });
       expect(retrieved!.blurhash).toBe(stored.metadata.blurhash);
-
-      // Verify EXIF stripped
-      const storedImage = sharp(retrieved!.localPath);
-      const metadata = await storedImage.metadata();
-      expect(metadata.exif).toBeUndefined();
     });
 
     it('handles multiple blobs concurrently', async () => {

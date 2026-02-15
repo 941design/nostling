@@ -15,8 +15,7 @@
 import { createHash } from 'crypto';
 import { createReadStream, promises as fs } from 'fs';
 import path from 'path';
-import sharp from 'sharp';
-import { encode as encodeBlurhash } from 'blurhash';
+import { processImage } from './image-processing';
 import { getDatabase } from '../database/connection';
 import { Database } from 'sql.js';
 
@@ -106,56 +105,20 @@ async function computeStreamingSHA256(filePath: string): Promise<string> {
  *     - Preserves image pixel data
  *
  *   Algorithm:
- *     1. Load image with sharp
- *     2. Strip EXIF metadata
- *     3. Extract dimensions from image metadata
- *     4. Resize to small size for blurhash (32x32)
- *     5. Get raw pixel data
- *     6. Encode blurhash from pixels
- *     7. Get processed buffer without EXIF
- *     8. Return dimensions, blurhash, buffer
+ *     1. Read image file
+ *     2. Strip EXIF metadata (byte-level for JPEG)
+ *     3. Decode to RGBA, apply EXIF orientation for display dimensions
+ *     4. Resize oriented pixels to 32x32 for blurhash
+ *     5. Encode blurhash from thumbnail pixels
+ *     6. Return dimensions, blurhash, processed buffer
  */
-async function extractImageMetadata(filePath: string): Promise<{
+async function extractImageMetadata(filePath: string, mimeType: string): Promise<{
   dimensions: { width: number; height: number };
   blurhash: string;
   processedBuffer: Buffer;
 }> {
   try {
-    // Load image
-    const image = sharp(filePath);
-    const metadata = await image.metadata();
-
-    if (!metadata.width || !metadata.height) {
-      throw new Error('Unable to extract image dimensions');
-    }
-
-    const dimensions = {
-      width: metadata.width,
-      height: metadata.height,
-    };
-
-    // Strip EXIF by converting to buffer without metadata
-    // rotate() auto-orients and strips EXIF
-    const processedBuffer = await image
-      .rotate() // Auto-orient and strip EXIF
-      .toBuffer();
-
-    // Generate blurhash from small thumbnail
-    const thumbnail = await sharp(processedBuffer)
-      .resize(32, 32, { fit: 'inside' })
-      .ensureAlpha()
-      .raw()
-      .toBuffer({ resolveWithObject: true });
-
-    const blurhash = encodeBlurhash(
-      new Uint8ClampedArray(thumbnail.data),
-      thumbnail.info.width,
-      thumbnail.info.height,
-      4,
-      3
-    );
-
-    return { dimensions, blurhash, processedBuffer };
+    return await processImage(filePath, mimeType);
   } catch (error) {
     throw new Error(`Failed to process image: ${error instanceof Error ? error.message : String(error)}`);
   }
@@ -184,24 +147,41 @@ async function extractImageMetadata(filePath: string): Promise<{
  *     2. If detected, return MIME type
  *     3. If not detected, return "application/octet-stream"
  */
+/** Detect JPEG/PNG from magic bytes. Returns application/octet-stream for anything else. */
+async function detectMimeFromMagicBytes(filePath: string): Promise<string> {
+  try {
+    const fd = await fs.open(filePath, 'r');
+    try {
+      const buf = Buffer.alloc(8);
+      await fd.read(buf, 0, 8, 0);
+
+      // PNG: 89 50 4E 47 0D 0A 1A 0A
+      if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) {
+        return 'image/png';
+      }
+      // JPEG: FF D8 FF
+      if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) {
+        return 'image/jpeg';
+      }
+    } finally {
+      await fd.close();
+    }
+  } catch {
+    // File read failed
+  }
+  return 'application/octet-stream';
+}
+
 async function detectMimeType(filePath: string): Promise<string> {
   try {
     // Dynamic import for ESM-only module
     const fileTypeModule = await import('file-type');
     const fileType = await fileTypeModule.fileTypeFromFile(filePath);
     return fileType?.mime ?? 'application/octet-stream';
-  } catch (error) {
-    // Fallback: try to detect from sharp if it's an image
-    try {
-      const image = sharp(filePath);
-      const metadata = await image.metadata();
-      if (metadata.format) {
-        return `image/${metadata.format}`;
-      }
-    } catch {
-      // Not an image or sharp failed
-    }
-    return 'application/octet-stream';
+  } catch {
+    // Fallback: detect common image types from magic bytes when file-type
+    // is unavailable (e.g. ESM module loading issues in certain runtimes)
+    return detectMimeFromMagicBytes(filePath);
   }
 }
 
@@ -224,6 +204,9 @@ async function detectMimeType(filePath: string): Promise<string> {
 function isImageMimeType(mimeType: string): boolean {
   return mimeType.startsWith('image/');
 }
+
+/** Image types that our pure-JS pipeline can process (decode, EXIF strip, blurhash). */
+const PROCESSABLE_IMAGE_TYPES = new Set(['image/jpeg', 'image/png']);
 
 export class BlobStorageService {
   private readonly blobsDir: string;
@@ -358,16 +341,16 @@ export class BlobStorageService {
     let blurhash: string | undefined;
 
     // Step 6-7: Process based on type
-    if (isImageMimeType(mimeType)) {
-      // Extract metadata and strip EXIF
-      const imageData = await extractImageMetadata(filePath);
+    if (PROCESSABLE_IMAGE_TYPES.has(mimeType)) {
+      // Extract metadata and strip EXIF (JPEG/PNG only)
+      const imageData = await extractImageMetadata(filePath, mimeType);
       dimensions = imageData.dimensions;
       blurhash = imageData.blurhash;
 
       // Store processed image (EXIF stripped)
       await fs.writeFile(blobPath, imageData.processedBuffer, { mode: 0o600 });
     } else {
-      // Store non-image as-is
+      // Store non-processable files as-is (including other image types like WebP, GIF)
       await fs.copyFile(filePath, blobPath);
       await fs.chmod(blobPath, 0o600);
     }
