@@ -1,0 +1,81 @@
+{
+  "created_at": "2026-02-15T21:15:00Z",
+  "story_id": "11",
+  "story_title": "Wire renderer attachment flow to blob storage service",
+  "questions": [
+    {
+      "id": "VQ-11-001",
+      "category": "SPEC",
+      "question": "Does the paperclip button (handleAddFile) call storeBlob() via IPC instead of showing the 'Not yet implemented' toast?",
+      "actionable_check": "Read handleAddFile in main.tsx, verify it calls addAttachment(filePath) which calls window.api.blobStorage.storeBlob(filePath). Verify no 'Not yet implemented' toast exists.",
+      "evidence_required": ["handleAddFile code", "absence of 'Not yet implemented' string"],
+      "pass_criteria": "handleAddFile calls addAttachment which calls storeBlob. No 'Not yet implemented' toast.",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-11-002",
+      "category": "SPEC",
+      "question": "Does drag-and-drop (handleDrop) pass file.path to addAttachment instead of using browser-side hash?",
+      "actionable_check": "Read handleDrop in main.tsx, verify it extracts file.path and passes it to addAttachment(filePath, file). Verify addAttachment uses storeBlob not crypto.subtle.digest.",
+      "evidence_required": ["handleDrop code showing file.path extraction", "addAttachment code showing storeBlob call"],
+      "pass_criteria": "handleDrop extracts file.path from Electron File object and passes to addAttachment. addAttachment calls window.api.blobStorage.storeBlob(filePath).",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-11-003",
+      "category": "SPEC",
+      "question": "Does addAttachment use the hash and metadata returned by storeBlob instead of browser-side values?",
+      "actionable_check": "Read useAttachments.ts addAttachment function. Verify it uses result.hash and result.metadata from storeBlob, not crypto.subtle.digest.",
+      "evidence_required": ["addAttachment code showing storeBlob result usage", "absence of crypto.subtle.digest or generateSimpleHash"],
+      "pass_criteria": "Hash comes from storeBlob response. No browser-side hash generation exists. Metadata (sizeBytes, mimeType, dimensions, blurhash) comes from storeBlob.",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-11-004",
+      "category": "SPEC",
+      "question": "Does the implementation preserve client-side thumbnail generation for instant preview?",
+      "actionable_check": "Read addAttachment function, verify thumbnail generation still uses the File object via generateThumbnail() for image files.",
+      "evidence_required": ["generateThumbnail function exists", "Called when file is available and is an image"],
+      "pass_criteria": "Client-side thumbnail generation preserved for images when File object is available.",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-11-005",
+      "category": "TEST",
+      "question": "Does file validation still run before calling storeBlob to avoid unnecessary IPC round-trips?",
+      "actionable_check": "Read addAttachment, verify validateFile is called before storeBlob when File object is available.",
+      "evidence_required": ["validateFile call before storeBlob call"],
+      "pass_criteria": "validateFile runs before storeBlob when File object available. Invalid files are rejected without IPC call.",
+      "added_in_round": 1
+    }
+  ],
+  "mandatory_questions": [
+    {
+      "id": "VQ-11-DEAD",
+      "category": "QUALITY",
+      "question": "Is there any dead code introduced or left behind by this story (e.g., generateSimpleHash, getImageDimensions, blob URL creation)?",
+      "actionable_check": "Search useAttachments.ts for unused functions like generateSimpleHash, getImageDimensions, or blob URL creation for localPath.",
+      "evidence_required": ["Search results for removed stub functions"],
+      "pass_criteria": "No unused functions remain. generateSimpleHash and getImageDimensions removed. No blob: URL creation for localPath.",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-11-DUP",
+      "category": "QUALITY",
+      "question": "Are there any duplicate implementations of file path handling or hash computation?",
+      "actionable_check": "Search codebase for duplicate hash computation or storeBlob patterns.",
+      "evidence_required": ["Search results"],
+      "pass_criteria": "No duplicate implementations. Only one path to storeBlob from renderer.",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-11-INT",
+      "category": "TEST",
+      "question": "Do all existing tests still pass after the signature change (addAttachment now takes filePath instead of File)?",
+      "actionable_check": "Run full test suite, verify no regressions from signature change.",
+      "evidence_required": ["Test suite results showing 0 regressions"],
+      "pass_criteria": "All existing tests pass. No test depends on the old (file: File) signature.",
+      "added_in_round": 1
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 {
   "story_id": "08",
   "created_at": "2026-02-14T03:30:00Z",
-  "status": "complete",
+  "status": "done",
   "implementation": {
     "files_created": [],
     "files_modified": [
@@ -22,14 +22,49 @@
     {
       "round": 1,
       "results": {
-        "VQ-08-001": { "verdict": "PASS", "note": "imeta tags round-trip correctly through nip59 encryption" },
-        "VQ-08-002": { "verdict": "PARTIAL", "severity": 6, "note": "Test didn't call flushOutgoingQueue - fixed by triggering via setOnline(true)" },
-        "VQ-08-003": { "verdict": "PASS", "note": "No leakage to outer gift wrap event" },
-        "VQ-08-004": { "verdict": "PASS", "note": "getMediaJson helper correct" },
-        "VQ-08-005": { "verdict": "PASS", "note": "decryptNip17Message returns tags array" },
-        "VQ-08-DEAD": { "verdict": "PASS", "note": "No dead code" },
-        "VQ-08-INT": { "verdict": "PASS", "note": "Sufficient test coverage" }
-      }
+        "VQ-08-001": {
+          "verdict": "PASS",
+          "note": "imeta tags round-trip correctly through nip59 encryption"
+        },
+        "VQ-08-002": {
+          "verdict": "PARTIAL",
+          "severity": 6,
+          "note": "Test didn't call flushOutgoingQueue - fixed by triggering via setOnline(true)"
+        },
+        "VQ-08-003": {
+          "verdict": "PASS",
+          "note": "No leakage to outer gift wrap event"
+        },
+        "VQ-08-004": {
+          "verdict": "PASS",
+          "note": "getMediaJson helper correct"
+        },
+        "VQ-08-005": {
+          "verdict": "PASS",
+          "note": "decryptNip17Message returns tags array"
+        },
+        "VQ-08-DEAD": {
+          "verdict": "PASS",
+          "note": "No dead code"
+        },
+        "VQ-08-INT": {
+          "verdict": "PASS",
+          "note": "Sufficient test coverage"
+        }
+      },
+      "test_gate": {
+        "ran_at": "2026-02-15T16:45:45Z",
+        "command": "npm test -- --maxWorkers=2",
+        "passed": true,
+        "total_tests": 2833,
+        "passed_tests": 2832,
+        "failed_tests": 0,
+        "skipped_tests": 1,
+        "failures": [],
+        "evidence": "126/126 test suites passed, 2832/2833 tests passed (1 skipped) - same suite run as Story 07",
+        "note": "Test gate passed, all tests green"
+      },
+      "all_passed": true
     }
   ],
   "remediation_attempts": [
@@ -37,7 +72,9 @@
       "round": 1,
       "fixes": [
         {
-          "questions": ["VQ-08-002"],
+          "questions": [
+            "VQ-08-002"
+          ],
           "description": "Updated placeholder test to trigger flushOutgoingQueue via setOnline(true), verify message stays queued, and assert error log",
           "file": "src/main/nostling/service.test.ts"
         }
@@ -50,5 +87,7 @@
       }
     }
   ],
-  "final_outcome": "PASS"
+  "final_outcome": "PASS",
+  "completed_at": "2026-02-15T16:45:45Z",
+  "updated_at": "2026-02-15T16:45:45Z"
 }

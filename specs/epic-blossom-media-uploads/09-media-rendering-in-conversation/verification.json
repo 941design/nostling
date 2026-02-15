@@ -1,0 +1,182 @@
+{
+  "created_at": "2026-02-15T16:55:00Z",
+  "story_id": "09",
+  "story_title": "Implement media rendering for outgoing and incoming messages",
+
+  "questions": [
+    {
+      "id": "VQ-09-001",
+      "category": "TEST",
+      "question": "Does MediaAttachments component correctly render outgoing messages with local blob preview?",
+      "actionable_check": "Run MediaAttachments.test.ts and verify 'outgoing message with local blob preview' test suite passes. Check that local-blob: URLs trigger IPC resolution via blobStorage.getBlob().",
+      "evidence_required": [
+        "MediaAttachments.test.ts test results",
+        "Code in MediaAttachments.tsx showing useEffect that calls window.api.blobStorage?.getBlob()"
+      ],
+      "pass_criteria": "Test suite 'outgoing message with local blob preview (AC-028)' passes with both tests green",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-09-002",
+      "category": "TEST",
+      "question": "Does MediaAttachments display upload progress bar with correct percentage?",
+      "actionable_check": "Verify MediaAttachments.tsx renders progress bar when isUploading is true and uploadProgress exists. Check calculation: Math.round(uploadProgress.progress * 100).",
+      "evidence_required": [
+        "MediaAttachments.tsx lines 139-156 showing progress bar rendering",
+        "useUploadProgress.ts calculating progress from bytesUploaded/totalBytes"
+      ],
+      "pass_criteria": "Progress bar renders with width style based on uploadProgress.progress, updates smoothly as upload progresses",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-09-003",
+      "category": "TEST",
+      "question": "Does error state show retry button and call onRetry when clicked?",
+      "actionable_check": "Run MediaAttachments.test.ts 'error state with retry (AC-029)' suite. Verify retry button renders when messageStatus='error' and onRetry callback is provided.",
+      "evidence_required": [
+        "MediaAttachments.test.ts AC-029 test results",
+        "MediaAttachments.tsx lines 122-136 showing retry button logic"
+      ],
+      "pass_criteria": "Error state tests pass, retry button visible only when status='error' AND onRetry exists",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-09-004",
+      "category": "TEST",
+      "question": "Does incoming media parsing support both NIP-94 imeta and NIP-92 url tags?",
+      "actionable_check": "Run media-parser.test.ts and verify 'NIP-92 backward compatibility (AC-050)' tests pass. Check parseIncomingMedia() prefers imeta over url tags.",
+      "evidence_required": [
+        "media-parser.test.ts AC-050 test results",
+        "media-parser.ts parseIncomingMedia() function preferring imeta"
+      ],
+      "pass_criteria": "Both NIP-94 and NIP-92 parsing tests pass, imeta tags take precedence when both present",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-09-005",
+      "category": "ARCHITECTURE",
+      "question": "Does blurhash placeholder render while incoming images are loading?",
+      "actionable_check": "Verify BlurhashPlaceholder component in MediaAttachments.tsx uses blurhash decode library. Check AC-032 test for blurhash rendering logic.",
+      "evidence_required": [
+        "MediaAttachments.tsx BlurhashPlaceholder component (lines 309-356)",
+        "MediaAttachments.test.ts AC-032 test results",
+        "Import of decode from 'blurhash' library"
+      ],
+      "pass_criteria": "Blurhash placeholder renders canvas with decoded blurhash when displayUrl is unavailable",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-09-006",
+      "category": "ARCHITECTURE",
+      "question": "Does click-to-expand lightbox work for image attachments?",
+      "actionable_check": "Check Lightbox component in MediaAttachments.tsx (lines 360-398). Verify it renders when lightboxUrl is set, closes on Escape key or click.",
+      "evidence_required": [
+        "MediaAttachments.tsx Lightbox component code",
+        "ImageAttachment onClick handler setting lightboxUrl",
+        "Keyboard event listener for Escape key"
+      ],
+      "pass_criteria": "Lightbox renders full-screen overlay with image, closes via click or Escape",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-09-007",
+      "category": "SPEC",
+      "question": "Does MessageBubble in main.tsx integrate MediaAttachments with all required props?",
+      "actionable_check": "Read main.tsx MessageBubble function (around line 942-951). Verify MediaAttachments receives mediaJson, messageId, messageStatus, isOwn, uploadProgress, onRetry.",
+      "evidence_required": [
+        "main.tsx lines 942-951 showing MediaAttachments integration",
+        "Props match MediaAttachmentsProps interface"
+      ],
+      "pass_criteria": "MessageBubble passes all required props to MediaAttachments when message.mediaJson exists",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-09-008",
+      "category": "ARCHITECTURE",
+      "question": "Does useUploadProgress hook correctly aggregate per-message progress from IPC events?",
+      "actionable_check": "Read useUploadProgress.ts. Verify it listens to window.api.nostling?.media?.onUploadProgress, groups by messageId, calculates overall progress.",
+      "evidence_required": [
+        "useUploadProgress.ts implementation",
+        "useUploadProgress.test.ts results",
+        "Progress calculation: uploadedBytes / totalBytes across all blobs"
+      ],
+      "pass_criteria": "Hook returns Map<messageId, MessageUploadProgress> with correct per-message aggregation",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-09-009",
+      "category": "QUALITY",
+      "question": "Does CachedImage component handle both local file:// URLs and remote HTTPS URLs?",
+      "actionable_check": "Check CachedImage.tsx implementation. Verify it can render both local file paths (file:// scheme) from blob storage and remote URLs from incoming messages.",
+      "evidence_required": [
+        "CachedImage.tsx source code",
+        "CachedImage.test.ts results",
+        "Usage in MediaAttachments for both local and remote URLs"
+      ],
+      "pass_criteria": "CachedImage successfully renders images from file:// and https:// schemes",
+      "added_in_round": 1
+    }
+  ],
+
+  "mandatory_questions": [
+    {
+      "id": "VQ-09-DEAD",
+      "category": "QUALITY",
+      "question": "Is there any dead code introduced by this story?",
+      "actionable_check": "Search MediaAttachments/, media-parser.ts, useUploadProgress.ts for unused functions, classes, imports. Check if all exported functions are actually used.",
+      "evidence_required": ["file paths", "unused symbol names if any"],
+      "pass_criteria": "No unused code in story scope",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-09-DUP",
+      "category": "QUALITY",
+      "question": "Are there any duplicate implementations?",
+      "actionable_check": "Check if media parsing logic exists elsewhere, if blurhash rendering is duplicated, if upload progress tracking has multiple implementations.",
+      "evidence_required": ["file paths", "duplicated logic description if any"],
+      "pass_criteria": "No duplicate implementations",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-09-INT",
+      "category": "TEST",
+      "question": "Do integration tests validate the story's workflow?",
+      "actionable_check": "Verify MediaAttachments.test.ts covers the complete workflow: local blob → upload progress → remote URL → display. Check for integration test covering full message flow.",
+      "evidence_required": [
+        "MediaAttachments.test.ts covering all acceptance criteria",
+        "Test coverage for state transitions (queued → uploading → sent)",
+        "Test for incoming message rendering with imeta/url tags"
+      ],
+      "pass_criteria": "At least one integration test covers the happy path end-to-end for both outgoing and incoming media",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-09-SCOPE",
+      "category": "SPEC",
+      "question": "Does every item in scope.includes have corresponding implementation AND verification?",
+      "actionable_check": "Enumerate scope.includes items from story spec. For each item, find implementation in MediaAttachments.tsx/media-parser.ts/useUploadProgress.ts and corresponding test or VQ.",
+      "evidence_required": [
+        "Scope items list from story spec",
+        "Implementation location per item",
+        "Test or VQ verifying each item"
+      ],
+      "pass_criteria": "All 12 scope.includes items have implementation + test/VQ coverage",
+      "added_in_round": 1
+    },
+    {
+      "id": "VQ-09-FLOW",
+      "category": "ARCHITECTURE",
+      "question": "Do all cross-story data flows have unbroken paths from source through intermediaries to destination?",
+      "actionable_check": "Check upload pipeline (Story 07) → media rendering (Story 09). Verify UploadPipelineService sends progress events → main process forwards → preload exposes → useUploadProgress consumes → MediaAttachments renders.",
+      "evidence_required": [
+        "UploadPipelineService.uploadBlobWithRetry calling deps.onProgress",
+        "main/index.ts sending 'nostling:media:upload-progress'",
+        "preload/index.ts exposing media.onUploadProgress",
+        "useUploadProgress.ts listening to IPC event",
+        "MediaAttachments.tsx receiving uploadProgress prop"
+      ],
+      "pass_criteria": "Upload progress flows from UploadPipelineService → IPC → renderer hook → UI component without breaks",
+      "added_in_round": 1
+    }
+  ]
+}

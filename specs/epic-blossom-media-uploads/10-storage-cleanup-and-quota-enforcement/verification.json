@@ -1,0 +1,54 @@
+{
+  "story_id": "10",
+  "verification_questions": [
+    {
+      "id": "VQ-10-001",
+      "question": "Does deleteExpiredBlobs correctly delete uploaded blobs past the configurable retention period (default 7 days) while retaining blobs within the period and blobs not yet uploaded?",
+      "acceptance_criteria": ["AC-034"],
+      "evidence_needed": ["SQL query uses uploaded_at < cutoff with correct timestamp math", "Tests verify deletion after 8 days, retention after 3 days, retention when uploaded_at is null"]
+    },
+    {
+      "id": "VQ-10-002",
+      "question": "Does evictToQuota enforce the storage quota (default 500MB) via LRU eviction of the oldest uploaded blobs, and does it never evict unuploaded (queued) blobs?",
+      "acceptance_criteria": ["AC-035"],
+      "evidence_needed": ["SQL query orders by uploaded_at ASC", "Tests verify oldest evicted first, unuploaded preserved even when over quota", "getStorageUsage returns correct total"]
+    },
+    {
+      "id": "VQ-10-003",
+      "question": "Does the cleanup logic correctly retain blobs that are referenced by multiple message_media entries when any reference has upload_status != 'uploaded' (multi-identity safety)?",
+      "acceptance_criteria": ["AC-046"],
+      "evidence_needed": ["NOT EXISTS subquery checks all message_media references", "Tests verify retention when any reference is pending/uploading, deletion when all are uploaded"]
+    },
+    {
+      "id": "VQ-10-004",
+      "question": "Is the IPC channel for manual cleanup trigger (nostling:media:cleanup) properly registered and does it accept configurable retentionDays and quotaBytes parameters?",
+      "acceptance_criteria": ["AC-034", "AC-035"],
+      "evidence_needed": ["IPC handler registration in blob-storage-handlers.ts", "Handler passes options through to runCleanup()"]
+    },
+    {
+      "id": "VQ-10-DEAD",
+      "question": "Is there any dead code, unused imports, or unreachable logic in the cleanup and quota enforcement implementation?",
+      "evidence_needed": ["Review of all cleanup-related methods for unused code paths"]
+    },
+    {
+      "id": "VQ-10-DUP",
+      "question": "Is there any duplicated logic between deleteExpiredBlobs and evictToQuota that should be consolidated?",
+      "evidence_needed": ["Both methods share similar SQL patterns - assess if deduplication is warranted"]
+    },
+    {
+      "id": "VQ-10-INT",
+      "question": "Are the tests comprehensive enough to validate the cleanup behavior end-to-end, including edge cases like boundary conditions, orphaned blobs, and concurrent upload status?",
+      "evidence_needed": ["Test coverage of boundary (exactly 7 days), orphan blobs (no message_media), uploading status retention, same-identity multi-message references"]
+    },
+    {
+      "id": "VQ-10-SCOPE",
+      "question": "Does the implementation cover all 9 scope items from the story definition: cleanup scheduler, retention period, blob deletion, quota calculation, LRU eviction, multi-identity retention, never evict queued, configuration, and IPC channel?",
+      "evidence_needed": ["Map each scope item to implementation code"]
+    },
+    {
+      "id": "VQ-10-FLOW",
+      "question": "Does runCleanup correctly orchestrate both phases (retention cleanup then quota enforcement) in the right order, and does phase 2 account for deletions made in phase 1?",
+      "evidence_needed": ["runCleanup calls deleteExpiredBlobs first, then evictToQuota", "evictToQuota recalculates usage after phase 1 deletions"]
+    }
+  ]
+}

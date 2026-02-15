@@ -8,6 +8,7 @@
  */
 
 import { ipcMain } from 'electron';
+import { promises as fs } from 'fs';
 import { BlobStorageService } from '../blob-storage/BlobStorageService';
 
 export interface BlobStorageIpcDependencies {
@@ -38,5 +39,11 @@ export function registerBlobStorageHandlers(dependencies: BlobStorageIpcDependen
   // Get storage usage
   ipcMain.handle('nostling:media:storage-usage', async () => {
     return blobStorageService.getStorageUsage();
+  });
+
+  // Get file info for pre-validation (size check before storeBlob)
+  ipcMain.handle('blob-storage:get-file-info', async (_, filePath: string) => {
+    const stats = await fs.stat(filePath);
+    return { size: stats.size };
   });
 }

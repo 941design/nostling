@@ -1086,14 +1086,15 @@ function ConversationPane({
   };
 
   const handleAddFile = async (filePath: string) => {
-    // In production, this would read the file from the path
-    // For now, we'll show an error since we can't read files directly in renderer
-    toaster.create({
-      title: 'Not yet implemented',
-      description: 'File attachment will be fully functional in the next story. File path: ' + filePath,
-      type: 'info',
-      duration: 5000,
-    });
+    const result = await addAttachment(filePath);
+    if (!result.success) {
+      toaster.create({
+        title: 'File rejected',
+        description: result.error || 'Invalid file',
+        type: 'error',
+        duration: 5000,
+      });
+    }
   };
 
   const handleDrop = async (event: React.DragEvent) => {
@@ -1104,7 +1105,18 @@ function ConversationPane({
 
     const files = Array.from(event.dataTransfer.files);
     for (const file of files) {
-      const result = await addAttachment(file);
+      // Electron exposes the native path on dropped files via file.path
+      const filePath = (file as any).path as string;
+      if (!filePath) {
+        toaster.create({
+          title: 'File rejected',
+          description: 'Could not determine file path',
+          type: 'error',
+          duration: 5000,
+        });
+        continue;
+      }
+      const result = await addAttachment(filePath, file);
       if (!result.success) {
         toaster.create({
           title: 'File rejected',

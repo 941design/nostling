@@ -1,0 +1,13 @@
+{
+  "story_id": "10",
+  "baseline_timestamp": "2026-02-15T19:15:00Z",
+  "test_results": {
+    "total_suites": 126,
+    "total_tests": 2842,
+    "passed": 2841,
+    "failed": 0,
+    "skipped": 1
+  },
+  "runner": "jest --maxWorkers=2",
+  "note": "Baseline inherited from Story 09 test gate"
+}

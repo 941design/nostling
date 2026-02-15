@@ -185,32 +185,14 @@ async function detectMimeType(filePath: string): Promise<string> {
   }
 }
 
-/**
- * Check if MIME type is an image.
- *
- * CONTRACT:
- *   Inputs:
- *     - mimeType: string, MIME type
- *
- *   Outputs:
- *     - boolean: true if image type, false otherwise
- *
- *   Invariants:
- *     - Returns true for all "image/*" MIME types
- *
- *   Properties:
- *     - Simple prefix match: reliable for standard MIME types
- */
-function isImageMimeType(mimeType: string): boolean {
-  return mimeType.startsWith('image/');
-}
-
 /** Image types that our pure-JS pipeline can process (decode, EXIF strip, blurhash). */
 const PROCESSABLE_IMAGE_TYPES = new Set(['image/jpeg', 'image/png']);
+
 
 export class BlobStorageService {
   private readonly blobsDir: string;
   private db: Database | null = null;
+  private cleanupTimer: NodeJS.Timeout | null = null;
 
   constructor(blobsDir: string) {
     this.blobsDir = blobsDir;
@@ -612,5 +594,76 @@ export class BlobStorageService {
       }
     }
     return deleted;
+  }
+
+  /**
+   * Start automatic cleanup scheduler.
+   *
+   * CONTRACT:
+   *   Inputs:
+   *     - intervalMs: number, cleanup interval in milliseconds (default 24 hours)
+   *     - retentionDays: number, retention period in days (default 7)
+   *     - quotaBytes: number, storage quota in bytes (default 500 MB)
+   *
+   *   Outputs:
+   *     - void
+   *
+   *   Invariants:
+   *     - After call, cleanup runs periodically at specified interval
+   *     - Only one scheduler runs at a time (stops existing before starting new)
+   *
+   *   Properties:
+   *     - Idempotent: safe to call multiple times (stops existing first)
+   *     - Side effects: sets cleanupTimer, logs cleanup results
+   *
+   *   Algorithm:
+   *     1. Stop existing scheduler if running
+   *     2. Start new interval timer
+   *     3. Run cleanup immediately, then at specified interval
+   */
+  startScheduler(
+    intervalMs: number = 24 * 60 * 60 * 1000, // 24 hours
+    retentionDays: number = 7,
+    quotaBytes: number = 500 * 1024 * 1024
+  ): void {
+    // Stop existing scheduler if running
+    this.stopScheduler();
+
+    // Run cleanup immediately
+    this.runCleanup(retentionDays, quotaBytes).catch((error) => {
+      console.error('[BlobStorageService] Scheduled cleanup failed:', error);
+    });
+
+    // Schedule periodic cleanup
+    this.cleanupTimer = setInterval(() => {
+      this.runCleanup(retentionDays, quotaBytes).catch((error) => {
+        console.error('[BlobStorageService] Scheduled cleanup failed:', error);
+      });
+    }, intervalMs);
+  }
+
+  /**
+   * Stop automatic cleanup scheduler.
+   *
+   * CONTRACT:
+   *   Inputs:
+   *     - this: BlobStorageService instance
+   *
+   *   Outputs:
+   *     - void
+   *
+   *   Invariants:
+   *     - After call, no scheduled cleanup is running
+   *     - cleanupTimer is null
+   *
+   *   Properties:
+   *     - Idempotent: safe to call multiple times
+   *     - Safe to call if no scheduler running
+   */
+  stopScheduler(): void {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+      this.cleanupTimer = null;
+    }
   }
 }

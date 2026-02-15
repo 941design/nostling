@@ -530,6 +530,9 @@ app.on('ready', async () => {
   await blobStorageService.initialize();
   registerBlobStorageHandlers({ blobStorageService });
 
+  // Start automatic cleanup scheduler (runs every 24 hours)
+  blobStorageService.startScheduler();
+
   // Initialize upload pipeline for Blossom media uploads
   // Must be set BEFORE initialize() since flushOutgoingQueue needs it for media messages
   const { UploadPipelineService } = await import('./media/upload-pipeline');
@@ -698,6 +701,9 @@ app.on('before-quit', async (event) => {
   if (dbFlushTimer !== null) {
     clearInterval(dbFlushTimer);
     dbFlushTimer = null;
+  }
+  if (blobStorageService) {
+    blobStorageService.stopScheduler();
   }
 
   // Only do async cleanup once

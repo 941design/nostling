@@ -116,6 +116,7 @@ export interface StateApi {
 export interface BlobStorageApi {
   storeBlob(filePath: string): Promise<{ hash: string; metadata: any; deduplicated: boolean }>;
   getBlob(hash: string): Promise<{ hash: string; mimeType: string; sizeBytes: number; localPath: string; dimensions?: { width: number; height: number }; blurhash?: string } | null>;
+  getFileInfo(filePath: string): Promise<{ size: number }>;
 }
 
 export interface RendererApi {

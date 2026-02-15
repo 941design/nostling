@@ -165,6 +165,8 @@ jest.mock('./ipc/blossom-handlers', () => ({
 jest.mock('./blob-storage/BlobStorageService', () => ({
   BlobStorageService: jest.fn().mockImplementation(() => ({
     initialize: jest.fn(() => Promise.resolve()),
+    startScheduler: jest.fn(),
+    stopScheduler: jest.fn(),
   })),
 }));
 

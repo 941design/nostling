@@ -21,7 +21,7 @@ export interface AttachmentMetadata {
 
 export interface UseAttachmentsReturn {
   attachments: AttachmentMetadata[];
-  addAttachment: (file: File) => Promise<{ success: boolean; error?: string }>;
+  addAttachment: (filePath: string, file?: File) => Promise<{ success: boolean; error?: string }>;
   removeAttachment: (index: number) => void;
   clearAttachments: () => void;
 }
@@ -35,14 +35,15 @@ export interface UseAttachmentsReturn {
  *
  *   Outputs:
  *     - attachments: array of attachment metadata
- *     - addAttachment: async function to add file, returns { success: boolean, error?: string }
+ *     - addAttachment: async function to add file by path, returns { success: boolean, error?: string }
  *     - removeAttachment: function to remove by index
  *     - clearAttachments: function to clear all
  *
  *   Invariants:
  *     - Files are validated before storage
  *     - Only valid files are added to the list
- *     - Thumbnails generated for images
+ *     - Thumbnails generated for images (client-side for instant preview)
+ *     - Hash and metadata come from BlobStorageService via IPC
  *
  *   Properties:
  *     - Validation: files validated before blob storage
@@ -52,54 +53,75 @@ export interface UseAttachmentsReturn {
 export function useAttachments(): UseAttachmentsReturn {
   const [attachments, setAttachments] = useState<AttachmentMetadata[]>([]);
 
-  const addAttachment = async (file: File): Promise<{ success: boolean; error?: string }> => {
-    // Validate file
-    const validation = validateFile({
-      name: file.name,
-      size: file.size,
-      type: file.type,
-    });
-
-    if (!validation.valid) {
-      return { success: false, error: validation.reason };
-    }
-
-    try {
-      // Create temporary path for the file
-      // In a real implementation, we'd need to save the File object to a temp location
-      // For now, we'll use the browser's ability to read the file directly
-      const arrayBuffer = await file.arrayBuffer();
-      const blob = new Blob([arrayBuffer]);
-      const fileUrl = URL.createObjectURL(blob);
-
-      // For images, generate thumbnail
-      let thumbnailUrl: string | undefined;
-      let dimensions: { width: number; height: number } | undefined;
-      if (file.type.startsWith('image/')) {
-        thumbnailUrl = await generateThumbnail(file);
-        dimensions = await getImageDimensions(file);
-      }
-
-      // In a production implementation, we would:
-      // 1. Save the file to a temporary location
-      // 2. Call window.api.blobStorage.storeBlob(tempPath)
-      // 3. Get back hash and metadata
-      // For this UI-focused story, we'll simulate the metadata
-
-      // Generate a simple hash for demo purposes
-      const hash = await generateSimpleHash(arrayBuffer);
-
-      const metadata: AttachmentMetadata = {
+  const addAttachment = async (
+    filePath: string,
+    file?: File
+  ): Promise<{ success: boolean; error?: string }> => {
+    // Validate file before IPC call to avoid unnecessary round-trips
+    if (file) {
+      // Drag-and-drop: File object provides all info for validation
+      const validation = validateFile({
         name: file.name,
         size: file.size,
         type: file.type,
+      });
+
+      if (!validation.valid) {
+        return { success: false, error: validation.reason };
+      }
+    } else {
+      // File picker: validate file size via lightweight IPC call
+      // (MIME type is constrained by dialog filters in handleAttachClick)
+      try {
+        const fileInfo = await window.api.blobStorage?.getFileInfo(filePath);
+        if (fileInfo) {
+          if (fileInfo.size === 0) {
+            return { success: false, error: 'File is empty' };
+          }
+          if (fileInfo.size > 25 * 1024 * 1024) {
+            const sizeMB = (fileInfo.size / (1024 * 1024)).toFixed(1);
+            return { success: false, error: `File size (${sizeMB} MB) exceeds maximum allowed size of 25 MB` };
+          }
+        }
+      } catch {
+        // getFileInfo failure is non-fatal; storeBlob will handle the file
+      }
+    }
+
+    try {
+      // Store the file via IPC to main process blob storage
+      const result = await window.api.blobStorage?.storeBlob(filePath);
+      if (!result) {
+        return { success: false, error: 'Blob storage not available' };
+      }
+
+      const { hash, metadata } = result;
+
+      // Generate thumbnail client-side for instant preview (if File object available and it's an image)
+      let thumbnailUrl: string | undefined;
+      if (file && file.type.startsWith('image/')) {
+        try {
+          thumbnailUrl = await generateThumbnail(file);
+        } catch {
+          // Thumbnail generation failure is non-fatal
+        }
+      }
+
+      // Extract the file name from the path
+      const fileName = file?.name ?? filePath.split(/[/\\]/).pop() ?? 'attachment';
+
+      const attachmentMetadata: AttachmentMetadata = {
+        name: fileName,
+        size: metadata.sizeBytes,
+        type: metadata.mimeType,
         hash,
-        localPath: fileUrl, // In production, this would be the actual local path from blob storage
+        localPath: metadata.localPath,
         thumbnailUrl,
-        dimensions,
+        dimensions: metadata.dimensions ?? undefined,
+        blurhash: metadata.blurhash ?? undefined,
       };
 
-      setAttachments((prev) => [...prev, metadata]);
+      setAttachments((prev) => [...prev, attachmentMetadata]);
       return { success: true };
     } catch (error) {
       return {
@@ -112,11 +134,8 @@ export function useAttachments(): UseAttachmentsReturn {
   const removeAttachment = (index: number) => {
     setAttachments((prev) => {
       const attachment = prev[index];
-      // Clean up object URL if it exists
-      if (attachment && attachment.localPath.startsWith('blob:')) {
-        URL.revokeObjectURL(attachment.localPath);
-      }
-      if (attachment && attachment.thumbnailUrl?.startsWith('blob:')) {
+      // Clean up thumbnail object URL if it's a blob: URL
+      if (attachment?.thumbnailUrl?.startsWith('blob:')) {
         URL.revokeObjectURL(attachment.thumbnailUrl);
       }
       return prev.filter((_, i) => i !== index);
@@ -124,11 +143,8 @@ export function useAttachments(): UseAttachmentsReturn {
   };
 
   const clearAttachments = () => {
-    // Clean up all object URLs
+    // Clean up thumbnail object URLs
     attachments.forEach((attachment) => {
-      if (attachment.localPath.startsWith('blob:')) {
-        URL.revokeObjectURL(attachment.localPath);
-      }
       if (attachment.thumbnailUrl?.startsWith('blob:')) {
         URL.revokeObjectURL(attachment.thumbnailUrl);
       }
@@ -193,36 +209,4 @@ async function generateThumbnail(file: File): Promise<string> {
 
     img.src = url;
   });
-}
-
-/**
- * Get image dimensions
- */
-async function getImageDimensions(file: File): Promise<{ width: number; height: number }> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      resolve({ width: img.width, height: img.height });
-    };
-
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error('Failed to load image'));
-    };
-
-    img.src = url;
-  });
-}
-
-/**
- * Generate a simple hash from array buffer (for demo purposes)
- * In production, this would use the hash from blob storage service
- */
-async function generateSimpleHash(buffer: ArrayBuffer): Promise<string> {
-  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
 }
