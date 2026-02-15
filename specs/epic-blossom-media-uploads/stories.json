@@ -285,7 +285,7 @@
           "permanent": true
         }
       ],
-      "status": "pending",
+      "status": "done",
       "notes": "High complexity due to retry logic, concurrency, and queue integration. Use local Blossom test server with configurable responses (success, timeout, rejection). Verify upload timing, NIP-98 headers, retry intervals, partial failure, concurrency limits, and cancellation."
     },
     {
@@ -315,7 +315,7 @@
       "complexity": "medium",
       "mock_dependencies": [],
       "introduces_mocks": [],
-      "status": "pending",
+      "status": "done",
       "notes": "Critical constraint story - MUST verify no placeholder leakage. Use relay inspector in dual-instance environment to capture published events, decrypt, and confirm real URLs only. Can test independently by mocking upload completion."
     },
     {
@@ -387,7 +387,7 @@
       "complexity": "medium",
       "mock_dependencies": [],
       "introduces_mocks": [],
-      "status": "done",
+      "status": "pending",
       "notes": "Testable by fast-forwarding time or manually triggering cleanup. Verify blob deletion after retention period, quota enforcement, LRU ordering, and multi-identity retention. Use low quota (10 MB) for easier testing."
     },
     {

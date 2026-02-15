@@ -1,10 +1,10 @@
 {
   "epic_name": "blossom-media-uploads",
   "created_at": "2026-02-13T00:00:00Z",
-  "updated_at": "2026-02-15T00:00:00Z",
+  "updated_at": "2026-02-15T19:15:00Z",
   "status": "in_progress",
   "phase": "IN_PROGRESS",
-  "current_story": "11",
+  "current_story": "10",
   "completed_stories": [
     "01",
     "02",
@@ -14,8 +14,7 @@
     "06",
     "07",
     "08",
-    "09",
-    "10"
+    "09"
   ],
   "blocked_stories": [],
   "escalated_stories": [],
@@ -54,6 +53,11 @@
       "phase": "IN_PROGRESS",
       "timestamp": "2026-02-15T00:00:00Z",
       "trigger": "reopened_stub_discovered_in_story_05"
+    },
+    {
+      "phase": "PROTOCOL_REMEDIATION",
+      "timestamp": "2026-02-15T16:20:55Z",
+      "trigger": "reset_stories_09_10_protocol_violations"
     }
   ],
   "escalation": {

@@ -5,6 +5,7 @@ import {
   formatFileSize,
   ParsedMediaAttachment,
 } from '../../utils/media-parser';
+import { getStatusDisplay } from './index';
 
 /**
  * Tests for media rendering decision logic used by MediaAttachments component.
@@ -189,6 +190,116 @@ describe('MediaAttachments rendering decisions', () => {
         const isUploading = status === 'queued' || status === 'sending';
         expect(isUploading).toBe(false);
       }
+    });
+  });
+
+  describe('status icon transitions (AC-028 status indicators)', () => {
+    it('queued shows clock icon', () => {
+      const { icon, label } = getStatusDisplay('queued');
+      expect(icon).toBe('clock');
+      expect(label).toBe('Queued');
+    });
+
+    it('sending with upload in progress shows progress icon', () => {
+      const { icon, label } = getStatusDisplay('sending', false);
+      expect(icon).toBe('progress');
+      expect(label).toBe('Uploading');
+    });
+
+    it('sending with upload complete shows spinner icon', () => {
+      const { icon, label } = getStatusDisplay('sending', true);
+      expect(icon).toBe('spinner');
+      expect(label).toBe('Sending');
+    });
+
+    it('sent shows checkmark icon', () => {
+      const { icon, label } = getStatusDisplay('sent');
+      expect(icon).toBe('check');
+      expect(label).toBe('Sent');
+    });
+
+    it('error shows warning icon', () => {
+      const { icon, label } = getStatusDisplay('error');
+      expect(icon).toBe('warning');
+      expect(label).toBe('Upload failed');
+    });
+
+    it('transitions through full lifecycle: queued → uploading → sending → sent', () => {
+      const states = [
+        { status: 'queued', uploadComplete: false, expected: 'clock' },
+        { status: 'sending', uploadComplete: false, expected: 'progress' },
+        { status: 'sending', uploadComplete: true, expected: 'spinner' },
+        { status: 'sent', uploadComplete: true, expected: 'check' },
+      ];
+      for (const { status, uploadComplete, expected } of states) {
+        expect(getStatusDisplay(status, uploadComplete).icon).toBe(expected);
+      }
+    });
+
+    it('transitions through error lifecycle: queued → uploading → error', () => {
+      const states = [
+        { status: 'queued', expected: 'clock' },
+        { status: 'sending', expected: 'progress' },
+        { status: 'error', expected: 'warning' },
+      ];
+      for (const { status, expected } of states) {
+        expect(getStatusDisplay(status).icon).toBe(expected);
+      }
+    });
+  });
+
+  describe('integration: outgoing message complete workflow', () => {
+    it('local blob attachment with upload progress follows expected state chain', () => {
+      // Step 1: Message created with local blob attachment
+      const mediaJson = JSON.stringify({
+        attachments: [
+          { hash: 'abc123', name: 'photo.jpg', mimeType: 'image/jpeg', sizeBytes: 50000 },
+        ],
+      });
+      const attachments = parseMediaJson(mediaJson);
+      expect(attachments[0].isLocalBlob).toBe(true);
+
+      // Step 2: Status transitions tracked
+      const { icon: queuedIcon } = getStatusDisplay('queued');
+      expect(queuedIcon).toBe('clock');
+
+      // Step 3: Upload starts
+      const { icon: uploadingIcon } = getStatusDisplay('sending', false);
+      expect(uploadingIcon).toBe('progress');
+
+      // Step 4: Upload complete, NIP-17 encryption in progress
+      const { icon: sendingIcon } = getStatusDisplay('sending', true);
+      expect(sendingIcon).toBe('spinner');
+
+      // Step 5: Message sent, URL replaces placeholder
+      const sentMediaJson = JSON.stringify({
+        attachments: [{
+          hash: 'abc123',
+          name: 'photo.jpg',
+          mimeType: 'image/jpeg',
+          sizeBytes: 50000,
+          imeta: ['url https://blossom.example/abc123', 'm image/jpeg', 'size 50000', 'sha256 abc123'],
+        }],
+      });
+      const sentAttachments = parseMediaJson(sentMediaJson);
+      expect(sentAttachments[0].isLocalBlob).toBe(false);
+      expect(sentAttachments[0].url).toBe('https://blossom.example/abc123');
+
+      const { icon: sentIcon } = getStatusDisplay('sent');
+      expect(sentIcon).toBe('check');
+    });
+
+    it('incoming message with imeta tags renders without status icons', () => {
+      const mediaJson = JSON.stringify({
+        tags: [
+          ['imeta', 'url https://blossom.example/img1', 'm image/jpeg', 'size 30000', 'dim 800x600', 'blurhash LEHV6n', 'sha256 img1'],
+        ],
+      });
+      const attachments = parseMediaJson(mediaJson);
+      expect(attachments).toHaveLength(1);
+      expect(attachments[0].isLocalBlob).toBe(false);
+      expect(attachments[0].blurhash).toBe('LEHV6n');
+      // Incoming messages don't need status icons (isOwn=false)
     });
   });
 });

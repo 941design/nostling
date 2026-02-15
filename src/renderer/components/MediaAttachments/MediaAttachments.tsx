@@ -118,20 +118,26 @@ export function MediaAttachments({
         })}
       </Flex>
 
-      {/* Error state with retry */}
-      {isError && onRetry && (
-        <Flex align="center" gap="2" mt="1">
-          <Text fontSize="xs" color={colors.statusError}>Upload failed</Text>
-          <IconButton
-            size="xs"
-            variant="ghost"
-            aria-label="Retry upload"
-            onClick={onRetry}
-            color={colors.statusError}
-            _hover={{ bg: colors.surfaceBgSelected }}
-          >
-            <RetryIcon />
-          </IconButton>
+      {/* Status indicator */}
+      {isOwn && (
+        <Flex align="center" gap="1" mt="1">
+          <StatusIndicator
+            messageStatus={messageStatus}
+            uploadProgress={uploadProgress}
+            colors={colors}
+          />
+          {isError && onRetry && (
+            <IconButton
+              size="xs"
+              variant="ghost"
+              aria-label="Retry upload"
+              onClick={onRetry}
+              color={colors.statusError}
+              _hover={{ bg: colors.surfaceBgSelected }}
+            >
+              <RetryIcon />
+            </IconButton>
+          )}
         </Flex>
       )}
 
@@ -397,7 +403,99 @@ function Lightbox({ url, onClose }: { url: string; onClose: () => void }) {
   );
 }
 
+// --- Status Indicator ---
+
+/** Returns the status icon and label for outgoing message states. */
+export function getStatusDisplay(messageStatus: string, isUploadComplete?: boolean): { icon: 'clock' | 'progress' | 'spinner' | 'check' | 'warning'; label: string } {
+  switch (messageStatus) {
+    case 'queued':
+      return { icon: 'clock', label: 'Queued' };
+    case 'sending':
+      return isUploadComplete
+        ? { icon: 'spinner', label: 'Sending' }
+        : { icon: 'progress', label: 'Uploading' };
+    case 'sent':
+      return { icon: 'check', label: 'Sent' };
+    case 'error':
+      return { icon: 'warning', label: 'Upload failed' };
+    default:
+      return { icon: 'check', label: '' };
+  }
+}
+
+function StatusIndicator({
+  messageStatus,
+  uploadProgress,
+  colors,
+}: {
+  messageStatus: string;
+  uploadProgress?: MessageUploadProgress;
+  colors: ReturnType<typeof useThemeColors>;
+}) {
+  const { icon, label } = getStatusDisplay(messageStatus, uploadProgress?.isComplete);
+  const iconColor = messageStatus === 'error' ? colors.statusError : colors.textMuted;
+
+  return (
+    <Flex align="center" gap="1">
+      {icon === 'clock' && <ClockIcon color={iconColor} />}
+      {icon === 'progress' && <ProgressIcon color={iconColor} />}
+      {icon === 'spinner' && <SpinnerIcon color={iconColor} />}
+      {icon === 'check' && <CheckmarkIcon color={iconColor} />}
+      {icon === 'warning' && <WarningIcon color={iconColor} />}
+      {label && <Text fontSize="xs" color={iconColor}>{label}</Text>}
+    </Flex>
+  );
+}
+
 // --- Icons ---
+
+function ClockIcon({ color }: { color: string }) {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  );
+}
+
+function ProgressIcon({ color }: { color: string }) {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="12" y1="2" x2="12" y2="6" />
+      <line x1="12" y1="18" x2="12" y2="22" />
+      <line x1="4.93" y1="4.93" x2="7.76" y2="7.76" />
+      <line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
+      <line x1="2" y1="12" x2="6" y2="12" />
+      <line x1="18" y1="12" x2="22" y2="12" />
+    </svg>
+  );
+}
+
+function SpinnerIcon({ color }: { color: string }) {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+    </svg>
+  );
+}
+
+function CheckmarkIcon({ color }: { color: string }) {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+function WarningIcon({ color }: { color: string }) {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+      <line x1="12" y1="9" x2="12" y2="13" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  );
+}
 
 function RetryIcon() {
   return (

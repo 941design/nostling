@@ -1,1 +1,1 @@
-export { MediaAttachments } from './MediaAttachments';
+export { MediaAttachments, getStatusDisplay } from './MediaAttachments';
