@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Blossom Media Uploads**: End-to-end media attachment support with content-addressed blob storage and Blossom server integration
+  - Attach files via paperclip button or drag-and-drop with instant thumbnail preview
+  - Content-addressed local blob storage with streaming SHA-256 hashing and EXIF stripping
+  - Per-identity Blossom server configuration with health checks and fallback
+  - BUD-06 upload pipeline with NIP-98 authentication, retry with exponential backoff, and concurrency limiting
+  - NIP-94 imeta tag construction with local-blob placeholder resolution before NIP-17/59 encryption
+  - Media rendering in conversation: outgoing progress indicators, incoming blurhash placeholders, click-to-expand lightbox
+  - Automatic storage cleanup scheduler (7-day retention, 500 MB quota, LRU eviction)
+  - File validation (25 MB size limit, supported MIME types), multi-identity blob retention safety
 - **Avatar Image Selector**: Browse and select profile avatars from curated collection during identity profile editing
   - Modal interface with "Browse Server" tab for avatar selection
   - Subject-based filtering using external API vocabulary
