@@ -289,15 +289,15 @@ nvm use
 
 ### Commands
 
-| Command | Description |
-|---------|-------------|
-| `make dev` | Start with hot reload |
-| `make build` | Production build |
-| `make test` | Unit tests |
-| `make test-e2e` | End-to-end tests |
-| `make lint` | Type checking |
-| `make package` | Create distributable packages |
-| `make release` | Full release build |
+| Command         | Description                   |
+|-----------------|-------------------------------|
+| `make dev`      | Start with hot reload         |
+| `make build`    | Production build              |
+| `make test`     | Unit tests                    |
+| `make test-e2e` | End-to-end tests              |
+| `make lint`     | Type checking                 |
+| `make package`  | Create distributable packages |
+| `make release`  | Full release build            |
 
 Run `make help` for all available commands.
 

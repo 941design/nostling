@@ -19,6 +19,17 @@ This builds the app, starts the local strfry relay and Blossom server, sets up d
 | Data A | `/tmp/nostling-a` | Instance A storage |
 | Data B | `/tmp/nostling-b` | Instance B storage |
 
+## Test Design Principles
+
+All test procedures execute user-facing actions exclusively through Playwright UI interactions — clicking buttons, typing text, dragging files — never through `window.api.*` IPC calls. This ensures the protocol validates the complete stack from renderer components through IPC to main process services. A test that bypasses the UI (e.g., calling `blobStorage.storeBlob()` and `messages.send()` directly) can pass while the actual user-facing flow is broken, because it skips the renderer integration layer entirely.
+
+**Exceptions:**
+- **Infrastructure operations** (relay stop/start, environment setup) use shell commands — these are not user actions
+- **State verification** uses screenshots, log file checks, or `browser_evaluate` to read displayed values
+- **Data transfer between instances** (e.g., reading a displayed npub to paste as a contact on the other instance) uses `browser_evaluate` to extract text from DOM elements
+
+See `docs/dual-instance-testing.md` for the test procedures that follow these principles.
+
 ## Prerequisites
 
 ### All platforms

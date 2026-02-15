@@ -2,7 +2,7 @@
   "epic_name": "blossom-media-uploads",
   "created_at": "2026-02-13T00:00:00Z",
   "updated_at": "2026-02-13T16:37:04.789Z",
-  "total_stories": 10,
+  "total_stories": 11,
   "stories": [
     {
       "id": "01",
@@ -389,6 +389,39 @@
       "introduces_mocks": [],
       "status": "done",
       "notes": "Testable by fast-forwarding time or manually triggering cleanup. Verify blob deletion after retention period, quota enforcement, LRU ordering, and multi-identity retention. Use low quota (10 MB) for easier testing."
+    },
+    {
+      "id": "11",
+      "name": "renderer-blob-storage-integration",
+      "title": "Wire renderer attachment flow to blob storage service",
+      "description": "The useAttachments hook (Story 05) was implemented as a UI stub — it generates browser-side hashes and blob: URLs for preview but never calls window.api.blobStorage.storeBlob() to persist files or populate media_blobs. The paperclip button shows a 'Not yet implemented' toast. As a result, the upload pipeline silently finds nothing to upload (getPendingUploads JOIN returns 0 rows) and messages with attachments are permanently stuck. This story bridges the renderer attachment flow to the main process blob storage service.",
+      "acceptance_criteria": [
+        "AC-S11-01",
+        "AC-S11-02",
+        "AC-S11-03",
+        "AC-S11-04"
+      ],
+      "scope": {
+        "includes": [
+          "Replace useAttachments stub with storeBlob() IPC call",
+          "Wire handleAddFile to call storeBlob with file path from showOpenDialog",
+          "Use File.path (Electron-specific) for drag-and-drop to get absolute path",
+          "Use hash and metadata returned by storeBlob instead of browser-side values",
+          "Remove 'Not yet implemented' toast from handleAddFile",
+          "Keep client-side thumbnail generation for instant preview"
+        ],
+        "excludes": [
+          "BlobStorageService changes (Story 02 — already works)",
+          "Upload pipeline changes (Story 07 — already works)",
+          "Preload bridge changes (storeBlob already exposed)",
+          "enqueueOutgoingMessage changes (Story 06 — already works)"
+        ]
+      },
+      "complexity": "low",
+      "mock_dependencies": [],
+      "introduces_mocks": [],
+      "status": "pending",
+      "notes": "Fixes a stub left over from Story 05. No backend changes needed — all services are implemented and tested. The fix is purely in the renderer: useAttachments.ts and main.tsx. Must be verified via UI-only T11 test in dual-instance environment per docs/dual-instance-playwright-setup.md test design principles."
     }
   ],
   "story_order": [
@@ -401,7 +434,8 @@
     "07",
     "08",
     "09",
-    "10"
+    "10",
+    "11"
   ],
   "dependency_notes": "Stories are designed to be independent vertical slices. Story 01 (database schema) is the foundation but other stories can proceed in parallel using the schema definition. Story 07 (upload pipeline) is the most complex and integrates components from Stories 02 (blob storage), 03 (server config), and 04 (NIP-98 auth), but can be implemented and tested independently using test fixtures for the Blossom server. Story 08 (encryption integration) depends on upload completion events but uses the existing encryption implementation. Story 09 (UI rendering) can be developed in parallel with backend stories by using test data with various message states.",
   "mock_resolution_plan": "No temporary mocks used. External dependencies (Blossom server, HTTP endpoints) are handled via permanent test fixtures (FIXTURE-03-001, FIXTURE-07-001) which provide BUD-06 compliant test doubles for CI/CD and development. These fixtures are permanent testing infrastructure and do not require resolution."

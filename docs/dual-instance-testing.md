@@ -2,6 +2,8 @@
 
 Manual and agentic test procedures for verifying Nostling behavior across two instances connected to a shared relay. These tests cover messaging, profile exchange, relay connectivity, and UI correctness that cannot be validated with a single instance.
 
+All user-facing actions are performed exclusively through UI interactions (see `docs/dual-instance-playwright-setup.md` — Test Design Principles).
+
 ## Test Environment Setup
 
 ### Quick Start
@@ -82,7 +84,7 @@ done
 
 **When to restart**:
 - CDP endpoints are unreachable
-- Relay connectivity is broken and `relays.reload()` doesn't recover it
+- Relay connectivity is broken and cannot recover
 - A test requires a clean start (e.g., T05)
 - The prior test disrupted relay connectivity (e.g., stopped/started the relay)
 
@@ -90,7 +92,7 @@ done
 
 - `playwright-a` controls Instance A, `playwright-b` controls Instance B.
 - Use `browser_take_screenshot` or `browser_evaluate` for verification. `browser_snapshot` is unreliable with Chakra UI (returns empty YAML after re-renders).
-- The IPC bridge is available at `window.api.nostling.*` (identities, contacts, messages, relays, profiles).
+- `browser_evaluate` may be used to read displayed state (e.g., extracting an npub shown in the UI). It must NOT be used to execute actions — all mutations go through UI interactions.
 - Logs are the primary verification mechanism: grep for `Publish complete`, `Received NIP-17 DM`, and `Stored incoming`.
 
 ---
@@ -101,45 +103,15 @@ This sequence is a prerequisite for all test scenarios below.
 
 ### Steps
 
-1. **Instance A** -- Create identity "Alice":
-   ```js
-   await window.api.nostling.identities.create({ label: 'Alice' })
-   ```
-   Record the returned `id` (Alice's identity ID) and `npub` (Alice's public key).
+1. **Instance A** -- Create identity "Alice": Click the "Create Identity" button. Enter "Alice" as the label. Submit the form. After creation, navigate to the identity details view and record Alice's npub (use `browser_evaluate` to extract the npub text from the displayed element).
 
-2. **Instance B** -- Create identity "Bob":
-   ```js
-   await window.api.nostling.identities.create({ label: 'Bob' })
-   ```
-   Record Bob's `id` and `npub`.
+2. **Instance B** -- Create identity "Bob": Same procedure. Record Bob's npub.
 
-3. **Instance A** -- Add Bob as contact:
-   ```js
-   await window.api.nostling.contacts.add({
-     identityId: '<alice-identity-id>',
-     npub: '<bob-npub>',
-     alias: 'Bob'
-   })
-   ```
-   Record the returned contact ID.
+3. **Instance A** -- Add Bob as contact: Click the "Add Contact" button. Paste Bob's npub into the npub field. Enter "Bob" as the alias. Submit the form.
 
-4. **Instance B** -- Add Alice as contact:
-   ```js
-   await window.api.nostling.contacts.add({
-     identityId: '<bob-identity-id>',
-     npub: '<alice-npub>',
-     alias: 'Alice'
-   })
-   ```
-   Record the returned contact ID.
+4. **Instance B** -- Add Alice as contact: Same procedure using Alice's npub and alias "Alice".
 
-5. **Both instances** -- Reload UI:
-   ```js
-   location.reload()
-   ```
-   Wait 3 seconds for re-render.
-
-6. **Verify** -- Take screenshots of both instances. Each should show the identity in the sidebar with the other party listed under Contacts.
+5. **Both instances** -- Take screenshots. Each should show the identity in the sidebar with the other party listed under Contacts.
 
 ---
 
@@ -152,18 +124,11 @@ This sequence is a prerequisite for all test scenarios below.
 
 #### Steps
 
-1. **Instance A** -- Send message from Alice to Bob:
-   ```js
-   await window.api.nostling.messages.send({
-     identityId: '<alice-identity-id>',
-     contactId: '<bob-contact-id-on-A>',
-     plaintext: 'Hello Bob from Alice [t01-msg1]'
-   })
-   ```
+1. **Instance A** -- Click on Bob's contact card in the sidebar to open the conversation. Type `Hello Bob from Alice [t01-msg1]` in the message input field. Click the Send button.
 
 2. **Wait** 15 seconds for relay propagation and subscription delivery.
 
-3. **Instance B** -- Take screenshot. Verify the message "Hello Bob from Alice [t01-msg1]" appears in the conversation pane as an incoming message (left-aligned).
+3. **Instance B** -- Click on Alice's contact card to open the conversation. Take screenshot. Verify the message "Hello Bob from Alice [t01-msg1]" appears in the conversation pane as an incoming message (left-aligned).
 
 4. **Log check** -- Instance A log:
    ```
@@ -177,14 +142,7 @@ This sequence is a prerequisite for all test scenarios below.
    ```
    Expected: One `Received NIP-17 DM` entry.
 
-6. **Instance B** -- Send reply from Bob to Alice:
-   ```js
-   await window.api.nostling.messages.send({
-     identityId: '<bob-identity-id>',
-     contactId: '<alice-contact-id-on-B>',
-     plaintext: 'Hello Alice from Bob [t01-msg2]'
-   })
-   ```
+6. **Instance B** -- With Alice's conversation still open, type `Hello Alice from Bob [t01-msg2]` in the message input field. Click the Send button.
 
 7. **Wait** 15 seconds.
 
@@ -211,21 +169,11 @@ This sequence is a prerequisite for all test scenarios below.
 
 #### Steps
 
-1. Complete T01 setup (identities + contacts).
+1. Complete pre-test setup.
 
-2. **Send 10 messages** from Instance A to Instance B, spaced 1 second apart:
-   ```js
-   for (let i = 1; i <= 10; i++) {
-     await window.api.nostling.messages.send({
-       identityId: '<alice-identity-id>',
-       contactId: '<bob-contact-id-on-A>',
-       plaintext: `Lookback test A->B [msg-${i}]`
-     });
-     await new Promise(r => setTimeout(r, 1000));
-   }
-   ```
+2. **Instance A** -- Click on Bob's contact card. Send 10 messages by typing each in the message input and clicking Send, pausing ~1 second between each: `Lookback test A->B [msg-1]` through `Lookback test A->B [msg-10]`.
 
-3. **Send 10 messages** from Instance B to Instance A (same pattern).
+3. **Instance B** -- Click on Alice's contact card. Send 10 messages using the same pattern: `Lookback test B->A [msg-1]` through `Lookback test B->A [msg-10]`.
 
 4. **Wait** 30 seconds for all deliveries.
 
@@ -263,17 +211,7 @@ This sequence is a prerequisite for all test scenarios below.
 
 2. **Instance B** -- Ensure Bob's UI does NOT have Alice's contact selected. If Alice is selected, click elsewhere or reload the page so no conversation is open.
 
-3. **Instance A** -- Send 3 messages from Alice to Bob:
-   ```js
-   for (let i = 1; i <= 3; i++) {
-     await window.api.nostling.messages.send({
-       identityId: '<alice-identity-id>',
-       contactId: '<bob-contact-id-on-A>',
-       plaintext: `Unread test [msg-${i}]`
-     });
-     await new Promise(r => setTimeout(r, 500));
-   }
-   ```
+3. **Instance A** -- Click on Bob's contact card. Send 3 messages via the message input, pausing ~1 second between each: `Unread test [msg-1]`, `Unread test [msg-2]`, `Unread test [msg-3]`.
 
 4. **Wait** 15 seconds.
 
@@ -301,25 +239,13 @@ This sequence is a prerequisite for all test scenarios below.
 
 1. Complete pre-test setup.
 
-2. **Instance A** -- Take screenshot. Note Alice's current display in Bob's contact card on Instance B (should show alias "Alice" or the npub).
+2. **Instance B** -- Take screenshot. Note how Alice's contact card currently displays (should show alias "Alice" or the npub).
 
-3. **Instance A** -- Update Alice's private profile:
-   ```js
-   await window.api.nostling.profiles.updatePrivate({
-     identityId: '<alice-identity-id>',
-     content: { name: 'Alice Wonderland', about: 'Privacy advocate' }
-   })
-   ```
+3. **Instance A** -- Navigate to the identity settings or profile editor for Alice. Update the display name to "Alice Wonderland" and the about field to "Privacy advocate". Save the changes.
 
 4. **Wait** 30 seconds for profile broadcast and discovery.
 
-5. **Instance B** -- Check if the profile was received:
-   ```js
-   await window.api.nostling.profiles.getContactProfile('<alice-contact-id-on-B>')
-   ```
-   Expected: Returns object with `name: 'Alice Wonderland'`.
-
-6. **Instance B** -- Reload and take screenshot. Verify Alice's contact card reflects the updated profile name (display name precedence: alias > private profile name > public > npub).
+5. **Instance B** -- Reload the page. Take screenshot. Verify Alice's contact card reflects the updated profile (display name precedence: alias > private profile name > public > npub).
 
 #### Expected Result
 
@@ -342,9 +268,9 @@ This sequence is a prerequisite for all test scenarios below.
    make dev-dual
    ```
 
-2. Complete pre-test setup (create identities + contacts). Verify both instances show idle/synced themed footer messages (e.g., "Nostling idle", "Preening peacefully").
+2. Complete pre-test setup via UI. Verify both instances show idle/synced themed footer messages (e.g., "Nostling idle", "Preening peacefully").
 
-3. **Instance B** -- Note the current footer status (should show idle/synced themed message like "Nostling idle" or "Flock in harmony").
+3. **Instance B** -- Take screenshot. Note the current footer status (should show idle/synced themed message).
 
 4. **Stop the relay**:
    ```bash
@@ -353,26 +279,16 @@ This sequence is a prerequisite for all test scenarios below.
 
 5. **Wait** 10 seconds. Both instances should detect the disconnection.
 
-6. **Instance A** -- Send a message (it will be queued or fail to publish):
-   ```js
-   await window.api.nostling.messages.send({
-     identityId: '<alice-identity-id>',
-     contactId: '<bob-contact-id-on-A>',
-     plaintext: 'Sent while relay is down [t05]'
-   })
-   ```
+6. **Instance A** -- Click on Bob's contact card. Type `Sent while relay is down [t05]` in the message input. Click Send. The message will be queued or fail to publish.
 
 7. **Restart the relay**:
    ```bash
    docker compose -f docker-compose.e2e.yml start nostr-relay
    ```
 
-8. **Wait** 30 seconds for reconnection and message retry.
+8. **Wait** 30 seconds for reconnection and automatic message retry.
 
-9. **Instance A** -- Trigger message retry if needed:
-   ```js
-   await window.api.nostling.messages.retry('<alice-identity-id>')
-   ```
+9. **Instance A** -- Reload the page to trigger queue flush (there is no manual retry button in the UI).
 
 10. **Wait** 15 seconds.
 
@@ -442,23 +358,13 @@ This sequence is a prerequisite for all test scenarios below.
 
 #### Steps
 
-1. Complete pre-test setup and send at least one message in each direction (T01).
+1. Complete pre-test setup and send at least one message in each direction via the UI (per T01).
 
-2. **Instance B** -- Delete Alice as a contact:
-   ```js
-   await window.api.nostling.contacts.remove('<alice-contact-id-on-B>')
-   ```
+2. **Instance B** -- Navigate to Alice's contact in the sidebar. Open the contact's context menu or details view and click the delete/remove option. Confirm deletion if prompted.
 
-3. **Instance B** -- Reload UI. Verify Alice no longer appears in the contacts list.
+3. **Instance B** -- Reload the page. Take screenshot. Verify Alice no longer appears in the contacts list.
 
-4. **Instance A** -- Send a message to Bob:
-   ```js
-   await window.api.nostling.messages.send({
-     identityId: '<alice-identity-id>',
-     contactId: '<bob-contact-id-on-A>',
-     plaintext: 'Message after contact deletion [t07]'
-   })
-   ```
+4. **Instance A** -- Click on Bob's contact card. Type `Message after contact deletion [t07]` in the message input. Click Send.
 
 5. **Wait** 15 seconds.
 
@@ -485,20 +391,11 @@ This sequence is a prerequisite for all test scenarios below.
 
 1. Complete pre-test setup.
 
-2. **Instance A** -- Send 5 numbered messages in rapid succession:
-   ```js
-   for (let i = 1; i <= 5; i++) {
-     await window.api.nostling.messages.send({
-       identityId: '<alice-identity-id>',
-       contactId: '<bob-contact-id-on-A>',
-       plaintext: `Order test [${i} of 5]`
-     });
-   }
-   ```
+2. **Instance A** -- Click on Bob's contact card. Send 5 numbered messages as fast as possible by typing each in the message input and clicking Send: `Order test [1 of 5]`, `Order test [2 of 5]`, `Order test [3 of 5]`, `Order test [4 of 5]`, `Order test [5 of 5]`.
 
 3. **Wait** 20 seconds.
 
-4. **Instance B** -- Take screenshot. Verify the messages appear in order: [1 of 5], [2 of 5], [3 of 5], [4 of 5], [5 of 5] from top to bottom.
+4. **Instance B** -- Click on Alice's contact card. Take screenshot. Verify the messages appear in order: [1 of 5], [2 of 5], [3 of 5], [4 of 5], [5 of 5] from top to bottom.
 
 5. **Instance A** -- Take screenshot. Verify the outgoing messages also appear in the correct order.
 
@@ -518,7 +415,7 @@ This sequence is a prerequisite for all test scenarios below.
 
 1. Complete pre-test setup.
 
-2. **Instance A** -- Send a message from Alice to Bob.
+2. **Instance A** -- Click on Bob's contact card. Type `Polling fallback test [t09]` in the message input. Click Send.
 
 3. **Wait** for delivery (confirm via log).
 
@@ -546,29 +443,13 @@ This sequence is a prerequisite for all test scenarios below.
 
 1. Complete pre-test setup.
 
-2. **Instance A** -- Set a private profile with distinctive fields:
-   ```js
-   await window.api.nostling.profiles.updatePrivate({
-     identityId: '<alice-identity-id>',
-     content: {
-       name: 'Alice Private',
-       about: 'This is private info',
-       picture: 'https://example.com/alice-private.png'
-     }
-   })
-   ```
+2. **Instance A** -- Navigate to the identity settings or profile editor for Alice. Set the display name to "Alice Private", the about field to "This is private info", and the picture URL to `https://example.com/alice-private.png`. Save the changes.
 
 3. **Wait** 30 seconds for NIP-59 profile broadcast.
 
-4. **Instance B** -- Query the contact profile:
-   ```js
-   const profile = await window.api.nostling.profiles.getContactProfile('<alice-contact-id-on-B>');
-   ```
-   Verify `profile.name === 'Alice Private'`.
+4. **Instance B** -- Reload the page. Take screenshot. Verify Alice's contact card shows the updated profile name.
 
 5. **Relay query** (verification) -- Query the relay for kind:0 events from Alice's pubkey. There should be **none** (private profiles are not published as kind:0).
-
-6. **Instance B** -- Take screenshot showing Alice's contact with the updated profile information.
 
 #### Expected Result
 
@@ -580,56 +461,25 @@ This sequence is a prerequisite for all test scenarios below.
 
 ### T11: Media Upload and Cross-Instance Delivery
 
-**Verifies**: Blossom upload pipeline, placeholder replacement, NIP-94 imeta encryption, cross-instance image rendering.
-**Source**: Blossom media uploads epic (stories 01–10).
+**Verifies**: Full attachment flow from UI through blob storage, Blossom upload pipeline, placeholder replacement, NIP-94 imeta encryption, to cross-instance image rendering.
+**Source**: Blossom media uploads epic (stories 01-10).
 **Prerequisites**: `make dev-dual` (includes blossom server on port 3001), identities + contacts set up per pre-test.
 
 #### Steps
 
-1. **Instance A** -- Configure blossom server for Alice's identity:
-   ```js
-   await window.api.test.insertBlossomServer({
-     identityId: '<alice-identity-id>',
-     url: 'http://localhost:3001',
-     label: 'Dev Blossom'
-   })
-   ```
+1. **Instance A** -- Navigate to the Blossom server settings for Alice's identity. Add a server with URL `http://localhost:3001` and label "Dev Blossom". Save.
 
-2. **Instance A** -- Store the test image blob:
-   ```js
-   const blob = await window.api.blobStorage.storeBlob('/path/to/e2e/fixtures/test-image.png')
-   ```
-   Record `blob.hash`, `blob.metadata.mimeType`, `blob.metadata.sizeBytes`, `blob.metadata.dimensions`.
+2. **Instance A** -- Click on Bob's contact card to open the conversation. Drag a test image file (e.g., `e2e/fixtures/test-image.png`) onto the message composer area, or click the attachment button and select the file. Verify the attachment preview strip appears above the message input showing the image thumbnail with a remove button.
 
-3. **Instance A** -- Send message with image attachment:
-   ```js
-   await window.api.nostling.messages.send({
-     identityId: '<alice-identity-id>',
-     contactId: '<bob-contact-id-on-A>',
-     plaintext: 'Image test [t11]',
-     attachments: [{
-       hash: blob.hash,
-       name: 'test-image.png',
-       mimeType: blob.metadata.mimeType,
-       sizeBytes: blob.metadata.sizeBytes,
-       dimensions: blob.metadata.dimensions
-     }]
-   })
-   ```
+3. **Instance A** -- Type `Image test [t11]` in the message input. Click the Send button.
 
-4. **Wait** 30 seconds for upload pipeline processing and relay delivery.
+4. **Wait** 30 seconds for blob storage, upload pipeline processing, and relay delivery.
 
-5. **Instance A** -- Take screenshot. Verify the sent message shows an image thumbnail.
+5. **Instance A** -- Take screenshot. Verify the sent message shows an image thumbnail (not a broken image or placeholder). The upload progress indicator should have completed.
 
-6. **Instance A** -- Verify message status and placeholder replacement:
-   ```js
-   const messages = await window.api.nostling.messages.list('<alice-identity-id>', '<bob-contact-id-on-A>')
-   const sent = messages.find(m => m.content.includes('[t11]'))
-   // sent.status should be 'sent'
-   // JSON.parse(sent.mediaJson) should contain remote URL, not 'local-blob:'
-   ```
+6. **Instance A** -- Take screenshot. Verify the message does not show a persistent "sending" or "uploading" status — it should appear as sent.
 
-7. **Instance B** -- Take screenshot. Verify the received message shows the image.
+7. **Instance B** -- Click on Alice's contact card. Take screenshot. Verify the received message shows the image.
 
 8. **Log check** -- Instance A:
    ```
@@ -638,9 +488,9 @@ This sequence is a prerequisite for all test scenarios below.
 
 #### Expected Result
 
-- Image uploaded to blossom server successfully.
-- `local-blob:` placeholder replaced with remote `http://localhost:3001/blob/<hash>` URL in `mediaJson`.
-- Message status transitions: `queued` → `sent`.
+- Image is stored locally, uploaded to blossom server, and delivered to the recipient.
+- `local-blob:` placeholder replaced with remote `http://localhost:3001/blob/<hash>` URL.
+- Message status transitions: `sending` -> `sent`.
 - Image visible in both instances' conversation views.
 
 ---
@@ -653,51 +503,18 @@ This sequence is a prerequisite for all test scenarios below.
 
 #### Steps
 
-1. **Instance A** -- Store a text file blob (create a temp text file first or use any non-image file):
-   ```js
-   // Create a temporary text file path that exists on disk
-   const blob = await window.api.blobStorage.storeBlob('/path/to/some-text-file.txt')
-   ```
+1. **Instance A** -- Click on Bob's contact card. Drag a non-image file (e.g., a `.txt` or `.pdf` file) onto the message composer area, or click the attachment button and select the file. Verify the attachment preview strip shows a file type icon (not an image thumbnail) with the filename.
 
-2. **Instance A** -- Send message with file attachment:
-   ```js
-   await window.api.nostling.messages.send({
-     identityId: '<alice-identity-id>',
-     contactId: '<bob-contact-id-on-A>',
-     plaintext: 'File test [t12]',
-     attachments: [{
-       hash: blob.hash,
-       name: 'document.txt',
-       mimeType: blob.metadata.mimeType,
-       sizeBytes: blob.metadata.sizeBytes
-     }]
-   })
-   ```
+2. **Instance A** -- Type `File test [t12]` in the message input. Click Send.
 
 3. **Wait** 30 seconds.
 
 4. **Instance A** -- Take screenshot. Verify the sent message shows a file attachment indicator (icon, filename, size) rather than an image thumbnail.
 
-5. **Instance B** -- Take screenshot. Verify the received message shows the file attachment.
+5. **Instance B** -- Click on Alice's contact card. Take screenshot. Verify the received message shows the file attachment with appropriate icon and metadata.
 
 #### Expected Result
 
 - Non-image file is stored and uploaded without image-specific processing (no dimensions, no blurhash).
 - File attachment renders with file icon and name/size, not as an image thumbnail.
 - Message delivery works end-to-end for non-image attachments.
-
----
-
-## Automation Outlook
-
-At a later stage, these test scenarios could be automated as Playwright e2e tests. This requires extending the current test infrastructure with:
-
-1. **Dual-app fixture** (`e2e/dual-fixtures.ts`) -- A Playwright fixture that launches two Electron instances with isolated data directories, both pointing to the same strfry relay via `NOSTLING_DEV_RELAY`. This builds on the existing single-instance fixture in `e2e/fixtures.ts`.
-
-2. **IPC helper layer** (`e2e/dual-helpers.ts`) -- Wrappers around `window.api.nostling.*` for creating identities, adding contacts, sending messages, and querying state. Encapsulates the `page.evaluate()` calls used throughout the manual procedures above.
-
-3. **Wait-for-delivery helpers** -- Polling-based utilities that wait for message arrival by repeatedly checking `window.api.nostling.messages.list()` or monitoring logs, rather than relying on fixed `sleep()` calls. Message delivery depends on subscription events (real-time) and polling (10-second interval), so tests need adaptive waits.
-
-4. **Docker compose integration** -- The existing `docker-compose.e2e.yml` already provides a strfry relay. The dual-app fixture would launch both Electron instances inside the same container, sharing the relay. No container-level changes required.
-
-The single-instance e2e infrastructure (`e2e/fixtures.ts`, `e2e/helpers.ts`, `playwright.config.ts`) and Docker test environment (`docker-compose.e2e.yml`, `Dockerfile.e2e`) provide a solid foundation. The main new work is the dual-app fixture and IPC helpers.
