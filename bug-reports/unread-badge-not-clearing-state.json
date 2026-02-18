@@ -1,0 +1,171 @@
+{
+  "$schema": "bug-state",
+  "bug_name": "unread-badge-not-clearing",
+  "bug_report_file": "bug-reports/unread-badge-not-clearing-report.md",
+  "contract_file": "bug-reports/unread-badge-not-clearing-contract.json",
+  "created_at": "2026-02-14T00:00:00Z",
+  "updated_at": "2026-02-14T00:17:00Z",
+  "phase": "COMPLETE",
+  "complexity": "MEDIUM",
+  "verification_questions": [
+    {
+      "id": "BVQ-001",
+      "question": "Has the root cause been addressed, not just symptoms?",
+      "batch": 1,
+      "domain": "ROOT_CAUSE"
+    },
+    {
+      "id": "BVQ-002",
+      "question": "Does a regression test exist that would catch this bug if reintroduced?",
+      "batch": 2,
+      "domain": "TESTING"
+    },
+    {
+      "id": "BVQ-003",
+      "question": "Does the implementation contain changes not documented in the fix contract?",
+      "batch": 1,
+      "domain": "ROOT_CAUSE"
+    },
+    {
+      "id": "BVQ-004",
+      "question": "Are there similar patterns in the codebase that might have the same bug?",
+      "batch": 3,
+      "domain": "CODE_PATTERNS"
+    },
+    {
+      "id": "BVQ-005",
+      "question": "Is there any dead code?",
+      "batch": 3,
+      "domain": "CODE_PATTERNS"
+    },
+    {
+      "id": "BVQ-006",
+      "question": "Are there any parallel implementations?",
+      "batch": 4,
+      "domain": "CLEANUP"
+    },
+    {
+      "id": "BVQ-007",
+      "question": "Are all obsolete files cleaned up?",
+      "batch": 4,
+      "domain": "CLEANUP"
+    },
+    {
+      "id": "BVQ-008",
+      "question": "Does the fix handle both edge cases: messages arriving while no conversation is selected AND messages arriving while the conversation is already open?",
+      "batch": 5,
+      "domain": "CONTEXT_SPECIFIC"
+    }
+  ],
+  "agent_sessions": {
+    "bug_fixer": "a342aba"
+  },
+  "baseline": {
+    "command": "npm test",
+    "total_tests": 2830,
+    "passed": 2828,
+    "failed": [
+      "REGRESSION TEST: After fix, auto-mark messages read when they arrive in open conversation"
+    ],
+    "note": "Test counts fluctuate due to environment; key invariant is reproduction test fails before fix",
+    "captured_at": "2026-02-14T00:07:00Z"
+  },
+  "reproduction": {
+    "method": "automated",
+    "test_file": "src/renderer/nostling/bug-unread-badge-not-clearing.test.ts",
+    "reproduced_at": "2026-02-14T00:03:00Z"
+  },
+  "fix": {
+    "applied_at": "2026-02-14T00:08:00Z",
+    "files_changed": ["src/renderer/main.tsx"],
+    "regression_test": "src/renderer/nostling/bug-unread-badge-not-clearing.test.ts"
+  },
+  "verification_rounds": [
+    {
+      "round": 1,
+      "timestamp": "2026-02-14T00:10:00Z",
+      "verdict": "REVISION_REQUIRED",
+      "examiner_count": 5
+    },
+    {
+      "round": 2,
+      "timestamp": "2026-02-14T00:12:00Z",
+      "verdict": "ACCEPTED",
+      "examiner_count": 1
+    }
+  ],
+  "remediation_attempts": [
+    {
+      "attempt": 1,
+      "timestamp": "2026-02-14T00:11:00Z",
+      "triggered_by_round": 1,
+      "root_cause_analysis": {
+        "categories_identified": ["DOCUMENTATION"],
+        "patterns": ["Contract specified CHANGELOG.md in expected_collateral but not included during implementation"]
+      },
+      "issues_addressed": ["CHANGELOG.md updated", "Pre-existing temp files cleaned"],
+      "outcome": "proceed_to_verification"
+    }
+  ],
+  "gates_passed": {
+    "BUG_BASELINE_READY": "2026-02-14T00:07:00Z",
+    "BUG_FIX_COMPLETE": "2026-02-14T00:09:00Z"
+  },
+  "commit": {
+    "sha": "f490cb3",
+    "message": "fix(renderer): fix unread badge not clearing when conversation open",
+    "committed_at": "2026-02-14T00:16:00Z"
+  },
+  "phase_history": [
+    {
+      "phase": "INITIALIZED",
+      "timestamp": "2026-02-14T00:00:00Z",
+      "trigger": "workflow_start"
+    },
+    {
+      "phase": "COMPLEXITY_ASSESSED",
+      "timestamp": "2026-02-14T00:01:00Z",
+      "trigger": "complexity_assessment_complete"
+    },
+    {
+      "phase": "REPRODUCED",
+      "timestamp": "2026-02-14T00:03:00Z",
+      "trigger": "reproduction_complete"
+    },
+    {
+      "phase": "FIXING",
+      "timestamp": "2026-02-14T00:07:00Z",
+      "trigger": "BUG_BASELINE_READY_gate_passed"
+    },
+    {
+      "phase": "FIX_APPLIED",
+      "timestamp": "2026-02-14T00:08:00Z",
+      "trigger": "fix_implementation_complete"
+    },
+    {
+      "phase": "VERIFYING",
+      "timestamp": "2026-02-14T00:09:00Z",
+      "trigger": "BUG_FIX_COMPLETE_gate_passed"
+    },
+    {
+      "phase": "VERIFIED",
+      "timestamp": "2026-02-14T00:13:00Z",
+      "trigger": "verification_accepted"
+    },
+    {
+      "phase": "DOCUMENTED",
+      "timestamp": "2026-02-14T00:15:00Z",
+      "trigger": "documentation_complete"
+    },
+    {
+      "phase": "COMMITTED",
+      "timestamp": "2026-02-14T00:16:00Z",
+      "trigger": "commit_created"
+    },
+    {
+      "phase": "COMPLETE",
+      "timestamp": "2026-02-14T00:17:00Z",
+      "trigger": "pipeline_improvement_captured"
+    }
+  ]
+}

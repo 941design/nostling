@@ -1,0 +1,192 @@
+{
+  "$schema": "bug-state",
+  "bug_name": "footer-missing-relay-status",
+  "bug_report_file": "bug-reports/footer-missing-relay-status-report.md",
+  "contract_file": "bug-reports/footer-missing-relay-status-contract.json",
+  "created_at": "2026-02-14T00:00:00Z",
+  "updated_at": "2026-02-14T00:00:14Z",
+  "phase": "COMPLETE",
+  "complexity": "MEDIUM",
+  "verification_questions": [
+    {
+      "id": "BVQ-001",
+      "question": "Has the root cause been addressed, not just symptoms?",
+      "batch": 1,
+      "domain": "ROOT_CAUSE"
+    },
+    {
+      "id": "BVQ-002",
+      "question": "Does a regression test exist that would catch this bug if reintroduced?",
+      "batch": 2,
+      "domain": "TESTING"
+    },
+    {
+      "id": "BVQ-003",
+      "question": "Does the implementation contain changes not documented in the fix contract?",
+      "batch": 1,
+      "domain": "ROOT_CAUSE"
+    },
+    {
+      "id": "BVQ-004",
+      "question": "Are there similar patterns in the codebase that might have the same bug?",
+      "batch": 3,
+      "domain": "CODE_PATTERNS"
+    },
+    {
+      "id": "BVQ-005",
+      "question": "Is there any dead code?",
+      "batch": 3,
+      "domain": "CODE_PATTERNS"
+    },
+    {
+      "id": "BVQ-006",
+      "question": "Are there any parallel implementations?",
+      "batch": 3,
+      "domain": "CODE_PATTERNS"
+    },
+    {
+      "id": "BVQ-007",
+      "question": "Are all obsolete files cleaned up?",
+      "batch": 4,
+      "domain": "CLEANUP"
+    }
+  ],
+  "agent_sessions": {
+    "bug_fixer": "a3ab40d"
+  },
+  "baseline": {
+    "command": "npm test",
+    "total_tests": 2829,
+    "passed": 2827,
+    "failed": ["src/renderer/nostling/bug-footer-missing-relay-status.test.ts"],
+    "captured_at": "2026-02-14T00:00:03Z"
+  },
+  "reproduction": {
+    "method": "automated",
+    "test_file": "src/renderer/nostling/bug-footer-missing-relay-status.test.ts",
+    "reproduced_at": "2026-02-14T00:00:02Z"
+  },
+  "fix": {
+    "applied_at": "2026-02-14T00:00:05Z",
+    "files_changed": [
+      "src/renderer/nostling/state.themed.ts",
+      "src/renderer/nostling/state.ts",
+      "src/renderer/main.tsx"
+    ],
+    "regression_test": "src/renderer/nostling/bug-footer-missing-relay-status.test.ts"
+  },
+  "verification_rounds": [
+    {
+      "round": 1,
+      "timestamp": "2026-02-14T00:00:07Z",
+      "verdict": "REVISION_REQUIRED",
+      "examiner_count": 4
+    },
+    {
+      "round": 2,
+      "timestamp": "2026-02-14T00:00:10Z",
+      "verdict": "ACCEPTED",
+      "examiner_count": 0
+    }
+  ],
+  "remediation_attempts": [
+    {
+      "attempt": 1,
+      "timestamp": "2026-02-14T00:00:08Z",
+      "triggered_by_round": 1,
+      "root_cause_analysis": {
+        "categories_identified": ["CODE_QUALITY", "CLEANUP"],
+        "patterns": [
+          "Incomplete phase execution - stopped after technical fix without completing documented collateral",
+          "Missing cleanup verification step - no workspace hygiene check before completion"
+        ]
+      },
+      "issues_addressed": [
+        "CHANGELOG.md updated with bug fix entry",
+        "Temporary file .claude/bug-pipeline-improvements/2026-02-14T16:43:59Z-nostling-bug.md removed"
+      ],
+      "outcome": "proceed_to_verification"
+    }
+  ],
+  "gates_passed": {
+    "BUG_BASELINE_READY": "2026-02-14T00:00:04Z",
+    "BUG_FIX_COMPLETE": "2026-02-14T00:00:06Z"
+  },
+  "commit": {
+    "sha": "aed24fbef2344847da545f3609c851fb65ebc8c9",
+    "message": "fix(footer): footer now shows relay disconnection status",
+    "committed_at": "2026-02-14T00:00:13Z"
+  },
+  "phase_history": [
+    {
+      "phase": "INITIALIZED",
+      "timestamp": "2026-02-14T00:00:00Z",
+      "trigger": "workflow_start"
+    },
+    {
+      "phase": "COMPLEXITY_ASSESSED",
+      "timestamp": "2026-02-14T00:00:01Z",
+      "trigger": "complexity_assessment_complete"
+    },
+    {
+      "phase": "REPRODUCED",
+      "timestamp": "2026-02-14T00:00:02Z",
+      "trigger": "reproduction_complete"
+    },
+    {
+      "phase": "FIXING",
+      "timestamp": "2026-02-14T00:00:04Z",
+      "trigger": "gate_BUG_BASELINE_READY_passed"
+    },
+    {
+      "phase": "FIX_APPLIED",
+      "timestamp": "2026-02-14T00:00:05Z",
+      "trigger": "fix_implementation_complete"
+    },
+    {
+      "phase": "VERIFYING",
+      "timestamp": "2026-02-14T00:00:06Z",
+      "trigger": "gate_BUG_FIX_COMPLETE_passed"
+    },
+    {
+      "phase": "VERIFYING",
+      "timestamp": "2026-02-14T00:00:07Z",
+      "trigger": "verification_round_1_complete"
+    },
+    {
+      "phase": "REMEDIATING",
+      "timestamp": "2026-02-14T00:00:08Z",
+      "trigger": "revision_required_round_1"
+    },
+    {
+      "phase": "VERIFYING",
+      "timestamp": "2026-02-14T00:00:09Z",
+      "trigger": "remediation_attempt_1_complete"
+    },
+    {
+      "phase": "VERIFIED",
+      "timestamp": "2026-02-14T00:00:10Z",
+      "trigger": "verification_round_2_accepted"
+    },
+    {
+      "phase": "DOCUMENTING",
+      "timestamp": "2026-02-14T00:00:11Z",
+      "trigger": "verification_accepted"
+    },
+    {
+      "phase": "DOCUMENTED",
+      "timestamp": "2026-02-14T00:00:12Z",
+      "trigger": "documentation_complete"
+    },
+    {
+      "phase": "COMMITTED",
+      "timestamp": "2026-02-14T00:00:13Z",
+      "trigger": "commit_created"
+    },
+    {
+      "phase": "COMPLETE",
+      "timestamp": "2026-02-14T00:00:14Z",
+      "trigger": "pipeline_improvement_captured"
+    }
+  ]
+}

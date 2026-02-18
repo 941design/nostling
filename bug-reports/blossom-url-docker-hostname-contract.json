@@ -1,0 +1,63 @@
+{
+  "$schema": "bug-fix-contract",
+  "bug_name": "blossom-url-docker-hostname",
+  "root_cause": {
+    "explanation": "The upload pipeline at src/main/media/upload-pipeline.ts:275 blindly trusts the server-provided URL from the Blossom response body without considering that the server's view of its own hostname may differ from how clients reach it (Docker internal names, reverse proxies, NAT, etc.)",
+    "sequence": [
+      "Client uploads to http://localhost:3001/upload (client-configured URL)",
+      "Server responds with {\"url\": \"http://blossom-server:3001/blob/<hash>\"} (server's hostname)",
+      "Pipeline stores unreachable URL in message_media.remote_url",
+      "replacePlaceholdersInMediaJson() uses unreachable URL",
+      "Renderer fails to load image with ERR_NAME_NOT_RESOLVED"
+    ],
+    "evidence": [
+      "Line 275: const remoteUrl = body.url || body.nurl; - uses server response directly",
+      "Line 227: const server = await this.deps.selectHealthyServer(...) - has client-configured URL",
+      "Line 240: const uploadUrl = `${server.url}/upload` - proves client knows correct base URL"
+    ]
+  },
+  "changes": [
+    {
+      "file": "src/main/media/upload-pipeline.ts",
+      "type": "fix",
+      "description": "Extract blob hash from response (body.sha256 or parse from body.url), then construct URL as ${server.url}/blob/${hash} using client-configured server.url",
+      "lines": "276-299",
+      "estimated_loc": 25
+    },
+    {
+      "file": "src/main/media/upload-pipeline.test.ts",
+      "type": "test",
+      "description": "Update test expectations and add regression test",
+      "lines": "193, 245, 619-665",
+      "estimated_loc": 50
+    }
+  ],
+  "invariants": {
+    "api_contracts": "No signature changes",
+    "existing_behavior": "All upload features unchanged except URL construction",
+    "performance": "No degradation",
+    "backward_compatibility": "Old uploads with reachable URLs still work"
+  },
+  "fix_approach": "Extract blob hash from Blossom response (prefer body.sha256, fallback to parsing from body.url). Construct retrieval URL as ${server.url}/blob/${hash} using the client-configured server.url that's already available in function scope (line 227). This ensures the URL is reachable from the client's network perspective regardless of server's internal hostname.",
+  "verification_criteria": [
+    "Reproduction test passes",
+    "All 124 baseline test suites pass (no regressions)",
+    "Regression test added and passing",
+    "Modified files limited to upload-pipeline.ts and upload-pipeline.test.ts"
+  ],
+  "scope_boundaries": {
+    "in_scope": [
+      "uploadBlob() method in upload-pipeline.ts",
+      "URL construction logic",
+      "Test expectations for URL format"
+    ],
+    "out_of_scope": [
+      "Retry logic",
+      "Authentication",
+      "Concurrency control",
+      "Other upload features",
+      "Database schema changes",
+      "Data migration"
+    ]
+  }
+}

@@ -1,0 +1,86 @@
+{
+  "$schema": "bug-contract",
+  "bug_name": "footer-missing-relay-status",
+  "bug_report_file": "bug-reports/footer-missing-relay-status-report.md",
+  "created_at": "2026-02-14T00:00:00Z",
+  "root_cause": {
+    "explanation": "The footer status text function getNostlingStatusTextThemed() only considers message queue state and does not consume relay connection status. Even though relay status is tracked in the renderer (main.tsx setRelayStatus state), this information is never passed to the footer status text generation logic.",
+    "sequence": [
+      "Relay disconnects, backend detects it via WebSocket connection drop",
+      "Backend emits 'nostling:relay-status-changed' IPC event with (url, 'disconnected')",
+      "Renderer receives event and updates relayStatus state in main.tsx",
+      "Footer renders with nostlingStatus from getNostlingStatusTextThemed(hasBridge, queueSummary)",
+      "getNostlingStatusTextThemed() has no relayStatus parameter, returns idle/synced message",
+      "User sees 'Preening peacefully' despite all relays being disconnected"
+    ],
+    "evidence": [
+      {
+        "file": "src/renderer/nostling/state.themed.ts",
+        "line": "89",
+        "description": "Function signature only accepts hasBridge and queueSummary, no relayStatus parameter"
+      },
+      {
+        "file": "src/renderer/main.tsx",
+        "line": "1900",
+        "description": "relayStatus state exists and is tracked via setRelayStatus"
+      },
+      {
+        "file": "src/renderer/main.tsx",
+        "line": "2595",
+        "description": "Footer receives nostlingStatus but not relayStatus"
+      },
+      {
+        "file": "src/renderer/nostling/state.ts",
+        "line": "562-564",
+        "description": "nostlingStatusText computed without relayStatus in dependencies"
+      }
+    ]
+  },
+  "changes": [
+    {
+      "file": "src/renderer/nostling/state.themed.ts",
+      "function": "getNostlingStatusTextThemed",
+      "change": "Add optional relayStatus parameter of type Record<string, string> | undefined. Add relay disconnection check as priority 4.5 (after queued, before synced). When relayStatus is provided and ALL relay values are not 'connected', return randomSelect(config.nostlingQueueStates.offline).",
+      "reason": "This is the root cause - the function needs to know about relay status to display disconnection state. Relay disconnection should be higher priority than idle/synced (user needs to know they're offline) but lower priority than errors/sending/queued (active operations take precedence)."
+    },
+    {
+      "file": "src/renderer/nostling/state.ts",
+      "function": "useNostlingState",
+      "change": "1) Import relayStatus from main.tsx context or add relayStatus to the hook's state. 2) Pass relayStatus to getNostlingStatusTextThemed() in nostlingStatusText useMemo. 3) Add relayStatus to useMemo dependencies.",
+      "reason": "The hook needs access to relayStatus to pass it to getNostlingStatusTextThemed(). This wires the existing tracked state into the status text computation."
+    }
+  ],
+  "invariants": {
+    "api_contracts": "All existing call sites of getNostlingStatusTextThemed must continue to work - relayStatus parameter is OPTIONAL (defaults to undefined, no change in behavior when omitted). Footer component signature unchanged. QueueSummary type unchanged.",
+    "existing_behavior": "All priority levels (bridge unavailable, errors, sending, queued, synced, idle) produce identical output as before when relayStatus is not provided or when at least one relay is connected. Themed message selection remains random within category. useMemo dependency optimization preserved.",
+    "performance": "No degradation - relayStatus is already tracked in state, just passing existing object. Simple Object.values().every() check adds negligible overhead.",
+    "backward_compatibility": "Optional parameter preserves backward compatibility. All existing tests pass. Only new behavior is when relayStatus provided AND all relays disconnected."
+  },
+  "fix_approach": "1) Add optional relayStatus?: Record<string, string> parameter to getNostlingStatusTextThemed(). 2) After bridge check, add relay disconnection check: if relayStatus provided and Object.values(relayStatus).every(s => s !== 'connected'), return offline themed message. 3) In useNostlingState, receive relayStatus from props or context. 4) Pass relayStatus to getNostlingStatusTextThemed in nostlingStatusText useMemo. 5) Add relayStatus to useMemo dependencies (or specific relay connection state hash to prevent random message re-selection).",
+  "constraints": [
+    "No refactoring - only add relay status awareness to existing status text logic",
+    "No optimizations beyond fix - preserve existing themed message system",
+    "No features - do not add reconnecting state, colored dots, or visual indicators beyond text",
+    "Exact behavior preservation - all existing status priority levels and message selection unchanged when relayStatus omitted or relays connected",
+    "No changes to Footer component signature - continue passing nostlingStatus as string",
+    "No changes to themed-messages.json - use existing 'offline' messages",
+    "Do not modify RelayTable or relay management - only footer status text"
+  ],
+  "expected_collateral": {
+    "regression_test": "src/renderer/nostling/bug-footer-missing-relay-status.test.ts",
+    "documentation": [
+      "CHANGELOG.md"
+    ],
+    "similar_patterns_fixed": [
+      "None - this is the only footer status text generation function"
+    ]
+  },
+  "verification_criteria": [
+    "Bug reproduction test PASSES - first test in bug-footer-missing-relay-status.test.ts compiles and passes",
+    "All baseline tests pass (124 suites, 2823+ tests) - no regressions",
+    "Manual verification in dual-instance environment: stop relay, footer shows offline-themed message within 15 seconds",
+    "Manual verification: restart relay, footer returns to idle/synced message within 15 seconds",
+    "Manual verification: when sending message while disconnected, footer shows 'queued' message (higher priority than disconnection)",
+    "All existing getNostlingStatusTextThemed tests in state.themed.test.ts still pass"
+  ]
+}

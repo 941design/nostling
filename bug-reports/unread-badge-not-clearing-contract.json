@@ -1,0 +1,70 @@
+{
+  "$schema": "bug-contract",
+  "bug_name": "unread-badge-not-clearing",
+  "bug_report_file": "bug-reports/unread-badge-not-clearing-report.md",
+  "created_at": "2026-02-14T00:00:00Z",
+  "root_cause": {
+    "explanation": "markMessagesRead only fires via onSelectContact callback (main.tsx:2419-2425). When new messages arrive in an already-selected conversation, onSelectContact does not fire again because the contact is already selected. Therefore, messages arriving in an open conversation remain unread indefinitely.",
+    "sequence": [
+      "User selects contact -> onSelectContact fires -> markMessagesRead called",
+      "3-second polling interval refreshes unreadCounts (main.tsx:2183-2191)",
+      "New messages detected -> unreadCounts updated for selected contact",
+      "onSelectContact does NOT fire (contact already selected)",
+      "markMessagesRead never called -> messages remain unread -> badge persists"
+    ],
+    "evidence": [
+      {
+        "file": "src/renderer/main.tsx",
+        "line": "2419-2425",
+        "description": "onSelectContact callback - only fires on selection change, not when messages arrive"
+      },
+      {
+        "file": "src/renderer/main.tsx",
+        "line": "2183-2191",
+        "description": "useEffect polling refreshUnreadCounts every 3 seconds - updates counts but doesn't trigger mark-as-read"
+      },
+      {
+        "file": "src/renderer/nostling/state.ts",
+        "line": "474-514",
+        "description": "markMessagesRead implementation - correctly updates DB and state, but never called for incoming messages in open conversation"
+      }
+    ]
+  },
+  "changes": [
+    {
+      "file": "src/renderer/main.tsx",
+      "function": "Main component (after line 2191)",
+      "change": "Add a useEffect that watches [selectedIdentityId, selectedContactId, nostling.unreadCounts]. When unreadCounts[selectedIdentityId]?.[selectedContactId] > 0, call nostling.markMessagesRead(selectedIdentityId, selectedContactId).",
+      "reason": "Automatically marks messages as read when they arrive in the currently-selected conversation, fixing the root cause of messages remaining unread"
+    }
+  ],
+  "invariants": {
+    "api_contracts": "No API changes - uses existing markMessagesRead function",
+    "existing_behavior": "Existing onSelectContact behavior unchanged - still marks messages read on manual selection",
+    "performance": "No degradation - useEffect only fires when dependencies change (contact selection or unread count update)",
+    "backward_compatibility": "Fully backward compatible - only adds auto-marking behavior, does not remove any existing functionality"
+  },
+  "fix_approach": "Add a useEffect in main.tsx that monitors the unread count for the currently selected contact. When the count increases from 0 to N (indicating new messages arrived), automatically call markMessagesRead. This ensures messages are marked as read both on manual selection (existing behavior) and when they arrive in an already-open conversation (new behavior).\n\nPseudocode:\n```typescript\nuseEffect(() => {\n  if (\n    selectedIdentityId &&\n    selectedContactId &&\n    nostling.unreadCounts[selectedIdentityId]?.[selectedContactId] > 0\n  ) {\n    void nostling.markMessagesRead(selectedIdentityId, selectedContactId);\n  }\n}, [selectedIdentityId, selectedContactId, nostling.unreadCounts, nostling.markMessagesRead]);\n```",
+  "constraints": [
+    "No refactoring",
+    "No optimizations beyond fix",
+    "No features",
+    "Exact behavior preservation except bug"
+  ],
+  "expected_collateral": {
+    "regression_test": "src/renderer/nostling/bug-unread-badge-not-clearing.test.ts",
+    "documentation": [
+      "CHANGELOG.md"
+    ],
+    "similar_patterns_fixed": [
+      "None - this is the only location where unread badge clearing is handled"
+    ]
+  },
+  "verification_criteria": [
+    "Bug reproduction test 'REGRESSION TEST: After fix, auto-mark messages read when they arrive in open conversation' PASSES",
+    "All baseline tests pass (no regressions)",
+    "Manual test: messages arriving in already-open conversation are auto-marked read",
+    "Manual test: clicking contact with unread messages still marks them read (existing behavior preserved)",
+    "Manual test: unread badge clears immediately when messages arrive in open conversation"
+  ]
+}
