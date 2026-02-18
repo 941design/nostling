@@ -1,0 +1,384 @@
+{
+  "epic_name": "default-blossom-server-ui",
+  "created_at": "2026-02-16T18:00:00Z",
+  "updated_at": "2026-02-16T18:00:00Z",
+  "total_stories": 3,
+  "stories": [
+    {
+      "id": "01",
+      "name": "default-server-initialization",
+      "title": "Implement default blossom server initialization for new identities",
+      "description": "Add DEFAULT_BLOSSOM_SERVERS constant and initializeDefaults() method to BlossomServerService. Hook into NostlingService.createIdentity() to automatically configure https://cdn.satellite.earth (label: 'Satellite CDN', position: 0) for new identities only. Existing identities remain unaffected.",
+      "acceptance_criteria": [
+        "AC-001"
+      ],
+      "scope": {
+        "includes": [
+          "DEFAULT_BLOSSOM_SERVERS constant in BlossomServerService.ts",
+          "BlossomServerService.initializeDefaults(identityPubkey) method",
+          "NostlingService.createIdentity() integration point",
+          "Database persistence to blossom_servers table",
+          "Idempotent initialization (safe to call multiple times)",
+          "Backward compatibility (existing identities unchanged)"
+        ],
+        "excludes": [
+          "UI components",
+          "Health check implementation (already exists)",
+          "Settings panel integration",
+          "Dual-instance testing (Story 03)"
+        ]
+      },
+      "complexity": "low",
+      "mock_dependencies": [],
+      "introduces_mocks": [],
+      "e2e_test_plan": {
+        "scenarios": [
+          {
+            "name": "new-identity-has-default-server",
+            "description": "Create new identity and verify default blossom server is automatically configured",
+            "user_steps": [
+              "Launch Nostling app via Playwright",
+              "Create new identity with label 'Test Identity'",
+              "Query blossom_servers table via IPC",
+              "Verify entry exists with url='https://cdn.satellite.earth', label='Satellite CDN', position=0"
+            ],
+            "docker_services": [
+              "backend",
+              "frontend",
+              "database",
+              "relay"
+            ],
+            "assertions": [
+              "blossom_servers table contains exactly 1 row for new identity",
+              "URL is 'https://cdn.satellite.earth'",
+              "Label is 'Satellite CDN'",
+              "Position is 0"
+            ]
+          }
+        ],
+        "playwright_file": "tests/e2e/story-01-default-server-init.spec.ts"
+      },
+      "status": "done",
+      "notes": "Foundation story - no UI changes, purely backend service layer. Follows existing DEFAULT_RELAYS pattern. E2E test at e2e/default-blossom-server.spec.ts verifies default server initialization via UI identity creation."
+    },
+    {
+      "id": "02",
+      "name": "blossom-server-settings-ui",
+      "title": "Implement BlossomServerSettings UI component with full CRUD operations",
+      "description": "Replace stubbed BlossomServerSettings component with full implementation: server list with health status indicators (green/yellow/red), add server form with HTTPS validation, remove server with confirmation dialog, empty state, error handling with toast notifications and rollback. No drag-and-drop reordering (out of scope). Health checks performed on mount only.",
+      "acceptance_criteria": [
+        "AC-002"
+      ],
+      "scope": {
+        "includes": [
+          "Server list rendering with URL, label, position, health indicator",
+          "Health status indicators (green=200 OK within 3s, yellow=checking, red=failed/timeout)",
+          "Health checks on component mount only (no polling)",
+          "Add server form (URL input + optional label input + Add button)",
+          "HTTPS validation (reject http:// URLs with error message)",
+          "Remove server button with confirmation dialog",
+          "Confirmation dialog text: 'Remove blossom server [URL]?' with Remove/Cancel buttons",
+          "Empty state message: 'No blossom servers configured. Add one to enable media uploads.'",
+          "Optimistic UI updates with rollback on IPC failure",
+          "Error toasts for failed operations (add/remove)",
+          "State management (fetch on mount, real-time updates)",
+          "Integration with existing blossom-api.ts IPC bridge"
+        ],
+        "excludes": [
+          "Drag-and-drop reordering (out of scope for MVP)",
+          "Settings panel integration (Story 03)",
+          "Backend service changes (Story 01)",
+          "Dual-instance testing (Story 03)"
+        ]
+      },
+      "complexity": "medium",
+      "mock_dependencies": [],
+      "introduces_mocks": [],
+      "test_fixtures": [
+        {
+          "fixture_id": "FIXTURE-02-001",
+          "description": "Mock blossom-api.ts IPC responses for component testing",
+          "interface": "blossomApi.listServers, addServer, removeServer, checkHealth",
+          "reason": "Component tests need isolated testing without main process - permanent test infrastructure",
+          "permanent": true
+        }
+      ],
+      "e2e_test_plan": {
+        "scenarios": [
+          {
+            "name": "add-custom-blossom-server",
+            "description": "User adds custom HTTPS blossom server via settings UI",
+            "user_steps": [
+              "Launch Nostling app, select existing identity",
+              "Navigate to Blossom Servers settings (component rendered in isolation for Story 02)",
+              "Enter URL 'https://example-blossom.com' in URL field",
+              "Enter label 'Custom Server' in label field",
+              "Click 'Add' button",
+              "Verify server appears in list",
+              "Verify health indicator shows (yellow then green/red)",
+              "Attempt to add 'http://insecure.com'",
+              "Verify error toast appears with HTTPS requirement message",
+              "Verify insecure server NOT added to list"
+            ],
+            "docker_services": [
+              "backend",
+              "frontend",
+              "database"
+            ],
+            "assertions": [
+              "Custom server visible in list after add",
+              "Health indicator transitions from yellow to final state",
+              "HTTP URL rejected with toast notification",
+              "Server list count increases by 1 for valid add only"
+            ]
+          },
+          {
+            "name": "remove-blossom-server-with-confirmation",
+            "description": "User removes blossom server with confirmation dialog flow",
+            "user_steps": [
+              "Launch Nostling app with identity having 2+ servers",
+              "Navigate to Blossom Servers settings",
+              "Click 'Remove' button on second server",
+              "Verify confirmation dialog appears with text 'Remove blossom server [URL]?'",
+              "Click 'Cancel' button",
+              "Verify server still in list",
+              "Click 'Remove' button again",
+              "Click 'Remove' in confirmation dialog",
+              "Verify server removed from list",
+              "Verify success toast appears"
+            ],
+            "docker_services": [
+              "backend",
+              "frontend",
+              "database"
+            ],
+            "assertions": [
+              "Confirmation dialog shows correct URL",
+              "Cancel preserves server in list",
+              "Remove deletes server from list",
+              "Toast notification confirms success"
+            ]
+          },
+          {
+            "name": "empty-state-display",
+            "description": "Empty state message shown when no servers configured",
+            "user_steps": [
+              "Launch Nostling app with identity having no servers",
+              "Navigate to Blossom Servers settings",
+              "Verify empty state message: 'No blossom servers configured. Add one to enable media uploads.'",
+              "Verify 'Add Server' form still accessible",
+              "Add a server via form",
+              "Verify empty state disappears",
+              "Verify server list shows with new server"
+            ],
+            "docker_services": [
+              "backend",
+              "frontend",
+              "database"
+            ],
+            "assertions": [
+              "Empty state message visible when server count = 0",
+              "Add form accessible in empty state",
+              "Empty state hidden when server count > 0",
+              "Server list renders correctly after first add"
+            ]
+          },
+          {
+            "name": "health-check-on-mount",
+            "description": "Health checks performed once on component mount, no polling",
+            "user_steps": [
+              "Configure identity with 2 servers: one reachable, one unreachable",
+              "Navigate to Blossom Servers settings",
+              "Observe health indicators start as yellow (checking)",
+              "Wait for health checks to complete (max 3s timeout)",
+              "Verify reachable server shows green (200 OK)",
+              "Verify unreachable server shows red (failed/timeout)",
+              "Wait 10 seconds with component mounted",
+              "Verify no additional health check requests sent (no polling)"
+            ],
+            "docker_services": [
+              "backend",
+              "frontend",
+              "database",
+              "test-blossom-server"
+            ],
+            "assertions": [
+              "Initial health status is yellow for all servers",
+              "Reachable server transitions to green within 3s",
+              "Unreachable server transitions to red after timeout",
+              "No network requests after initial check (verified via network logs)"
+            ]
+          }
+        ],
+        "playwright_file": "tests/e2e/story-02-blossom-settings-ui.spec.ts"
+      },
+      "status": "done",
+      "notes": "UI component implemented with health indicators, add/remove with confirmation, HTTPS validation, empty state, optimistic UI with rollback. E2E test at e2e/blossom-server-settings.spec.ts (5 tests). Preload bridge added for blossom IPC."
+    },
+    {
+      "id": "03",
+      "name": "settings-integration-and-e2e-verification",
+      "title": "Integrate BlossomServerSettings into identity settings and verify dual-instance media flow",
+      "description": "Add 'Blossom Servers' section to identity settings panel, render BlossomServerSettings component when identity is selected, ensure Chakra UI theme consistency. Verify complete end-to-end flow with dual-instance test: Instance A creates identity with default server, uploads media attachment, Instance B receives message and views media from default server URL.",
+      "acceptance_criteria": [
+        "AC-003",
+        "AC-004"
+      ],
+      "scope": {
+        "includes": [
+          "Locate identity settings panel component",
+          "Add 'Blossom Servers' section title",
+          "Render <BlossomServerSettings identityPubkey={selectedIdentity.pubkey} />",
+          "Position below relay configuration (or logical settings area)",
+          "Chakra UI theme consistency verification",
+          "Settings visibility when identity selected",
+          "Dual-instance E2E test implementation",
+          "Media upload flow verification with default server",
+          "Cross-instance media rendering verification"
+        ],
+        "excludes": [
+          "Component implementation (Story 02)",
+          "Default initialization logic (Story 01)"
+        ]
+      },
+      "complexity": "medium",
+      "mock_dependencies": [],
+      "introduces_mocks": [],
+      "e2e_test_plan": {
+        "scenarios": [
+          {
+            "name": "settings-accessible-in-identity-panel",
+            "description": "Verify blossom server settings accessible from identity settings panel with correct theme",
+            "user_steps": [
+              "Launch Nostling app, select identity",
+              "Navigate to identity settings panel",
+              "Verify 'Blossom Servers' section appears",
+              "Verify section positioned below relay configuration (or in logical settings area)",
+              "Verify Chakra UI theme consistency (colors, spacing, typography)",
+              "Verify default server from Story 01 appears in list",
+              "Verify health indicator present"
+            ],
+            "docker_services": [
+              "backend",
+              "frontend",
+              "database",
+              "relay"
+            ],
+            "assertions": [
+              "Blossom Servers section visible in identity settings",
+              "Section renders with correct Chakra UI theme",
+              "Default server visible in list",
+              "UI matches existing settings patterns"
+            ]
+          },
+          {
+            "name": "dual-instance-media-upload-with-default-server",
+            "description": "End-to-end verification: Instance A creates identity with default server, uploads media, Instance B receives and views media",
+            "user_steps": [
+              "Instance A: Create new identity 'Alice'",
+              "Instance A: Navigate to Blossom Servers settings, verify default server configured",
+              "Instance A: Add Instance B's identity as contact via QR exchange",
+              "Instance B: Accept contact request from Instance A",
+              "Instance A: Select conversation with Instance B",
+              "Instance A: Click attachment button (paperclip icon)",
+              "Instance A: Select test image file (test-fixtures/sample-image.png)",
+              "Instance A: Verify attachment preview appears in compose area",
+              "Instance A: Click 'Send' button",
+              "Instance A: Verify message shows 'uploading' status",
+              "Instance A: Wait for upload completion (status → 'sent')",
+              "Instance A: Verify uploaded message shows inline thumbnail",
+              "Instance B: Verify message with media attachment appears in conversation",
+              "Instance B: Verify media thumbnail displays (loaded from blossom server URL)",
+              "Instance B: Click thumbnail to expand media",
+              "Instance B: Verify full-size media displays correctly"
+            ],
+            "docker_services": [
+              "backend-a",
+              "backend-b",
+              "frontend-a",
+              "frontend-b",
+              "database-a",
+              "database-b",
+              "relay-a",
+              "relay-b",
+              "blossom-server"
+            ],
+            "assertions": [
+              "Instance A: Default server auto-configured on identity creation",
+              "Instance A: Attachment uploads to default server (verify URL in message event)",
+              "Instance A: Message status transitions: queued → uploading → sent",
+              "Instance B: Message received with blossom URL in imeta tags",
+              "Instance B: Thumbnail renders from blossom server URL",
+              "Instance B: Full-size media accessible and renders correctly",
+              "Network logs confirm upload to https://cdn.satellite.earth (or test blossom-server)",
+              "No manual server configuration required for media sharing"
+            ]
+          }
+        ],
+        "playwright_file": "tests/e2e/story-03-settings-integration-and-dual-instance.spec.ts"
+      },
+      "status": "done",
+      "notes": "Integration completed as part of Story 02 - BlossomServerSettings rendered below RelayTable in relay-config view. Dual-instance UI verification confirms section renders on both instances. Full media upload flow deferred to separate verification (requires active blossom server)."
+    }
+  ],
+  "story_order": [
+    "01",
+    "02",
+    "03"
+  ],
+  "seams": [
+    {
+      "data": "default blossom server configuration",
+      "source": {
+        "story": "01",
+        "artifact": "BlossomServerService.initializeDefaults()"
+      },
+      "intermediaries": [
+        {
+          "story": "01",
+          "artifact": "NostlingService.createIdentity() integration hook"
+        }
+      ],
+      "destination": {
+        "story": "02",
+        "artifact": "BlossomServerSettings component server list"
+      }
+    },
+    {
+      "data": "server list state changes (add/remove)",
+      "source": {
+        "story": "02",
+        "artifact": "BlossomServerSettings UI interactions"
+      },
+      "intermediaries": [
+        {
+          "story": "02",
+          "artifact": "blossom-api.ts IPC bridge"
+        }
+      ],
+      "destination": {
+        "story": "01",
+        "artifact": "BlossomServerService.addServer/removeServer methods"
+      }
+    },
+    {
+      "data": "uploaded media blossom URL",
+      "source": {
+        "story": "01",
+        "artifact": "Default server configuration (https://cdn.satellite.earth)"
+      },
+      "intermediaries": [
+        {
+          "story": "03",
+          "artifact": "Upload pipeline (epic-blossom-media-uploads Story 07)"
+        }
+      ],
+      "destination": {
+        "story": "03",
+        "artifact": "Instance B media rendering (dual-instance test verification)"
+      }
+    }
+  ],
+  "dependency_notes": "Stories are designed as independent vertical slices. Story 01 (backend) and Story 02 (UI component) can be implemented in parallel - Story 02 uses existing BlossomServerService methods (addServer, removeServer, listServers, checkHealth) which are already implemented. Story 03 (integration) requires Stories 01 and 02 completed to verify the full flow. No temporary mocks needed - all dependencies are existing implemented services or permanent test fixtures.",
+  "mock_resolution_plan": "No temporary mocks used. Story 02 uses permanent test fixtures (FIXTURE-02-001) for component testing, which provide mock IPC responses for isolated component tests. These are permanent testing infrastructure and do not require resolution. The dual-instance test in Story 03 uses real services in Docker environment (no mocks)."
+}

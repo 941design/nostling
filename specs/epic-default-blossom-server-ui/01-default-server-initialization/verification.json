@@ -1,0 +1,72 @@
+{
+  "created_at": "2026-02-16T18:30:00Z",
+  "story_id": "01",
+  "questions": [
+    {
+      "id": "VQ-01-001",
+      "category": "correctness",
+      "question": "Does DEFAULT_BLOSSOM_SERVERS contain exactly https://cdn.satellite.earth with label 'Satellite CDN'?",
+      "actionable_check": "Read the DEFAULT_BLOSSOM_SERVERS constant in BlossomServerService.ts and verify its contents",
+      "evidence_required": ["Source code of DEFAULT_BLOSSOM_SERVERS constant", "Unit test that asserts constant values"],
+      "pass_criteria": "Constant contains exactly one entry: { url: 'https://cdn.satellite.earth', label: 'Satellite CDN' }"
+    },
+    {
+      "id": "VQ-01-002",
+      "category": "correctness",
+      "question": "Does initializeDefaults insert the default server with position 0 for the given identity?",
+      "actionable_check": "Read initializeDefaults method body and verify it inserts with correct position. Run test that creates defaults and checks position.",
+      "evidence_required": ["Source code of initializeDefaults method", "Test output showing position=0"],
+      "pass_criteria": "Method inserts with position=0, test confirms servers[0].position === 0"
+    },
+    {
+      "id": "VQ-01-003",
+      "category": "correctness",
+      "question": "Is initializeDefaults idempotent - does it skip initialization if servers already exist?",
+      "actionable_check": "Read initializeDefaults and verify it checks for existing servers before inserting. Run idempotency test.",
+      "evidence_required": ["Source code showing early return when servers exist", "Test output for idempotency case"],
+      "pass_criteria": "Method returns early without modification when listServers returns non-empty array"
+    },
+    {
+      "id": "VQ-01-004",
+      "category": "integration",
+      "question": "Is initializeDefaults called from NostlingService.createIdentity() after relay config initialization?",
+      "actionable_check": "Read createIdentity method and verify the blossomServerService.initializeDefaults call exists in the right location",
+      "evidence_required": ["Source code of createIdentity showing the initializeDefaults call", "Position relative to relay config initialization"],
+      "pass_criteria": "initializeDefaults is called with npubToStore after relay config initialization, wrapped in try/catch with warn logging"
+    },
+    {
+      "id": "VQ-01-005",
+      "category": "integration",
+      "question": "Is BlossomServerService wired to NostlingService in index.ts via setBlossomServerService?",
+      "actionable_check": "Read index.ts and verify setBlossomServerService is called after BlossomServerService is created and initialized",
+      "evidence_required": ["Source code showing setBlossomServerService call in index.ts", "Order of operations (after initialize, before other services)"],
+      "pass_criteria": "nostlingService.setBlossomServerService(blossomServerService) called after blossomServerService.initialize()"
+    }
+  ],
+  "mandatory_questions": [
+    {
+      "id": "VQ-01-DEAD",
+      "category": "dead_code",
+      "question": "Are there any dead code artifacts (unused exports, unreachable code paths) introduced by this story?",
+      "actionable_check": "Check if DEFAULT_BLOSSOM_SERVERS and initializeDefaults are actually used. Check if setBlossomServerService is called.",
+      "evidence_required": ["References to each new export/method", "Grep results showing usage"],
+      "pass_criteria": "All new code is reachable and used - no dead exports, no unreachable branches"
+    },
+    {
+      "id": "VQ-01-REG",
+      "category": "regression",
+      "question": "Do all existing BlossomServerService tests still pass? Are there any regressions in identity creation tests?",
+      "actionable_check": "Run npm test and verify total test count increased (baseline: 2841 passing) with 0 failures",
+      "evidence_required": ["Full test suite output showing pass count", "No regression in existing test descriptions"],
+      "pass_criteria": "Test count increased by at least 5 (new tests), 0 failures, 0 regressions"
+    },
+    {
+      "id": "VQ-01-COMPAT",
+      "category": "backward_compatibility",
+      "question": "Does the change maintain backward compatibility - existing identities without blossom servers are unaffected?",
+      "actionable_check": "Verify initializeDefaults is only called during createIdentity (not on startup or for existing identities). Check idempotency test.",
+      "evidence_required": ["Code path analysis showing initializeDefaults only triggered by createIdentity", "Test confirming existing identities unaffected"],
+      "pass_criteria": "initializeDefaults only called from createIdentity flow, idempotency test passes, no startup initialization"
+    }
+  ]
+}

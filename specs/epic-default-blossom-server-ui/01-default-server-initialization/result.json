@@ -1,0 +1,85 @@
+{
+  "story_id": "01",
+  "status": "done",
+  "created_at": "2026-02-16T18:31:40Z",
+  "updated_at": "2026-02-16T19:55:00Z",
+  "implementation": {
+    "status": "done",
+    "started_at": "2026-02-16T18:31:40Z",
+    "completed_at": "2026-02-16T19:55:00Z",
+    "files_created": [
+      "e2e/default-blossom-server.spec.ts"
+    ],
+    "files_modified": [
+      "src/main/blossom/BlossomServerService.ts",
+      "src/main/nostling/service.ts",
+      "src/main/index.ts",
+      "src/main/blossom/BlossomServerService.test.ts",
+      "src/main/index.test.ts",
+      "src/main/ipc/handlers.ts",
+      "src/main/ipc/handlers.test.ts",
+      "src/preload/index.ts"
+    ],
+    "tests_added": 7,
+    "key_components": [
+      "DEFAULT_BLOSSOM_SERVERS constant with cdn.satellite.earth",
+      "BlossomServerService.initializeDefaults() - idempotent default initialization",
+      "NostlingService.setBlossomServerService() - setter for dependency injection",
+      "createIdentity() hook - initializes blossom defaults after relay defaults",
+      "test:list-blossom-servers IPC handler for E2E verification"
+    ],
+    "mocks_introduced": []
+  },
+  "verification_rounds": [
+    {
+      "round": 1,
+      "timestamp": "2026-02-16T18:50:00Z",
+      "results": [
+        { "question_id": "VQ-01-001", "result": "pass", "severity": 1, "evidence": "Constant contains exactly { url: 'https://cdn.satellite.earth', label: 'Satellite CDN' }. Test verifies with deep equality." },
+        { "question_id": "VQ-01-002", "result": "pass", "severity": 1, "evidence": "initializeDefaults uses loop index i=0 as position. Test confirms servers[0].position === 0." },
+        { "question_id": "VQ-01-003", "result": "pass", "severity": 1, "evidence": "Method checks existing.length > 0 and returns early. Idempotency test confirms existing servers preserved." },
+        { "question_id": "VQ-01-004", "result": "pass", "severity": 1, "evidence": "Called in createIdentity at line 300 after relay config init (line 292), wrapped in try/catch with warn logging." },
+        { "question_id": "VQ-01-005", "result": "pass", "severity": 1, "evidence": "index.ts line 528: nostlingService.setBlossomServerService(blossomServerService) called after initialize()." },
+        { "question_id": "VQ-01-DEAD", "result": "pass", "severity": 1, "evidence": "All new code is reachable: constant used in initializeDefaults, method called from createIdentity, setter called from index.ts." },
+        { "question_id": "VQ-01-REG", "result": "pass", "severity": 1, "evidence": "126 suites passed, 2846 tests passed (baseline 2841), +5 new tests, 0 failures." },
+        { "question_id": "VQ-01-COMPAT", "result": "pass", "severity": 1, "evidence": "initializeDefaults only in createIdentity flow (not startup), idempotent, existing identities unaffected." }
+      ],
+      "summary": {
+        "total": 8,
+        "passed": 8,
+        "failed": 0,
+        "partial": 0
+      },
+      "verification_passed": true,
+      "test_gate": {
+        "ran_at": "2026-02-16T19:52:00Z",
+        "command": "npm test",
+        "passed": true,
+        "total_tests": 2847,
+        "passed_tests": 2846,
+        "failed_tests": 0,
+        "skipped_tests": 1,
+        "failures": [],
+        "evidence": "126 suites, 2846/2847 pass (1 skipped), 0 failures",
+        "e2e_tests": {
+          "file": "e2e/default-blossom-server.spec.ts",
+          "command": "TEST_FILE=e2e/default-blossom-server.spec.ts docker compose -f docker-compose.e2e.yml up --build --abort-on-container-exit",
+          "passed": true,
+          "total": 2,
+          "passed_count": 2,
+          "failed_count": 0,
+          "test_names": [
+            "should initialize default blossom server when creating a new identity",
+            "should not duplicate defaults if identity already has servers"
+          ],
+          "evidence": "2 passed (8.6s) - both tests verify default blossom server initialization via UI identity creation + IPC query"
+        }
+      },
+      "all_passed": true
+    }
+  ],
+  "remediation_attempts": [],
+  "escalation": null,
+  "final_outcome": "accepted",
+  "completed_at": "2026-02-16T19:55:00Z"
+}
