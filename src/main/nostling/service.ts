@@ -19,6 +19,7 @@ import { buildMediaJson } from '../media/imeta-builder';
 import { log } from '../logging';
 import { NostlingSecretStore } from './secret-store';
 import { RelayConfigManager, DEFAULT_RELAYS } from './relay-config-manager';
+import { BlossomServerService } from '../blossom/BlossomServerService';
 import {
   deriveKeypair,
   generateKeypair,
@@ -157,9 +158,16 @@ export class NostlingService {
   // Upload pipeline for Blossom media uploads
   private uploadPipeline: UploadPipelineService | null = null;
 
+  // Blossom server service for default initialization on identity creation
+  private blossomServerService: BlossomServerService | null = null;
+
   constructor(private readonly database: Database, private readonly secretStore: NostlingSecretStore, configDir: string, options: NostlingServiceOptions = {}) {
     this.online = Boolean(options.online);
     this.relayConfigManager = new RelayConfigManager(configDir);
+  }
+
+  setBlossomServerService(service: BlossomServerService): void {
+    this.blossomServerService = service;
   }
 
   /**
@@ -284,6 +292,15 @@ export class NostlingService {
         await this.relayConfigManager.saveRelays(id, DEFAULT_RELAYS);
       } catch (error) {
         log('warn', `Failed to initialize relay config for identity ${id}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+
+      // Initialize default blossom servers
+      if (this.blossomServerService) {
+        try {
+          await this.blossomServerService.initializeDefaults(npubToStore);
+        } catch (error) {
+          log('warn', `Failed to initialize blossom servers for identity ${id}: ${error instanceof Error ? error.message : String(error)}`);
+        }
       }
 
       // Save seed if available (for backup/recovery capability)

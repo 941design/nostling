@@ -4,7 +4,7 @@
  * Tests server configuration CRUD, health checking, and fallback logic.
  */
 
-import { BlossomServerService } from './BlossomServerService';
+import { BlossomServerService, DEFAULT_BLOSSOM_SERVERS } from './BlossomServerService';
 import { initDatabase, closeDatabase, _resetDatabaseState } from '../database/connection';
 import { runMigrations } from '../database/migrations';
 import { promises as fs } from 'fs';
@@ -399,5 +399,60 @@ describe('BlossomServerService', () => {
       const selectedServer = await service.selectHealthyServer(identityPubkey);
       expect(selectedServer).toBeNull();
     }, 15000);
+  });
+
+  describe('Default Server Initialization', () => {
+    it('should have correct default servers constant', () => {
+      expect(DEFAULT_BLOSSOM_SERVERS).toEqual([
+        { url: 'https://cdn.satellite.earth', label: 'Satellite CDN' },
+      ]);
+    });
+
+    it('should initialize default servers for new identity', async () => {
+      const identityPubkey = 'npub1default123';
+      await service.initializeDefaults(identityPubkey);
+
+      const servers = await service.listServers(identityPubkey);
+      expect(servers.length).toBe(1);
+      expect(servers[0].url).toBe('https://cdn.satellite.earth');
+      expect(servers[0].label).toBe('Satellite CDN');
+      expect(servers[0].position).toBe(0);
+    });
+
+    it('should be idempotent - skip if servers already exist', async () => {
+      const identityPubkey = 'npub1idempotent123';
+
+      // Add a custom server first
+      await service.addServer(identityPubkey, 'https://custom.server.com', 'Custom');
+
+      // Call initializeDefaults - should not overwrite
+      await service.initializeDefaults(identityPubkey);
+
+      const servers = await service.listServers(identityPubkey);
+      expect(servers.length).toBe(1);
+      expect(servers[0].url).toBe('https://custom.server.com');
+      expect(servers[0].label).toBe('Custom');
+    });
+
+    it('should not affect other identities', async () => {
+      const identity1 = 'npub1first123';
+      const identity2 = 'npub1second123';
+
+      await service.initializeDefaults(identity1);
+      await service.addServer(identity2, 'https://other.server.com', 'Other');
+
+      const servers1 = await service.listServers(identity1);
+      const servers2 = await service.listServers(identity2);
+
+      expect(servers1.length).toBe(1);
+      expect(servers1[0].url).toBe('https://cdn.satellite.earth');
+      expect(servers2.length).toBe(1);
+      expect(servers2[0].url).toBe('https://other.server.com');
+    });
+
+    it('should throw if service not initialized', async () => {
+      const uninitializedService = new BlossomServerService();
+      await expect(uninitializedService.initializeDefaults('npub1test')).rejects.toThrow('BlossomServerService not initialized');
+    });
   });
 });

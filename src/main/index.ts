@@ -524,6 +524,9 @@ app.on('ready', async () => {
   await blossomServerService.initialize();
   registerBlossomHandlers({ blossomServerService });
 
+  // Wire blossom server service into NostlingService for default initialization on identity creation
+  nostlingService.setBlossomServerService(blossomServerService);
+
   // Initialize blob storage service
   const blobsDir = path.join(configDir, 'blobs');
   blobStorageService = new BlobStorageService(blobsDir);

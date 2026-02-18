@@ -10,7 +10,7 @@
  * - TLS requirement validation (reject http:// URLs)
  * - Health check via HEAD request with 3s timeout
  * - Server selection with fallback to next server on failure
- * - No default servers - users must configure manually
+ * - Default server initialization for new identities (https://cdn.satellite.earth)
  */
 
 import { Database } from 'sql.js';
@@ -24,6 +24,15 @@ export interface BlossomServer {
   label: string | null;
   position: number;
 }
+
+export interface DefaultBlossomServer {
+  url: string;
+  label: string;
+}
+
+export const DEFAULT_BLOSSOM_SERVERS: DefaultBlossomServer[] = [
+  { url: 'https://cdn.satellite.earth', label: 'Satellite CDN' },
+];
 
 export interface HealthCheckResult {
   url: string;
@@ -62,6 +71,29 @@ export class BlossomServerService {
     this.db = getDatabase();
     if (!this.db) {
       throw new Error('Database not initialized');
+    }
+  }
+
+  /**
+   * Initialize default blossom servers for a new identity.
+   * Idempotent: skips if servers already exist for this identity.
+   */
+  async initializeDefaults(identityPubkey: string): Promise<void> {
+    if (!this.db) {
+      throw new Error('BlossomServerService not initialized');
+    }
+
+    const existing = await this.listServers(identityPubkey);
+    if (existing.length > 0) {
+      return; // Already has servers, don't overwrite
+    }
+
+    for (let i = 0; i < DEFAULT_BLOSSOM_SERVERS.length; i++) {
+      const server = DEFAULT_BLOSSOM_SERVERS[i];
+      this.db.run(
+        'INSERT INTO blossom_servers (identity_pubkey, url, label, position) VALUES (?, ?, ?, ?)',
+        [identityPubkey, server.url, server.label, i]
+      );
     }
   }
 
