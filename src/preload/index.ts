@@ -265,6 +265,23 @@ const api: RendererApi = {
       return ipcRenderer.invoke('blob-storage:get-file-info', filePath) as Promise<{ size: number }>;
     },
   },
+  blossom: {
+    async listServers(identityPubkey: string) {
+      return ipcRenderer.invoke('blossom:list-servers', identityPubkey);
+    },
+    async addServer(identityPubkey: string, url: string, label: string | null) {
+      return ipcRenderer.invoke('blossom:add-server', { identityPubkey, url, label });
+    },
+    async removeServer(identityPubkey: string, url: string) {
+      return ipcRenderer.invoke('blossom:remove-server', { identityPubkey, url });
+    },
+    async reorderServers(identityPubkey: string, orderedUrls: string[]) {
+      return ipcRenderer.invoke('blossom:reorder-servers', { identityPubkey, orderedUrls });
+    },
+    async checkHealth(url: string) {
+      return ipcRenderer.invoke('blossom:check-health', url);
+    },
+  },
 };
 
 // Test-only API methods
@@ -285,6 +302,9 @@ const testApi = {
       label: string;
     }) {
       return ipcRenderer.invoke('test:insert-blossom-server', args);
+    },
+    async listBlossomServers(identityPubkey: string) {
+      return ipcRenderer.invoke('test:list-blossom-servers', identityPubkey);
     },
   },
 };

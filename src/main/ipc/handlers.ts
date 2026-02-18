@@ -454,6 +454,23 @@ export function registerHandlers(dependencies: {
       );
       return { success: true };
     });
+
+    ipcMain.handle('test:list-blossom-servers', async (_, identityPubkey: string) => {
+      const { getDatabase } = await import('../database/connection');
+      const db = getDatabase();
+      if (!db) throw new Error('Database not available');
+
+      const stmt = db.prepare(
+        'SELECT identity_pubkey, url, label, position FROM blossom_servers WHERE identity_pubkey = ? ORDER BY position ASC'
+      );
+      stmt.bind([identityPubkey]);
+      const results: any[] = [];
+      while (stmt.step()) {
+        results.push(stmt.getAsObject());
+      }
+      stmt.free();
+      return results;
+    });
   }
 
   // BUG FIX: Legacy IPC handlers for backward compatibility

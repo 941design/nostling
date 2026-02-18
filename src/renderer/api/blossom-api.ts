@@ -2,7 +2,7 @@
  * Blossom Server API Client
  *
  * Renderer-side API for Blossom server configuration.
- * Provides typed interface to IPC handlers.
+ * Provides typed interface to IPC handlers via preload bridge.
  */
 
 import { BlossomServer, HealthCheckResult } from '../../main/blossom/BlossomServerService';
@@ -123,26 +123,26 @@ export interface BlossomApi {
 }
 
 /**
- * Implementation using window.api (provided by preload script).
+ * Implementation using window.api.blossom (provided by preload script).
  */
 export const blossomApi: BlossomApi = {
   listServers: (identityPubkey: string) => {
-    return (window as any).api.invoke('blossom:list-servers', identityPubkey);
+    return (window as any).api.blossom.listServers(identityPubkey);
   },
 
   addServer: (identityPubkey: string, url: string, label: string | null) => {
-    return (window as any).api.invoke('blossom:add-server', { identityPubkey, url, label });
+    return (window as any).api.blossom.addServer(identityPubkey, url, label);
   },
 
   removeServer: (identityPubkey: string, url: string) => {
-    return (window as any).api.invoke('blossom:remove-server', { identityPubkey, url });
+    return (window as any).api.blossom.removeServer(identityPubkey, url);
   },
 
   reorderServers: (identityPubkey: string, orderedUrls: string[]) => {
-    return (window as any).api.invoke('blossom:reorder-servers', { identityPubkey, orderedUrls });
+    return (window as any).api.blossom.reorderServers(identityPubkey, orderedUrls);
   },
 
   checkHealth: (url: string) => {
-    return (window as any).api.invoke('blossom:check-health', url);
+    return (window as any).api.blossom.checkHealth(url);
   },
 };

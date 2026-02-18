@@ -40,6 +40,7 @@ import { startConversationPoller } from './utils/conversation-poller';
 import { shouldSubmitOnKeyDown } from './utils/keyboard-submit';
 import { useNostlingState } from './nostling/state';
 import { RelayTable } from './components/RelayTable';
+import { BlossomServerSettings } from './components/BlossomServerSettings/BlossomServerSettings';
 import { RelayConflictModal } from './components/RelayConflictModal';
 import { ThemeSelectionPanel, ThemeVariableSliders, ThemeInfo } from './components/ThemeSelectionPanel';
 import { IdentitiesPanel } from './components/IdentitiesPanel';
@@ -2506,16 +2507,24 @@ function App({ onThemeChange }: AppProps) {
               testId="relay-config-view"
             >
               {selectedIdentity ? (
-                <RelayTable
-                  identityId={selectedIdentity.id}
-                  relays={currentRelays}
-                  status={relayStatus as Record<string, 'connected' | 'connecting' | 'disconnected' | 'error'>}
-                  onChange={(updated: NostlingRelayEndpoint[]) => saveRelaysForIdentity(selectedIdentity.id, updated)}
-                  onConflict={(msg: string) => {
-                    setConflictMessage(msg);
-                    setConflictModalOpen(true);
-                  }}
-                />
+                <VStack gap="6" align="stretch" width="full">
+                  <RelayTable
+                    identityId={selectedIdentity.id}
+                    relays={currentRelays}
+                    status={relayStatus as Record<string, 'connected' | 'connecting' | 'disconnected' | 'error'>}
+                    onChange={(updated: NostlingRelayEndpoint[]) => saveRelaysForIdentity(selectedIdentity.id, updated)}
+                    onConflict={(msg: string) => {
+                      setConflictMessage(msg);
+                      setConflictModalOpen(true);
+                    }}
+                  />
+                  <Box>
+                    <Text fontSize="sm" fontWeight="bold" color={colors.textPrimary} mb="2">
+                      Blossom Servers
+                    </Text>
+                    <BlossomServerSettings identityPubkey={selectedIdentity.npub} />
+                  </Box>
+                </VStack>
               ) : (
                 <Text color={colors.textSubtle}>Select an identity to configure relays.</Text>
               )}
