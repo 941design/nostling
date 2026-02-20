@@ -5,6 +5,7 @@ import {
   parseNip92UrlTags,
   parseIncomingMedia,
   isImageMimeType,
+  isRenderableImageMimeType,
   isBlobUrl,
   inferMimeFromUrl,
   formatFileSize,
@@ -358,6 +359,30 @@ describe('isImageMimeType', () => {
     expect(isImageMimeType('application/pdf')).toBe(false);
     expect(isImageMimeType('video/mp4')).toBe(false);
     expect(isImageMimeType(undefined)).toBe(false);
+  });
+});
+
+describe('isRenderableImageMimeType', () => {
+  it('returns true for Chromium-native image formats', () => {
+    expect(isRenderableImageMimeType('image/jpeg')).toBe(true);
+    expect(isRenderableImageMimeType('image/png')).toBe(true);
+    expect(isRenderableImageMimeType('image/gif')).toBe(true);
+    expect(isRenderableImageMimeType('image/webp')).toBe(true);
+    expect(isRenderableImageMimeType('image/avif')).toBe(true);
+    expect(isRenderableImageMimeType('image/bmp')).toBe(true);
+    expect(isRenderableImageMimeType('image/svg+xml')).toBe(true);
+  });
+
+  it('returns false for non-renderable image formats', () => {
+    expect(isRenderableImageMimeType('image/heic')).toBe(false);
+    expect(isRenderableImageMimeType('image/heif')).toBe(false);
+    expect(isRenderableImageMimeType('image/tiff')).toBe(false);
+  });
+
+  it('returns false for non-image types', () => {
+    expect(isRenderableImageMimeType('application/pdf')).toBe(false);
+    expect(isRenderableImageMimeType('video/mp4')).toBe(false);
+    expect(isRenderableImageMimeType(undefined)).toBe(false);
   });
 });
 

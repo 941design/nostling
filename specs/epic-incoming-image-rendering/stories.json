@@ -301,7 +301,7 @@
         ],
         "playwright_file": "e2e/incoming-images-formats.spec.ts"
       },
-      "status": "pending",
+      "status": "done",
       "notes": "Independent story focused on format support. Can be tested standalone with kind-14 imeta messages. Uses test fixtures for various image format files. Security-critical: SVG script safety verification mandatory."
     },
 

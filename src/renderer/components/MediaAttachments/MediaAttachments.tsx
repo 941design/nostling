@@ -12,7 +12,7 @@ import { CachedImage } from '../CachedImage';
 import { useThemeColors } from '../../themes/ThemeContext';
 import {
   parseMediaJson,
-  isImageMimeType,
+  isRenderableImageMimeType,
   isBlobUrl,
   formatFileSize,
   ParsedMediaAttachment,
@@ -91,7 +91,7 @@ export function MediaAttachments({
       <Flex direction="column" gap="2">
         {attachments.map((attachment, index) => {
           const displayUrl = getDisplayUrl(attachment);
-          const isImage = isImageMimeType(attachment.mimeType) ||
+          const isImage = isRenderableImageMimeType(attachment.mimeType) ||
             (!attachment.mimeType && isBlobUrl(attachment.url));
 
           if (isImage) {

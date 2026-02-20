@@ -194,6 +194,26 @@ export function isImageMimeType(mimeType: string | undefined): boolean {
   return mimeType.startsWith('image/');
 }
 
+/** Image MIME types that Chromium can render natively via <img> tag. */
+const RENDERABLE_IMAGE_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'image/avif',
+  'image/bmp',
+  'image/svg+xml',
+]);
+
+/**
+ * Check if a MIME type represents an image that Chromium can render inline.
+ * Non-renderable image types (HEIC, HEIF, TIFF) should show a download link.
+ */
+export function isRenderableImageMimeType(mimeType: string | undefined): boolean {
+  if (!mimeType) return false;
+  return RENDERABLE_IMAGE_TYPES.has(mimeType);
+}
+
 /**
  * Format file size for display (e.g., "1.2 MB", "45 KB").
  */
