@@ -2,7 +2,7 @@
  * Tests for URL Detection and Parsing in Message Content
  */
 
-import { parseMessageContent, isValidUrl } from './linkify';
+import { parseMessageContent, isValidUrl, isImageUrl } from './linkify';
 
 describe('isValidUrl', () => {
   it('accepts http URLs', () => {
@@ -23,6 +23,49 @@ describe('isValidUrl', () => {
 
   it('rejects malformed URLs', () => {
     expect(isValidUrl('not-a-url')).toBe(false);
+  });
+});
+
+describe('isImageUrl', () => {
+  it('returns true for HTTPS image URLs', () => {
+    expect(isImageUrl('https://example.com/photo.jpg')).toBe(true);
+    expect(isImageUrl('https://example.com/photo.jpeg')).toBe(true);
+    expect(isImageUrl('https://example.com/photo.png')).toBe(true);
+    expect(isImageUrl('https://example.com/photo.gif')).toBe(true);
+    expect(isImageUrl('https://example.com/photo.webp')).toBe(true);
+    expect(isImageUrl('https://example.com/photo.avif')).toBe(true);
+    expect(isImageUrl('https://example.com/photo.bmp')).toBe(true);
+    expect(isImageUrl('https://example.com/photo.svg')).toBe(true);
+  });
+
+  it('returns true for blossom blob URLs (extensionless)', () => {
+    expect(isImageUrl('https://nostr.build/blob/abc123')).toBe(true);
+    expect(isImageUrl('https://blossom.example.com/blob/def456')).toBe(true);
+  });
+
+  it('returns false for non-HTTPS URLs', () => {
+    expect(isImageUrl('http://example.com/photo.jpg')).toBe(false);
+  });
+
+  it('returns false for non-image extensions', () => {
+    expect(isImageUrl('https://example.com/doc.pdf')).toBe(false);
+    expect(isImageUrl('https://example.com/video.mp4')).toBe(false);
+    expect(isImageUrl('https://example.com/file.txt')).toBe(false);
+  });
+
+  it('returns false for extensionless non-blob URLs', () => {
+    expect(isImageUrl('https://example.com/page')).toBe(false);
+    expect(isImageUrl('https://example.com/')).toBe(false);
+  });
+
+  it('returns false for invalid URLs', () => {
+    expect(isImageUrl('not-a-url')).toBe(false);
+    expect(isImageUrl('')).toBe(false);
+  });
+
+  it('is case-insensitive for extensions', () => {
+    expect(isImageUrl('https://example.com/photo.JPG')).toBe(true);
+    expect(isImageUrl('https://example.com/photo.PNG')).toBe(true);
   });
 });
 

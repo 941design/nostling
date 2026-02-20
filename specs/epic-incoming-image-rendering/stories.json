@@ -427,7 +427,7 @@
         ],
         "playwright_file": "e2e/incoming-images-inline-urls.spec.ts"
       },
-      "status": "pending",
+      "status": "done",
       "notes": "Core inline rendering feature. Independent of kind-15 support (works with kind-14 messages). Reuses existing CachedImage component for rendering. Security-critical: HTTPS-only URL filtering mandatory."
     },
 

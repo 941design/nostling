@@ -54,7 +54,8 @@ import { AttachmentPreviewStrip } from './components/AttachmentPreviewStrip/Atta
 import { useAttachments } from './hooks/useAttachments';
 import { useUploadProgress } from './hooks/useUploadProgress';
 import { MediaAttachments } from './components/MediaAttachments';
-import { parseMessageContent } from './utils/linkify';
+import { CachedImage } from './components/CachedImage';
+import { parseMessageContent, isImageUrl } from './utils/linkify';
 import { toaster } from './components/ui/toaster';
 import { createThemeSystem, getThemeIdForIdentity, getSemanticColors } from './themes/useTheme';
 import { ThemeGenerator, type ThemeGeneratorInput } from './themes/generator';
@@ -833,8 +834,9 @@ function DateSeparator({ date }: { date: string }) {
   );
 }
 
-function MessageContent({ content, textColor }: { content: string; textColor: string }) {
+function MessageContent({ content, textColor, hasMediaJson }: { content: string; textColor: string; hasMediaJson?: boolean }) {
   const segments = useMemo(() => parseMessageContent(content), [content]);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   const handleLinkClick = useCallback((e: React.MouseEvent, url: string) => {
     e.preventDefault();
@@ -844,26 +846,94 @@ function MessageContent({ content, textColor }: { content: string; textColor: st
   }, []);
 
   return (
-    <Text color={textColor} whiteSpace="pre-wrap" fontFamily="body">
-      {segments.map((segment, index) => {
-        if (segment.type === 'link') {
-          return (
-            <Text
-              as="span"
-              key={index}
-              color="blue.400"
-              textDecoration="underline"
-              cursor="pointer"
-              _hover={{ color: 'blue.300' }}
-              onClick={(e) => handleLinkClick(e, segment.url)}
-            >
-              {segment.displayText}
-            </Text>
-          );
-        }
-        return <Fragment key={index}>{segment.content}</Fragment>;
-      })}
-    </Text>
+    <>
+      <Text color={textColor} whiteSpace="pre-wrap" fontFamily="body">
+        {segments.map((segment, index) => {
+          if (segment.type === 'link') {
+            // Render image URLs inline when no structured media attachments exist
+            if (!hasMediaJson && isImageUrl(segment.url)) {
+              return (
+                <Box
+                  as="span"
+                  key={index}
+                  display="block"
+                  my="1"
+                  maxW="300px"
+                  cursor="pointer"
+                  onClick={() => setLightboxUrl(segment.url)}
+                >
+                  <CachedImage
+                    url={segment.url}
+                    alt="Inline image"
+                    maxH="300px"
+                    maxW="100%"
+                    objectFit="contain"
+                    borderRadius="md"
+                    loading="lazy"
+                  />
+                </Box>
+              );
+            }
+            return (
+              <Text
+                as="span"
+                key={index}
+                color="blue.400"
+                textDecoration="underline"
+                cursor="pointer"
+                _hover={{ color: 'blue.300' }}
+                onClick={(e) => handleLinkClick(e, segment.url)}
+              >
+                {segment.displayText}
+              </Text>
+            );
+          }
+          return <Fragment key={index}>{segment.content}</Fragment>;
+        })}
+      </Text>
+      {lightboxUrl && (
+        <InlineLightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />
+      )}
+    </>
+  );
+}
+
+function InlineLightbox({ url, onClose }: { url: string; onClose: () => void }) {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <Box
+      position="fixed"
+      top="0"
+      left="0"
+      right="0"
+      bottom="0"
+      bg="blackAlpha.800"
+      zIndex="overlay"
+      display="flex"
+      alignItems="center"
+      justifyContent="center"
+      onClick={onClose}
+      cursor="pointer"
+    >
+      <img
+        src={url}
+        alt="Expanded view"
+        style={{
+          maxWidth: '90vw',
+          maxHeight: '90vh',
+          objectFit: 'contain',
+          borderRadius: '8px',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      />
+    </Box>
   );
 }
 
@@ -939,6 +1009,7 @@ function MessageBubble({
         <MessageContent
           content={message.content}
           textColor={isOwn ? colors.ownBubbleText : colors.text}
+          hasMediaJson={!!message.mediaJson}
         />
         {message.mediaJson && (
           <MediaAttachments

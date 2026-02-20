@@ -1,0 +1,53 @@
+{
+  "story_id": "04",
+  "status": "done",
+  "created_at": "2026-02-20T21:45:00Z",
+  "updated_at": "2026-02-20T21:55:00Z",
+
+  "implementation": {
+    "status": "done",
+    "started_at": "2026-02-20T21:45:00Z",
+    "completed_at": "2026-02-20T21:50:00Z",
+    "architect_session_id": null,
+    "files_created": [],
+    "files_modified": [
+      "src/renderer/utils/linkify.ts",
+      "src/renderer/utils/linkify.test.ts",
+      "src/renderer/main.tsx"
+    ],
+    "mocks_introduced": []
+  },
+
+  "verification_rounds": [
+    {
+      "round": 1,
+      "timestamp": "2026-02-20T21:53:00Z",
+      "verification_passed": true,
+      "results": [
+        { "id": "VQ-04-001", "verdict": "PASS", "summary": "isImageUrl handles 8 extensions, blob URLs, HTTPS-only enforcement" },
+        { "id": "VQ-04-002", "verdict": "PASS", "summary": "MessageContent renders CachedImage with lightbox for image URLs" },
+        { "id": "VQ-04-003", "verdict": "PASS", "summary": "Guard !hasMediaJson prevents double-rendering with structured media" },
+        { "id": "VQ-04-004", "verdict": "PASS", "summary": "hasMediaJson={!!message.mediaJson} correctly passed from call site" },
+        { "id": "VQ-04-M01", "verdict": "PASS", "summary": "127/127 suites, 2883/2884 tests pass" }
+      ],
+      "test_gate": {
+        "ran_at": "2026-02-20T21:52:00Z",
+        "command": "npm test",
+        "passed": true,
+        "total_tests": 2884,
+        "passed_tests": 2883,
+        "failed_tests": 0,
+        "skipped_tests": 1,
+        "total_suites": 127,
+        "build_passed": true,
+        "e2e_tests": {
+          "status": "deferred_to_story_06",
+          "reason": "Story 04 E2E scenarios require dual-instance message exchange with image URLs - covered by regression verification in Story 06"
+        }
+      }
+    }
+  ],
+  "remediation_attempts": [],
+  "escalation": null,
+  "final_outcome": "accepted"
+}

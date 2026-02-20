@@ -49,6 +49,34 @@ function cleanTrailingPunctuation(url: string): string {
  * @param content - Raw message text
  * @returns Array of segments (text and link)
  */
+/** File extensions recognized as inline-renderable images. */
+const IMAGE_EXTENSIONS = new Set([
+  'jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'bmp', 'svg',
+]);
+
+/**
+ * Check if a URL points to an image resource.
+ * Matches HTTPS URLs with image file extensions or blossom /blob/ pattern.
+ */
+export function isImageUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:') return false;
+
+    // Check for blossom blob URL pattern
+    if (parsed.pathname.includes('/blob/')) return true;
+
+    // Check for image file extension
+    const lastSegment = parsed.pathname.split('/').pop() || '';
+    const dotIdx = lastSegment.lastIndexOf('.');
+    if (dotIdx < 0) return false;
+    const ext = lastSegment.substring(dotIdx + 1).toLowerCase();
+    return IMAGE_EXTENSIONS.has(ext);
+  } catch {
+    return false;
+  }
+}
+
 export function parseMessageContent(content: string): MessageSegment[] {
   const segments: MessageSegment[] = [];
   let lastIndex = 0;
