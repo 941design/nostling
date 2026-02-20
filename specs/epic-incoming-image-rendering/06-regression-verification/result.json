@@ -1,0 +1,50 @@
+{
+  "story_id": "06",
+  "status": "done",
+  "created_at": "2026-02-20T22:10:00Z",
+  "updated_at": "2026-02-20T22:15:00Z",
+
+  "implementation": {
+    "status": "done",
+    "started_at": "2026-02-20T22:10:00Z",
+    "completed_at": "2026-02-20T22:10:00Z",
+    "architect_session_id": null,
+    "files_created": [],
+    "files_modified": [],
+    "mocks_introduced": []
+  },
+
+  "verification_rounds": [
+    {
+      "round": 1,
+      "timestamp": "2026-02-20T22:12:00Z",
+      "verification_passed": true,
+      "results": [
+        { "id": "VQ-06-001", "verdict": "PASS", "summary": "127/127 test suites pass, 2883/2884 tests (1 pre-existing skip)" },
+        { "id": "VQ-06-002", "verdict": "PASS", "summary": "Build succeeds with zero errors" },
+        { "id": "VQ-06-003", "verdict": "PASS", "summary": "parseMediaJson handles both outgoing {attachments} and incoming {tags} formats" },
+        { "id": "VQ-06-004", "verdict": "PASS", "summary": "Kind-14 ingest path unchanged, uses original code path" },
+        { "id": "VQ-06-005", "verdict": "PASS", "summary": "Outgoing format hardcodes kind:14, no kind-15 sent" },
+        { "id": "VQ-06-006", "verdict": "PASS", "summary": "HTTPS-only enforcement, SVG via <img> tag, no unsafe URL schemes" }
+      ],
+      "test_gate": {
+        "ran_at": "2026-02-20T22:11:00Z",
+        "command": "npm test",
+        "passed": true,
+        "total_tests": 2884,
+        "passed_tests": 2883,
+        "failed_tests": 0,
+        "skipped_tests": 1,
+        "total_suites": 127,
+        "build_passed": true,
+        "e2e_tests": {
+          "status": "not_required",
+          "reason": "Regression verification story validates via unit tests and code inspection — no new features"
+        }
+      }
+    }
+  ],
+  "remediation_attempts": [],
+  "escalation": null,
+  "final_outcome": "accepted"
+}

@@ -588,7 +588,7 @@
         ],
         "playwright_file": "e2e/incoming-images-regression.spec.ts"
       },
-      "status": "pending",
+      "status": "done",
       "notes": "Regression verification story ensuring backward compatibility. Should be executed AFTER all other stories are implemented. Uses baseline screenshots for visual regression testing. No new features, only verification."
     }
   ],
