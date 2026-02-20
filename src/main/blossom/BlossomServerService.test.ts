@@ -404,6 +404,8 @@ describe('BlossomServerService', () => {
   describe('Default Server Initialization', () => {
     it('should have correct default servers constant', () => {
       expect(DEFAULT_BLOSSOM_SERVERS).toEqual([
+        { url: 'https://blossom.primal.net', label: 'Primal' },
+        { url: 'https://nostr.download', label: 'nostr.download' },
         { url: 'https://cdn.satellite.earth', label: 'Satellite CDN' },
       ]);
     });
@@ -413,10 +415,16 @@ describe('BlossomServerService', () => {
       await service.initializeDefaults(identityPubkey);
 
       const servers = await service.listServers(identityPubkey);
-      expect(servers.length).toBe(1);
-      expect(servers[0].url).toBe('https://cdn.satellite.earth');
-      expect(servers[0].label).toBe('Satellite CDN');
+      expect(servers.length).toBe(3);
+      expect(servers[0].url).toBe('https://blossom.primal.net');
+      expect(servers[0].label).toBe('Primal');
       expect(servers[0].position).toBe(0);
+      expect(servers[1].url).toBe('https://nostr.download');
+      expect(servers[1].label).toBe('nostr.download');
+      expect(servers[1].position).toBe(1);
+      expect(servers[2].url).toBe('https://cdn.satellite.earth');
+      expect(servers[2].label).toBe('Satellite CDN');
+      expect(servers[2].position).toBe(2);
     });
 
     it('should be idempotent - skip if servers already exist', async () => {
@@ -444,8 +452,8 @@ describe('BlossomServerService', () => {
       const servers1 = await service.listServers(identity1);
       const servers2 = await service.listServers(identity2);
 
-      expect(servers1.length).toBe(1);
-      expect(servers1[0].url).toBe('https://cdn.satellite.earth');
+      expect(servers1.length).toBe(3);
+      expect(servers1[0].url).toBe('https://blossom.primal.net');
       expect(servers2.length).toBe(1);
       expect(servers2[0].url).toBe('https://other.server.com');
     });

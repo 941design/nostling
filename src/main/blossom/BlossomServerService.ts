@@ -31,6 +31,8 @@ export interface DefaultBlossomServer {
 }
 
 export const DEFAULT_BLOSSOM_SERVERS: DefaultBlossomServer[] = [
+  { url: 'https://blossom.primal.net', label: 'Primal' },
+  { url: 'https://nostr.download', label: 'nostr.download' },
   { url: 'https://cdn.satellite.earth', label: 'Satellite CDN' },
 ];
 
