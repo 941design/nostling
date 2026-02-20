@@ -250,7 +250,7 @@ export function BlossomServerSettings({ identityPubkey }: BlossomServerSettingsP
                     <HealthDot status={server.healthStatus} />
                   </Table.Cell>
                   <Table.Cell padding="1">
-                    <Text fontSize="sm" color={colors.textPrimary} wordBreak="break-all">
+                    <Text fontSize="sm" color={colors.text} wordBreak="break-all">
                       {server.url}
                     </Text>
                   </Table.Cell>

@@ -87,7 +87,7 @@ function AttachmentPreviewItem({ attachment, onRemove }: AttachmentPreviewItemPr
         right="0"
         onClick={onRemove}
         bg={colors.surfaceBg}
-        _hover={{ bg: colors.surfaceHover }}
+        _hover={{ bg: colors.surfaceBgSubtle }}
       >
         <XIcon />
       </IconButton>
@@ -113,7 +113,7 @@ function AttachmentPreviewItem({ attachment, onRemove }: AttachmentPreviewItemPr
       <Text
         fontSize="xs"
         color={colors.textSubtle}
-        noOfLines={1}
+        lineClamp={1}
         title={attachment.name}
       >
         {attachment.name}

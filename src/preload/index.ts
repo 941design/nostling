@@ -247,7 +247,7 @@ const api: RendererApi = {
       },
     },
     media: {
-      onUploadProgress(callback: (progress: { messageId: string; blobHash: string; status: string; bytesUploaded: number; totalBytes: number; error?: string }) => void) {
+      onUploadProgress(callback: (progress: { messageId: string; blobHash: string; status: 'uploading' | 'completed' | 'error'; bytesUploaded: number; totalBytes: number; error?: string }) => void) {
         const listener = (_: any, progress: any) => callback(progress);
         ipcRenderer.on('nostling:media:upload-progress', listener);
         return () => ipcRenderer.removeListener('nostling:media:upload-progress', listener);

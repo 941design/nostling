@@ -2519,7 +2519,7 @@ function App({ onThemeChange }: AppProps) {
                     }}
                   />
                   <Box>
-                    <Text fontSize="sm" fontWeight="bold" color={colors.textPrimary} mb="2">
+                    <Text fontSize="sm" fontWeight="bold" color={colors.text} mb="2">
                       Blossom Servers
                     </Text>
                     <BlossomServerSettings identityPubkey={selectedIdentity.npub} />

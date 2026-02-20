@@ -126,6 +126,13 @@ export interface RendererApi {
   state: StateApi; // Added persistence layer API
   nostling?: NostlingApi;
   blobStorage?: BlobStorageApi;
+  blossom?: {
+    listServers(identityPubkey: string): Promise<any[]>;
+    addServer(identityPubkey: string, url: string, label: string | null): Promise<any>;
+    removeServer(identityPubkey: string, url: string): Promise<boolean>;
+    reorderServers(identityPubkey: string, orderedUrls: string[]): Promise<void>;
+    checkHealth(url: string): Promise<any>;
+  };
 }
 
 // Legacy flat API for backward compatibility (optional)
@@ -315,6 +322,9 @@ export interface NostlingApi {
   avatarApi: {
     fetchVocabulary(): Promise<AvatarVocabularyResponse>;
     search(params: AvatarSearchParams): Promise<AvatarSearchResponse>;
+  };
+  media: {
+    onUploadProgress(callback: (progress: { messageId: string; blobHash: string; status: 'uploading' | 'completed' | 'error'; bytesUploaded: number; totalBytes: number; error?: string }) => void): () => void;
   };
 }
 
