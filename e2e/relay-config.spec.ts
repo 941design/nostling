@@ -57,13 +57,13 @@ test.describe('Relay Configuration View', () => {
     await navigateToRelayConfig(page);
 
     // Wait for relay table to load
-    await expect(page.locator('table')).toBeVisible();
+    await expect(page.locator('[data-testid="relay-table"]')).toBeVisible();
 
     // Count initial relay rows (excluding header and add-relay row)
-    const initialCount = await page.locator('table tbody tr input[placeholder="wss://relay.example.com"]').count();
+    const initialCount = await page.locator('[data-testid="relay-table"] tbody tr input[placeholder="wss://relay.example.com"]').count();
 
     // Find the add-relay input (last row in table has the "+" symbol and input)
-    const addRelayInput = page.locator('table tbody tr').last().locator('input[placeholder="wss://relay.example.com"]');
+    const addRelayInput = page.locator('[data-testid="relay-table"] tbody tr').last().locator('input[placeholder="wss://relay.example.com"]');
     await expect(addRelayInput).toBeVisible();
 
     // Type a new relay URL and press Enter to add
@@ -72,7 +72,7 @@ test.describe('Relay Configuration View', () => {
 
     // Verify new relay input appeared (count increased)
     // Wait for the change to be reflected - a new row should exist
-    await expect(page.locator('table tbody tr input[placeholder="wss://relay.example.com"]')).toHaveCount(initialCount + 1, { timeout: 5000 });
+    await expect(page.locator('[data-testid="relay-table"] tbody tr input[placeholder="wss://relay.example.com"]')).toHaveCount(initialCount + 1, { timeout: 5000 });
   });
 
   test('should edit relay URL', async ({ page }) => {
@@ -85,11 +85,11 @@ test.describe('Relay Configuration View', () => {
     await navigateToRelayConfig(page);
 
     // Wait for relay table to load
-    await expect(page.locator('table')).toBeVisible();
+    await expect(page.locator('[data-testid="relay-table"]')).toBeVisible();
 
     // Get relay input fields (excluding the add-relay row which is the last row)
     // The existing relay inputs are in rows before the last one
-    const relayRows = page.locator('table tbody tr');
+    const relayRows = page.locator('[data-testid="relay-table"] tbody tr');
     const rowCount = await relayRows.count();
 
     // If no relays exist (only the add row), add one first
@@ -98,7 +98,7 @@ test.describe('Relay Configuration View', () => {
       await addRelayInput.fill('wss://initial-relay.example.com');
       await addRelayInput.press('Enter');
       // Wait for the new row to appear
-      await expect(page.locator('table tbody tr')).toHaveCount(rowCount + 1, { timeout: 5000 });
+      await expect(page.locator('[data-testid="relay-table"] tbody tr')).toHaveCount(rowCount + 1, { timeout: 5000 });
     }
 
     // Edit first relay URL (first row should be a relay, not the add row)
@@ -121,10 +121,10 @@ test.describe('Relay Configuration View', () => {
     await navigateToRelayConfig(page);
 
     // Wait for relay table to load
-    await expect(page.locator('table')).toBeVisible();
+    await expect(page.locator('[data-testid="relay-table"]')).toBeVisible();
 
     // Get relay rows (the last row is always the "add relay" row)
-    const relayRows = page.locator('table tbody tr');
+    const relayRows = page.locator('[data-testid="relay-table"] tbody tr');
     let rowCount = await relayRows.count();
 
     // Add a relay if only the add-row exists
@@ -133,7 +133,7 @@ test.describe('Relay Configuration View', () => {
       await addRelayInput.fill('wss://test-to-remove.example.com');
       await addRelayInput.press('Enter');
       // Wait for the new row to appear
-      await expect(page.locator('table tbody tr')).toHaveCount(rowCount + 1, { timeout: 5000 });
+      await expect(page.locator('[data-testid="relay-table"] tbody tr')).toHaveCount(rowCount + 1, { timeout: 5000 });
       rowCount = await relayRows.count();
     }
 
@@ -143,7 +143,7 @@ test.describe('Relay Configuration View', () => {
     await removeButton.click();
 
     // Verify relay row count decreased
-    await expect(page.locator('table tbody tr')).toHaveCount(rowCount - 1, { timeout: 5000 });
+    await expect(page.locator('[data-testid="relay-table"] tbody tr')).toHaveCount(rowCount - 1, { timeout: 5000 });
   });
 
   test('should persist relay changes after save', async ({ page }) => {
@@ -156,11 +156,11 @@ test.describe('Relay Configuration View', () => {
     await navigateToRelayConfig(page);
 
     // Wait for relay table to load
-    await expect(page.locator('table')).toBeVisible();
+    await expect(page.locator('[data-testid="relay-table"]')).toBeVisible();
 
     // Add a unique relay via the add-relay input row
     const uniqueUrl = `wss://test-${Date.now()}.relay.com`;
-    const addRelayInput = page.locator('table tbody tr').last().locator('input[placeholder="wss://relay.example.com"]');
+    const addRelayInput = page.locator('[data-testid="relay-table"] tbody tr').last().locator('input[placeholder="wss://relay.example.com"]');
     await addRelayInput.fill(uniqueUrl);
     await addRelayInput.press('Enter');
 
@@ -173,7 +173,7 @@ test.describe('Relay Configuration View', () => {
     await navigateToRelayConfig(page);
 
     // Wait for relay table to reload
-    await expect(page.locator('table')).toBeVisible();
+    await expect(page.locator('[data-testid="relay-table"]')).toBeVisible();
 
     // Verify relay persisted
     await expect(page.locator(`input[value="${uniqueUrl}"]`)).toBeVisible({ timeout: 5000 });
@@ -194,14 +194,15 @@ test.describe('Relay Configuration View', () => {
     // Done button to return to chat
     await expect(page.locator('[data-testid="relay-config-done-button"]')).toBeVisible();
     // Relay table is visible
-    await expect(page.locator('table')).toBeVisible();
-    // Verify header text exists (using text selectors which are more robust)
-    await expect(page.locator('text=Enabled')).toBeVisible();
-    await expect(page.locator('text=Status')).toBeVisible();
-    await expect(page.locator('text=URL')).toBeVisible();
+    await expect(page.locator('[data-testid="relay-table"]')).toBeVisible();
+    // Verify header text exists within the relay table
+    const relayTable = page.locator('[data-testid="relay-table"]');
+    await expect(relayTable.locator('text=Enabled')).toBeVisible();
+    await expect(relayTable.locator('text=Status')).toBeVisible();
+    await expect(relayTable.locator('text=URL')).toBeVisible();
 
     // Verify add-relay input row exists (has "+" symbol and input)
-    const addRelayRow = page.locator('table tbody tr').last();
+    const addRelayRow = page.locator('[data-testid="relay-table"] tbody tr').last();
     await expect(addRelayRow.locator('input[placeholder="wss://relay.example.com"]')).toBeVisible();
 
     // Verify summary text exists at bottom (e.g., "0 relays · 0 connected · 0 failed")

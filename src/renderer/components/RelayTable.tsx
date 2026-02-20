@@ -393,7 +393,7 @@ export function RelayTable({
         onDragEnd={handleDragEnd}
       >
         <Box overflowX="auto" borderRadius="md" border="1px" borderColor={colors.border}>
-          <Table.Root size="sm">
+          <Table.Root size="sm" data-testid="relay-table">
             <Table.Header bg={colors.surfaceBgSubtle}>
               <Table.Row height="36px">
                 <Table.ColumnHeader width="40px" padding="1" fontSize="xs">
