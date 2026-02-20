@@ -42,29 +42,35 @@ When a kind-15 rumor is unwrapped:
 - Pass the rumor through to `ingestIncomingMessage` with `kind: 15` and the full tag set
 - `ingestIncomingMessage` builds `mediaJson` from the kind-15 tags, mapping them to the existing `ParsedMediaAttachment` structure
 
+**Error handling for malformed kind-15 messages:**
+- If `content` is empty or not a valid HTTPS URL: store as text-only message with debug log warning
+- If `file-type` tag is missing: attempt MIME inference from URL extension (per FR-3)
+- If conflicting metadata exists (e.g., URL extension vs. `file-type` tag): trust the tag value over URL extension
+- Use best-effort rendering with defaults for missing optional tags (`dim`, `blurhash`, `x`)
+
 The `processGiftWrapEvent` check `if (dmResult && dmResult.kind === 14)` must be relaxed to also accept kind 15.
 
 ### FR-2: Inline Image Detection in Message Text Content
 
 When rendering a message's text content, detect URLs that point to known image resources and render them as inline image previews instead of (or in addition to) clickable text links.
 
-**Detection heuristics** (applied only when no `mediaJson` is present on the message, to avoid double-rendering):
+**Detection heuristics** (applied only when `mediaJson` is null or failed to parse, to avoid double-rendering):
 - URL path ends with a known image extension: `.jpg`, `.jpeg`, `.png`, `.gif`, `.webp`, `.avif`, `.bmp`, `.svg`
 - URL hostname matches a known blossom server pattern (any URL containing `/blob/` or matching the user's configured blossom server list)
 
 **Rendering behavior:**
-- Detected image URLs are extracted from the text content and rendered as `CachedImage` components below the text, similar to `MediaAttachments`
-- The original URL remains in the text as a clickable link (for context and fallback)
+- Detected image URLs are extracted from the text content and rendered as `CachedImage` components, replacing the URL text in the message
 - A lightbox click-to-expand interaction applies, consistent with existing `ImageAttachment` behavior
-- If the image fails to load (404, network error, unsupported format), fall back to showing just the clickable link with no broken image indicator
+- If the image fails to load (404, network error, unsupported format), display a placeholder/broken image indicator in place of the image
+- No limit on the number of inline images per message (rely on lazy loading for performance)
 
 ### FR-3: MIME Type Inference from URL and Tags
 
 When an incoming media attachment has no explicit MIME type (`m` field missing from `imeta`, or `file-type` tag absent from kind-15):
 
 1. **Infer from URL file extension**: Map common extensions to MIME types (`.jpg`/`.jpeg` -> `image/jpeg`, `.png` -> `image/png`, `.gif` -> `image/gif`, `.webp` -> `image/webp`, `.avif` -> `image/avif`, `.mp4` -> `video/mp4`, `.pdf` -> `application/pdf`, etc.)
-2. **Infer from blossom server response**: When fetching the image for cache, use the `Content-Type` response header as a secondary MIME type signal
-3. **Default for blossom URLs without extension**: Treat blossom blob URLs (pattern: `https://<host>/blob/<sha256>` with no extension) as potentially renderable images and attempt to load them via `CachedImage`. If the loaded content is not an image (wrong content type), fall back to file link.
+2. **Infer from blossom server response**: When fetching the image for cache, use the `Content-Type` response header as a secondary MIME type signal. Trust Content-Type from any HTTPS blossom server (URL pattern containing `/blob/`).
+3. **Default for blossom URLs without extension**: Treat blossom blob URLs (pattern: `https://<host>/blob/<sha256>` with no extension) as potentially renderable images and attempt to load them via `CachedImage`. If the loaded content is not an image (wrong content type), display a placeholder/broken image indicator.
 
 This inference applies at the `parseImetaTags` / `parseIncomingMedia` level in `media-parser.ts` and at the `CachedImage` rendering level.
 
@@ -94,7 +100,8 @@ When ingesting a kind-15 file message, construct the `mediaJson` database field 
 | `dim` tag value (if present) | `dimensions` |
 | `blurhash` tag value (if present) | `blurhash` |
 | `x` tag value (SHA-256, if present) | `sha256` |
-| `thumb` tag value (if present) | thumbnail URL (new field, optional) |
+
+**Note**: The `thumb` tag (if present) is ignored in this implementation. Always use the full-size URL from `content`.
 
 The mapping from kind-15 tags to `mediaJson` happens in `ingestIncomingMessage` (or a helper called from it). The stored format uses the same `{"tags": [...]}` structure as kind-14 imeta tags for consistency in the renderer.
 
@@ -111,7 +118,7 @@ The key distinction: kind 14 and 15 are processed; everything else is logged and
 
 ## Non-Functional Requirements
 
-- Image URL detection in message text must not introduce rendering latency for text-only messages. Use lazy/deferred image loading.
+- Image URL detection in message text must not introduce rendering latency for text-only messages. Use lazy/deferred image loading (images below viewport load on scroll). No specific performance threshold required.
 - MIME type inference is a pure, synchronous operation (string matching). No network requests at parse time.
 - Kind-15 processing must not break existing kind-14 message handling. The change to `decryptNip17Message` is additive.
 - Image rendering for incoming messages reuses the existing `CachedImage` component and image cache infrastructure. No new caching mechanism required.
@@ -143,12 +150,15 @@ The key distinction: kind 14 and 15 are processed; everything else is logged and
 ## Acceptance Criteria
 
 - A NIP-17 kind-15 file message containing an image URL is received and the image renders inline in the chat conversation
-- A NIP-17 kind-14 chat message containing a blossom image URL in its text content (without imeta tags) renders the image inline below the message text
+- A NIP-17 kind-14 chat message containing a blossom image URL in its text content (without imeta tags) renders the image inline, replacing the URL text
 - A NIP-17 kind-14 chat message with imeta tags (but missing the `m` MIME field) still renders the image correctly by inferring MIME from the URL extension
 - An incoming message with AVIF, BMP, or SVG image content renders inline (where Chromium supports the format)
 - An incoming message with HEIC or TIFF image content shows a file download link (not a broken image)
 - An incoming wrapped event of an unrecognized kind (e.g., kind 42) is logged and discarded without error or UI glitch
 - Existing kind-14 text-only and kind-14-with-imeta message rendering remains unchanged
 - No changes to outgoing message format or upload validation
-- Image URLs in text content are only rendered inline when no `mediaJson` already exists on the message (no double-rendering)
-- Inline image detection does not slow down rendering of text-only messages
+- Image URLs in text content are only rendered inline when `mediaJson` is null or failed to parse (no double-rendering when structured attachments exist)
+- Inline image detection uses lazy rendering (images below viewport load on scroll) for performance
+- Failed image loads (404, network error, unsupported format) display a placeholder/broken image indicator
+- Kind-15 file messages with malformed or missing tags use best-effort rendering (MIME inference from URL, defaults for missing optional tags)
+- No limit on number of inline images per message (lazy loading handles performance)

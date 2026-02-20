@@ -1,0 +1,245 @@
+{
+  "created_at": "2026-02-20T19:35:00Z",
+  "key_files": [
+    {
+      "path": "src/renderer/components/MediaAttachments/MediaAttachments.tsx",
+      "lines": "30-170",
+      "relevance": "Core media rendering component - handles both outgoing (local blobs) and incoming (remote URLs) attachments, including image display, blurhash placeholders, lightbox",
+      "source": "similar-features"
+    },
+    {
+      "path": "src/renderer/utils/media-parser.ts",
+      "lines": "24-146",
+      "relevance": "Parses mediaJson from database into renderable attachments, handles both outgoing format ({attachments}) and incoming format ({tags}), provides NIP-94 imeta and NIP-92 url tag parsing",
+      "source": "similar-features"
+    },
+    {
+      "path": "src/main/nostling/crypto.ts",
+      "lines": "551-581",
+      "relevance": "Decrypts NIP-17 messages, currently only accepts kind 14, returns tags array from unwrapped rumor. CRITICAL CHANGE POINT: must extend to accept kind 15",
+      "source": "similar-features"
+    },
+    {
+      "path": "src/main/nostling/service.ts",
+      "lines": "679-686",
+      "relevance": "Builds incoming mediaJson from rumor tags (imeta/url) during message ingestion, stores in nostr_messages.media_json column. EXTENSION POINT: handle kind 15 tags",
+      "source": "similar-features"
+    },
+    {
+      "path": "src/renderer/components/CachedImage.tsx",
+      "lines": "49-133",
+      "relevance": "Fetches and caches remote images from URLs, uses IPC to interact with image-cache service, provides fallback handling",
+      "source": "similar-features"
+    },
+    {
+      "path": "src/renderer/utils/linkify.ts",
+      "lines": "52-110",
+      "relevance": "Parses message content to detect URLs, splits into text and link segments. EXTENSION POINT: detect image URLs for inline rendering",
+      "source": "similar-features"
+    },
+    {
+      "path": "src/renderer/main.tsx",
+      "lines": "835-951",
+      "relevance": "MessageContent and MessageBubble components - MessageContent currently renders all URLs as text links. EXTENSION POINT: inline image rendering",
+      "source": "similar-features"
+    },
+    {
+      "path": "src/renderer/utils/attachment-validation.ts",
+      "lines": "9-24",
+      "relevance": "SUPPORTED_MIME_TYPES for outgoing attachments. NO CHANGES needed (outgoing only)",
+      "source": "similar-features"
+    },
+    {
+      "path": "src/main/index.ts",
+      "lines": "1-743",
+      "relevance": "Main process entry point orchestrating database, services, IPC registration. Shows overall architecture",
+      "source": "architecture"
+    },
+    {
+      "path": "src/preload/index.ts",
+      "lines": "1-100",
+      "relevance": "Security boundary exposing typed IPC API via contextBridge. Shows renderer-main communication pattern",
+      "source": "architecture"
+    },
+    {
+      "path": "docs/dual-instance-testing.md",
+      "lines": "1-520",
+      "relevance": "Dual-instance test procedures T01-T12. CRITICAL: All behavioral changes must be verified here",
+      "source": "testing-and-conventions"
+    },
+    {
+      "path": "docs/dual-instance-playwright-setup.md",
+      "lines": "1-185",
+      "relevance": "Dual-instance environment setup with Playwright MCP. CRITICAL: Test design principles - UI interactions only, no IPC for actions",
+      "source": "testing-and-conventions"
+    },
+    {
+      "path": "e2e/media-upload.spec.ts",
+      "lines": "1-196",
+      "relevance": "Example media upload E2E test showing pattern: store blob → send message → wait for upload → verify rendering",
+      "source": "testing-and-conventions"
+    },
+    {
+      "path": "e2e/helpers.ts",
+      "lines": "139-269",
+      "relevance": "E2E test helpers: ensureIdentityExists, setupBlossomServer, waitForMessageSent, waitForMediaUploadComplete",
+      "source": "testing-and-conventions"
+    }
+  ],
+  "patterns": [
+    {
+      "name": "Dual-format media storage",
+      "description": "parseMediaJson() detects format via parsed.tags vs parsed.attachments presence, calls format-specific parser",
+      "reference": "media-parser.ts:28-35"
+    },
+    {
+      "name": "IPC-based resource resolution",
+      "description": "Components use window.api.* calls for blob storage and image cache, handle async resolution in useEffect with cancellation",
+      "reference": "MediaAttachments.tsx:44-72, CachedImage.tsx:53-118"
+    },
+    {
+      "name": "Conditional rendering by MIME",
+      "description": "isImageMimeType() gates ImageAttachment vs FileAttachment rendering",
+      "reference": "MediaAttachments.tsx:93-107"
+    },
+    {
+      "name": "Blurhash placeholder",
+      "description": "Show blurhash canvas when displayUrl missing but blurhash present, provides visual feedback during load",
+      "reference": "MediaAttachments.tsx:190, 201-206"
+    },
+    {
+      "name": "Tag-to-mediaJson transformation",
+      "description": "Incoming rumor tags filtered for imeta/url, stored as {tags: [...]} in media_json column",
+      "reference": "service.ts:679-686"
+    },
+    {
+      "name": "E2E data isolation",
+      "description": "Per-test unique data directories prevent identity/subscription accumulation across tests",
+      "reference": "fixtures.ts:15-18"
+    },
+    {
+      "name": "IPC polling for async operations",
+      "description": "waitForMessageSent, waitForMediaUploadComplete poll until desired state reached",
+      "reference": "helpers.ts:201-269"
+    },
+    {
+      "name": "Dual-instance UI-only testing",
+      "description": "Test procedures execute all actions via UI interactions (click, type, drag), never via IPC calls",
+      "reference": "dual-instance-playwright-setup.md:23-31"
+    }
+  ],
+  "similar_features": [
+    {
+      "name": "Media attachment rendering (incoming)",
+      "location": "MediaAttachments.tsx",
+      "description": "Renders images and files from mediaJson, already handles incoming imeta tags format"
+    },
+    {
+      "name": "CachedImage remote URL fetching",
+      "location": "CachedImage.tsx",
+      "description": "Fetches remote images via IPC image cache, provides fallback handling - can be reused for inline images"
+    },
+    {
+      "name": "NIP-94 imeta tag parsing",
+      "location": "media-parser.ts:parseImetaTags",
+      "description": "Parses NIP-94 imeta tags into ParsedMediaAttachment structure - can be extended for kind 15 tags"
+    }
+  ],
+  "architecture": {
+    "process_model": "Electron three-process: Main (Node.js), Preload (security boundary), Renderer (sandboxed Chromium)",
+    "module_boundaries": {
+      "main": "crypto, service, blob-storage, database - owns all filesystem, network, crypto",
+      "preload": "IPC facade via contextBridge - enforces contextIsolation=true",
+      "renderer": "React components, utils - zero direct access to Node APIs"
+    },
+    "data_flow": "Encrypted event → decryptNip17Message → ingestIncomingMessage → database (media_json column) → renderer parseMediaJson → MediaAttachments",
+    "key_abstraction_layers": [
+      "Crypto layer: encryptNip17Message/decryptNip17Message - operates on Uint8Array, never exposes keys",
+      "Service layer: NostlingService - coordinates crypto, relay pool, database",
+      "Database layer: SQLite with migrations - media_blobs table, nostr_messages.media_json column",
+      "Renderer layer: MediaAttachments component - normalizes both formats into ParsedMediaAttachment[]"
+    ]
+  },
+  "extension_points": [
+    {
+      "location": "src/main/nostling/crypto.ts:565-567",
+      "change": "Change if (!rumor || rumor.kind !== 14) to accept kind 14 and 15",
+      "impact": "Allows kind-15 file messages to pass through decryption"
+    },
+    {
+      "location": "src/main/nostling/service.ts:679-686",
+      "change": "Extend tag parsing to handle kind-15 specific tags: file-type, dim, blurhash, x, thumb",
+      "impact": "Builds mediaJson from kind-15 format"
+    },
+    {
+      "location": "src/renderer/utils/media-parser.ts:parseImetaTags",
+      "change": "Add MIME inference from URL extension when m field missing",
+      "impact": "Handles incoming attachments without explicit MIME type"
+    },
+    {
+      "location": "src/renderer/utils/media-parser.ts:isImageMimeType",
+      "change": "No changes needed - already accepts any image/* MIME",
+      "impact": "Extended formats (AVIF, BMP, SVG) already supported"
+    },
+    {
+      "location": "src/renderer/main.tsx:MessageContent",
+      "change": "Detect image URLs in message text, render as CachedImage instead of text link",
+      "impact": "Inline image rendering from URLs in message content"
+    }
+  ],
+  "testing": {
+    "unit_tests": {
+      "framework": "Jest 30.x with ts-jest preset",
+      "environment": "Node.js",
+      "pattern": "**/*.test.ts, **/*.test.tsx in src/ and scripts/",
+      "run": "npm test or make test"
+    },
+    "e2e_tests": {
+      "framework": "Playwright 1.57.x with Electron support",
+      "config": "Single worker (sequential), 30s timeout, trace on retry, screenshot on failure",
+      "run": "npm run test:e2e:docker or make test-e2e-serial (REQUIRED)"
+    },
+    "dual_instance": {
+      "launch": "make dev-dual",
+      "cdp_ports": "9222 (Instance A), 9223 (Instance B)",
+      "mcp_servers": "playwright-a, playwright-b",
+      "verification": "browser_take_screenshot, browser_evaluate (NOT browser_snapshot - unreliable with Chakra UI)",
+      "test_procedures": "T01-T12 in docs/dual-instance-testing.md",
+      "test_design_principle": "All actions via UI interactions (click, type, drag), NEVER via IPC for actions"
+    }
+  },
+  "conventions": [
+    {
+      "rule": "E2E tests MUST use npm run test:e2e:docker to avoid desktop system interference",
+      "source": "CLAUDE.md:1"
+    },
+    {
+      "rule": "All behavioral changes MUST be verified before and after in UI using dual-instance test environment",
+      "source": "CLAUDE.md:8"
+    },
+    {
+      "rule": "Production code MUST NOT contain adaptations or tweaks necessary only for tests",
+      "source": "CLAUDE.md:7"
+    },
+    {
+      "rule": "Use browser_take_screenshot or browser_evaluate for verification; browser_snapshot unreliable with Chakra UI",
+      "source": "CLAUDE.md:17"
+    },
+    {
+      "rule": "Never rewrite git history",
+      "source": "CLAUDE.md:6"
+    },
+    {
+      "rule": "Cleanup temporary files after implementation (markdown files, code backups)",
+      "source": "CLAUDE.md:2"
+    },
+    {
+      "rule": "MIME type field naming: mimeType in attachments, m in imeta tags, file-type in kind-15 tags",
+      "source": "codebase analysis"
+    },
+    {
+      "rule": "MediaJson backward compatibility: Parser must handle both {attachments: [...]} and {tags: [...]} formats",
+      "source": "media-parser.ts:24-68"
+    }
+  ]
+}

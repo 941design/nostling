@@ -1,0 +1,630 @@
+{
+  "epic_name": "incoming-image-rendering",
+  "created_at": "2026-02-20T20:30:00Z",
+  "updated_at": "2026-02-20T20:30:00Z",
+  "total_stories": 6,
+
+  "stories": [
+    {
+      "id": "01",
+      "name": "kind-15-message-acceptance",
+      "title": "Accept and render NIP-17 kind-15 file messages",
+      "description": "Extend decryptNip17Message to accept kind-15 file messages (in addition to existing kind-14 support), build mediaJson from kind-15 tags, and render images inline. Kind-15 messages from other clients (e.g., using nostr.build) will display images instead of being silently dropped.",
+      "acceptance_criteria": ["AC-001", "AC-016", "AC-022", "AC-023"],
+      "scope": {
+        "includes": [
+          "crypto.ts: decryptNip17Message() accepts kind 14 AND kind 15",
+          "service.ts: ingestIncomingMessage() builds mediaJson from kind-15 tags (content→url, file-type→mimeType, dim→dimensions, blurhash→blurhash, x→sha256)",
+          "service.ts: processGiftWrapEvent() accepts kind 15 alongside kind 14",
+          "Kind-15 tag-to-mediaJson mapping: stores as {tags: [...]} format for consistency",
+          "Best-effort rendering for malformed kind-15 (missing file-type → fallback to URL extension MIME inference, missing dim/blurhash → defaults)",
+          "Thumb tag exclusion: always use content URL, ignore thumb tag if present"
+        ],
+        "excludes": [
+          "MIME inference logic (Story 02 handles this)",
+          "Extended format support (Story 03 handles this)",
+          "Inline URL detection in message text (Story 04 handles this)",
+          "Changes to outgoing message format (remains kind-14 only)"
+        ]
+      },
+      "complexity": "medium",
+      "mock_dependencies": [],
+      "introduces_mocks": [],
+      "test_fixtures": [
+        {
+          "fixture_id": "FIXTURE-01-001",
+          "description": "Kind-15 wrapped events injected via relay for testing",
+          "interface": "NIP-17/59 gift-wrapped events with kind-15 rumor",
+          "reason": "Cannot programmatically send kind-15 from Nostling (outgoing is kind-14 only) - permanent test infrastructure",
+          "permanent": true
+        }
+      ],
+      "e2e_test_plan": {
+        "scenarios": [
+          {
+            "name": "kind-15-image-renders-inline",
+            "description": "Instance A injects kind-15 wrapped event via relay, Instance B receives and displays image inline in chat",
+            "user_steps": [
+              "Setup: Create kind-15 wrapped event with image URL in content field and file-type tag",
+              "Instance A: Inject event into strfry relay via relay subscription or debug tool",
+              "Instance B: Navigate to chat with Instance A",
+              "Instance B: Wait for message to appear in conversation",
+              "Instance B: Verify image is visible inline (not silently dropped)"
+            ],
+            "docker_services": ["strfry", "blossom", "nostling-a", "nostling-b"],
+            "assertions": [
+              "Image element visible in Instance B chat",
+              "Screenshot shows rendered image (not URL text)",
+              "Database query: media_json column contains parsed kind-15 tags"
+            ]
+          },
+          {
+            "name": "kind-15-malformed-tags-fallback",
+            "description": "Kind-15 message with missing file-type tag renders image via MIME inference from URL extension",
+            "user_steps": [
+              "Setup: Create kind-15 wrapped event WITHOUT file-type tag but with .jpg URL extension",
+              "Instance A: Inject event into relay",
+              "Instance B: Navigate to chat, wait for message",
+              "Instance B: Verify image renders (MIME inferred from extension)"
+            ],
+            "docker_services": ["strfry", "blossom", "nostling-a", "nostling-b"],
+            "assertions": [
+              "Image renders despite missing file-type tag",
+              "Database: media_json contains inferred mimeType"
+            ]
+          },
+          {
+            "name": "kind-15-thumb-tag-ignored",
+            "description": "Kind-15 message with thumb tag ignores thumbnail URL and renders full-size image",
+            "user_steps": [
+              "Setup: Create kind-15 with both content URL and thumb tag",
+              "Instance A: Inject event",
+              "Instance B: Navigate to chat, wait for message",
+              "Instance B: Verify full-size image URL is loaded (not thumb URL)"
+            ],
+            "docker_services": ["strfry", "blossom", "nostling-a", "nostling-b"],
+            "assertions": [
+              "Image src attribute matches content URL (not thumb URL)",
+              "Database: media_json contains only content URL"
+            ]
+          }
+        ],
+        "playwright_file": "e2e/incoming-images-kind15.spec.ts"
+      },
+      "status": "pending",
+      "notes": "Foundation story enabling kind-15 support. Uses test fixtures for injecting kind-15 events since Nostling only sends kind-14. Depends on Story 02 for MIME inference when file-type tag is missing."
+    },
+
+    {
+      "id": "02",
+      "name": "mime-type-inference",
+      "title": "Infer MIME type from URL extension and Content-Type header",
+      "description": "When incoming media attachment lacks explicit MIME type (missing 'm' field in imeta or 'file-type' in kind-15), infer MIME from URL file extension. Use Content-Type header from blossom server as secondary signal. Enables rendering of attachments from clients that omit MIME metadata.",
+      "acceptance_criteria": ["AC-003", "AC-019", "AC-020"],
+      "scope": {
+        "includes": [
+          "media-parser.ts: parseImetaTags() infers MIME from URL extension when m field missing",
+          "Extension-to-MIME mapping: .jpg/.jpeg→image/jpeg, .png→image/png, .gif→image/gif, .webp→image/webp, .avif→image/avif, .bmp→image/bmp, .svg→image/svg+xml, .tiff/.tif→image/tiff, .heic/.heif→image/heic, .mp4→video/mp4",
+          "CachedImage: Use Content-Type header from blossom server response as MIME type signal when available",
+          "Blossom blob URLs without extension: Default to attempting image rendering, show placeholder if Content-Type indicates non-image",
+          "MIME inference is pure, synchronous operation (no network requests at parse time)",
+          "Tag value priority: Trust explicit tag MIME over URL extension when both present"
+        ],
+        "excludes": [
+          "Kind-15 tag parsing (Story 01 handles this)",
+          "Extended format rendering logic (Story 03 handles isRenderableImageMimeType)",
+          "Inline URL detection (Story 04 handles this)",
+          "Content-Type sniffing for application/octet-stream (security constraint - never render)"
+        ]
+      },
+      "complexity": "low",
+      "mock_dependencies": [],
+      "introduces_mocks": [],
+      "test_fixtures": [
+        {
+          "fixture_id": "FIXTURE-02-001",
+          "description": "Mock blossom server returning various Content-Type headers",
+          "interface": "HTTP server serving /blob/<hash> with configurable Content-Type headers",
+          "reason": "Cannot control real blossom server Content-Type responses - permanent test infrastructure",
+          "permanent": true
+        }
+      ],
+      "e2e_test_plan": {
+        "scenarios": [
+          {
+            "name": "imeta-without-mime-infers-from-url",
+            "description": "Kind-14 message with imeta tags lacking 'm' field infers MIME from URL extension and renders image",
+            "user_steps": [
+              "Setup: Create kind-14 wrapped event with imeta tags (url field only, no m field)",
+              "Instance A: Inject event into relay",
+              "Instance B: Navigate to chat, wait for message",
+              "Instance B: Verify image renders correctly"
+            ],
+            "docker_services": ["strfry", "blossom", "nostling-a", "nostling-b"],
+            "assertions": [
+              "Image renders despite missing m field",
+              "Screenshot shows image (not download link)",
+              "Database: media_json contains inferred mimeType"
+            ]
+          },
+          {
+            "name": "extensionless-blossom-url-renders",
+            "description": "Blossom blob URL without file extension renders when Content-Type is image/jpeg",
+            "user_steps": [
+              "Setup: Mock blossom server returns blob at /blob/<sha256> with Content-Type: image/jpeg (no extension in URL)",
+              "Instance A: Send message with extensionless blossom URL",
+              "Instance B: Navigate to chat, wait for message",
+              "Instance B: Verify image renders"
+            ],
+            "docker_services": ["strfry", "blossom", "nostling-a", "nostling-b"],
+            "assertions": [
+              "Image loads and displays",
+              "CachedImage trusts Content-Type header"
+            ]
+          },
+          {
+            "name": "extensionless-non-image-shows-placeholder",
+            "description": "Blossom blob URL with Content-Type: text/plain shows placeholder instead of rendering",
+            "user_steps": [
+              "Setup: Mock blossom server returns blob with Content-Type: text/plain",
+              "Instance A: Send message with extensionless blossom URL",
+              "Instance B: Navigate to chat, wait for message",
+              "Instance B: Verify placeholder/broken image indicator appears"
+            ],
+            "docker_services": ["strfry", "blossom", "nostling-a", "nostling-b"],
+            "assertions": [
+              "Placeholder visible (not image)",
+              "No attempt to render non-image content"
+            ]
+          }
+        ],
+        "playwright_file": "e2e/incoming-images-mime-inference.spec.ts"
+      },
+      "status": "done",
+      "notes": "Independent story handling MIME inference. Can be tested standalone with imeta-only messages (no kind-15 dependency). Uses test fixtures for controlling blossom server Content-Type responses."
+    },
+
+    {
+      "id": "03",
+      "name": "extended-image-formats",
+      "title": "Support extended image formats for incoming messages",
+      "description": "Recognize and render additional image MIME types for incoming messages (AVIF, BMP, SVG, HEIC, TIFF). Chromium-supported formats render inline; unsupported formats (HEIC, TIFF) show download link. Does NOT change outgoing attachment validation (remains JPEG, PNG, GIF, WebP).",
+      "acceptance_criteria": ["AC-004", "AC-005", "AC-006", "AC-007", "AC-008"],
+      "scope": {
+        "includes": [
+          "media-parser.ts: isImageMimeType() recognizes image/avif, image/bmp, image/svg+xml, image/heic, image/heif, image/tiff",
+          "media-parser.ts: NEW isRenderableImageMimeType() function distinguishes Chromium-native formats from non-renderable",
+          "Renderable formats: JPEG, PNG, GIF, WebP, AVIF, BMP, SVG (Chromium native support)",
+          "Non-renderable formats: HEIC, HEIF, TIFF (show download link instead)",
+          "MediaAttachments.tsx: Use isRenderableImageMimeType() to decide inline render vs download link",
+          "SVG security: Render via <img> tag (script-safe), never via <iframe> or dangerouslySetInnerHTML",
+          "HTTPS-only image URL rendering: Block http://, javascript:, data:, file:// URLs"
+        ],
+        "excludes": [
+          "Changes to attachment-validation.ts (outgoing validation remains unchanged)",
+          "MIME inference logic (Story 02 handles this)",
+          "Kind-15 support (Story 01 handles this)",
+          "Inline URL detection (Story 04 handles this)"
+        ]
+      },
+      "complexity": "low",
+      "mock_dependencies": [],
+      "introduces_mocks": [],
+      "test_fixtures": [
+        {
+          "fixture_id": "FIXTURE-03-001",
+          "description": "Test image files in various formats (AVIF, BMP, SVG, HEIC, TIFF) hosted on blossom server",
+          "interface": "Static image files served via /blob/<hash>.<extension>",
+          "reason": "Need controlled test images for format verification - permanent test infrastructure",
+          "permanent": true
+        }
+      ],
+      "e2e_test_plan": {
+        "scenarios": [
+          {
+            "name": "avif-image-renders-inline",
+            "description": "AVIF image from incoming message renders inline via Chromium native support",
+            "user_steps": [
+              "Setup: Seed blossom server with test AVIF image",
+              "Instance A: Send message with AVIF image URL (via imeta tag with m=image/avif)",
+              "Instance B: Navigate to chat, wait for message",
+              "Instance B: Verify AVIF image renders inline"
+            ],
+            "docker_services": ["strfry", "blossom", "nostling-a", "nostling-b"],
+            "assertions": [
+              "Image visible in chat",
+              "Screenshot shows rendered AVIF (not download link)"
+            ]
+          },
+          {
+            "name": "bmp-image-renders-inline",
+            "description": "BMP image renders inline",
+            "user_steps": [
+              "Setup: Seed blossom server with test BMP image",
+              "Instance A: Send message with BMP image URL",
+              "Instance B: Navigate to chat, verify BMP renders"
+            ],
+            "docker_services": ["strfry", "blossom", "nostling-a", "nostling-b"],
+            "assertions": [
+              "BMP image visible",
+              "Screenshot confirms inline rendering"
+            ]
+          },
+          {
+            "name": "svg-image-renders-script-safe",
+            "description": "SVG image with embedded <script> tag renders via <img> tag without script execution",
+            "user_steps": [
+              "Setup: Create SVG with embedded <script>alert('XSS')</script>",
+              "Instance A: Send message with SVG URL",
+              "Instance B: Navigate to chat, wait for message",
+              "Instance B: Inspect DOM to verify <img> tag (not <iframe>)",
+              "Instance B: Verify no script execution (no alert dialog)"
+            ],
+            "docker_services": ["strfry", "blossom", "nostling-a", "nostling-b"],
+            "assertions": [
+              "SVG image visible",
+              "DOM element is <img>",
+              "No JavaScript execution",
+              "Screenshot shows rendered SVG (not error)"
+            ]
+          },
+          {
+            "name": "heic-image-shows-download-link",
+            "description": "HEIC image (not Chromium-supported) shows download link instead of broken image",
+            "user_steps": [
+              "Setup: Seed blossom server with test HEIC image",
+              "Instance A: Send message with HEIC image URL (m=image/heic)",
+              "Instance B: Navigate to chat, wait for message",
+              "Instance B: Verify download link appears (with file icon, not broken image)"
+            ],
+            "docker_services": ["strfry", "blossom", "nostling-a", "nostling-b"],
+            "assertions": [
+              "Download link visible",
+              "No broken image placeholder",
+              "Screenshot shows file download UI"
+            ]
+          },
+          {
+            "name": "tiff-image-shows-download-link",
+            "description": "TIFF image shows download link",
+            "user_steps": [
+              "Setup: Seed blossom server with test TIFF image",
+              "Instance A: Send message with TIFF image URL",
+              "Instance B: Navigate to chat, verify download link appears"
+            ],
+            "docker_services": ["strfry", "blossom", "nostling-a", "nostling-b"],
+            "assertions": [
+              "Download link visible (not broken image)",
+              "File icon present"
+            ]
+          }
+        ],
+        "playwright_file": "e2e/incoming-images-formats.spec.ts"
+      },
+      "status": "pending",
+      "notes": "Independent story focused on format support. Can be tested standalone with kind-14 imeta messages. Uses test fixtures for various image format files. Security-critical: SVG script safety verification mandatory."
+    },
+
+    {
+      "id": "04",
+      "name": "inline-url-detection",
+      "title": "Detect and render image URLs inline in message text",
+      "description": "When message text content contains image URLs (without structured imeta/kind-15 attachments), detect and render them as inline images instead of text links. Enables rendering of images from clients that send URLs in content field without metadata tags.",
+      "acceptance_criteria": ["AC-002", "AC-013", "AC-014", "AC-015", "AC-017", "AC-018"],
+      "scope": {
+        "includes": [
+          "linkify.ts: detectImageUrls() function identifies image URLs via extension (.jpg, .jpeg, .png, .gif, .webp, .avif, .bmp, .svg) or blossom URL pattern (/blob/ in path)",
+          "main.tsx: MessageContent component renders detected image URLs as CachedImage components, replacing URL text",
+          "HTTPS-only URL filtering: Only render https:// URLs, block http://, javascript:, data:, file://",
+          "No double-rendering: Skip inline detection when mediaJson is present (structured attachments take precedence)",
+          "Lazy loading: Images below viewport load on scroll (rely on browser native lazy loading or IntersectionObserver)",
+          "Failed image loads: Display placeholder/broken image indicator via CachedImage fallback",
+          "No limit on inline images per message (lazy loading handles performance)",
+          "Lightbox click-to-expand interaction (consistent with existing ImageAttachment behavior)"
+        ],
+        "excludes": [
+          "Kind-15 support (Story 01 handles this)",
+          "MIME inference (Story 02 handles this)",
+          "Extended format support (Story 03 handles this)",
+          "Changes to existing MediaAttachments component (inline images are separate render path)"
+        ]
+      },
+      "complexity": "medium",
+      "mock_dependencies": [],
+      "introduces_mocks": [],
+      "test_fixtures": [],
+      "e2e_test_plan": {
+        "scenarios": [
+          {
+            "name": "kind-14-inline-url-renders-image",
+            "description": "Kind-14 message with image URL in text content (no imeta) renders image inline",
+            "user_steps": [
+              "Instance A: Send kind-14 message with text content containing blossom image URL (no imeta tags)",
+              "Instance B: Navigate to chat, wait for message",
+              "Instance B: Verify image renders inline (not just URL text link)"
+            ],
+            "docker_services": ["strfry", "blossom", "nostling-a", "nostling-b"],
+            "assertions": [
+              "Image visible in message (replacing URL text)",
+              "Screenshot shows inline image",
+              "Click image opens lightbox"
+            ]
+          },
+          {
+            "name": "no-double-rendering-with-imeta",
+            "description": "Message with both imeta tag AND same URL in content text renders image exactly once",
+            "user_steps": [
+              "Instance A: Send kind-14 with imeta tag AND the same image URL in content text",
+              "Instance B: Navigate to chat, wait for message",
+              "Instance B: Verify image appears exactly once (not duplicated)"
+            ],
+            "docker_services": ["strfry", "blossom", "nostling-a", "nostling-b"],
+            "assertions": [
+              "Single image visible",
+              "Screenshot shows no duplication"
+            ]
+          },
+          {
+            "name": "lazy-loading-multiple-images",
+            "description": "Message with 10 inline images loads only visible images initially",
+            "user_steps": [
+              "Instance A: Send message with 10 inline image URLs",
+              "Instance B: Navigate to chat, scroll to top of conversation",
+              "Instance B: Monitor network requests (browser devtools or evaluate)",
+              "Instance B: Verify only visible images trigger network requests",
+              "Instance B: Scroll down, verify additional images load on scroll"
+            ],
+            "docker_services": ["strfry", "blossom", "nostling-a", "nostling-b"],
+            "assertions": [
+              "Initial network requests < 10 (lazy loading working)",
+              "All images eventually load when scrolled into view"
+            ]
+          },
+          {
+            "name": "failed-image-shows-placeholder",
+            "description": "Broken image URL (404) displays placeholder instead of blank space",
+            "user_steps": [
+              "Instance A: Send message with broken image URL (404)",
+              "Instance B: Navigate to chat, wait for message",
+              "Instance B: Verify placeholder/broken image indicator appears"
+            ],
+            "docker_services": ["strfry", "blossom", "nostling-a", "nostling-b"],
+            "assertions": [
+              "Placeholder visible (not blank space)",
+              "Screenshot shows fallback UI"
+            ]
+          },
+          {
+            "name": "multiple-inline-images-no-limit",
+            "description": "Message with 20 inline image URLs renders all without truncation or crash",
+            "user_steps": [
+              "Instance A: Send message with 20 inline image URLs",
+              "Instance B: Navigate to chat, scroll through entire message",
+              "Instance B: Verify all 20 images render (no truncation, no UI freeze)"
+            ],
+            "docker_services": ["strfry", "blossom", "nostling-a", "nostling-b"],
+            "assertions": [
+              "All 20 images visible when scrolled through",
+              "No crashes or performance degradation",
+              "Screenshot shows multiple images rendered"
+            ]
+          },
+          {
+            "name": "https-only-url-filtering",
+            "description": "http:// image URLs render as text links, not images",
+            "user_steps": [
+              "Instance A: Send message with http:// image URL (not https://)",
+              "Instance B: Navigate to chat, wait for message",
+              "Instance B: Verify URL renders as clickable text link (not inline image)"
+            ],
+            "docker_services": ["strfry", "blossom", "nostling-a", "nostling-b"],
+            "assertions": [
+              "Text link visible (blue underlined text)",
+              "No image element present",
+              "Screenshot shows text link (not image)"
+            ]
+          }
+        ],
+        "playwright_file": "e2e/incoming-images-inline-urls.spec.ts"
+      },
+      "status": "pending",
+      "notes": "Core inline rendering feature. Independent of kind-15 support (works with kind-14 messages). Reuses existing CachedImage component for rendering. Security-critical: HTTPS-only URL filtering mandatory."
+    },
+
+    {
+      "id": "05",
+      "name": "unknown-kind-handling",
+      "title": "Graceful handling of unknown wrapped event kinds",
+      "description": "When receiving wrapped events of unrecognized kinds (not kind 14 or 15), log them at info level and discard gracefully without user-visible errors. Prevents silent failures and improves debuggability while maintaining forward compatibility with future protocol extensions.",
+      "acceptance_criteria": ["AC-009"],
+      "scope": {
+        "includes": [
+          "service.ts: processGiftWrapEvent() handles kind 14 and 15, logs other kinds at info level",
+          "Info-level logging for unrecognized kinds: include kind number and event ID",
+          "Graceful discard: no database insertion, no error toast, no UI glitch",
+          "Never show error to user for unrecognized kinds (sender may use newer protocol version)",
+          "Existing behavior for kind 14 and 15 unchanged (additive change only)"
+        ],
+        "excludes": [
+          "Kind-15 processing logic (Story 01 handles this)",
+          "Kind-14 processing (already implemented)",
+          "Changes to error handling for malformed events (out of scope)"
+        ]
+      },
+      "complexity": "low",
+      "mock_dependencies": [],
+      "introduces_mocks": [],
+      "test_fixtures": [
+        {
+          "fixture_id": "FIXTURE-05-001",
+          "description": "Wrapped events with unrecognized kinds (e.g., kind 42 for community posts) injected via relay",
+          "interface": "NIP-17/59 gift-wrapped events with various kind numbers",
+          "reason": "Cannot send arbitrary kinds from Nostling - permanent test infrastructure",
+          "permanent": true
+        }
+      ],
+      "e2e_test_plan": {
+        "scenarios": [
+          {
+            "name": "unrecognized-kind-logged-and-discarded",
+            "description": "Wrapped event with kind 42 (community post) is logged at info level and discarded without error",
+            "user_steps": [
+              "Setup: Create kind-42 wrapped event",
+              "Instance A: Inject event into strfry relay",
+              "Instance B: Monitor console logs (browser devtools or log file)",
+              "Instance B: Navigate to chat with Instance A",
+              "Instance B: Verify no error toast appears",
+              "Instance B: Verify info-level log entry with kind number and event ID"
+            ],
+            "docker_services": ["strfry", "nostling-a", "nostling-b"],
+            "assertions": [
+              "No error toast visible",
+              "No console errors",
+              "Info log entry: 'Received unrecognized wrapped event kind: 42'",
+              "Database: No message inserted for kind-42 event"
+            ]
+          }
+        ],
+        "playwright_file": "e2e/incoming-images-unknown-kinds.spec.ts"
+      },
+      "status": "pending",
+      "notes": "Small independent story improving error handling. Can be tested standalone with injected events. Uses test fixtures for unrecognized kind events."
+    },
+
+    {
+      "id": "06",
+      "name": "regression-verification",
+      "title": "E2E regression verification for existing kind-14 messages",
+      "description": "Verify that all changes to kind-15 support, MIME inference, and inline URL detection do NOT break existing kind-14 message rendering (text-only, imeta attachments). Verify outgoing message format unchanged. Comprehensive regression suite ensuring backward compatibility.",
+      "acceptance_criteria": ["AC-010", "AC-011", "AC-012", "AC-021"],
+      "scope": {
+        "includes": [
+          "E2E verification: Kind-14 text-only messages render identically to pre-implementation baseline",
+          "E2E verification: Kind-14 with imeta tags render identically to pre-implementation baseline",
+          "E2E verification: Outgoing messages still send kind-14 with imeta tags (kind-15 is receive-only)",
+          "Unit test: parseMediaJson() handles both {attachments: [...]} and {tags: [...]} formats without breaking",
+          "Visual regression: Screenshot comparison for existing message types",
+          "Database verification: Existing messages in database render correctly after upgrade"
+        ],
+        "excludes": [
+          "New feature implementation (Stories 01-05 handle this)",
+          "Performance testing (out of scope)",
+          "Migration logic (database schema unchanged)"
+        ]
+      },
+      "complexity": "low",
+      "mock_dependencies": [],
+      "introduces_mocks": [],
+      "test_fixtures": [],
+      "e2e_test_plan": {
+        "scenarios": [
+          {
+            "name": "kind-14-text-only-unchanged",
+            "description": "Text-only kind-14 message renders identically to pre-implementation baseline",
+            "user_steps": [
+              "Setup: Capture baseline screenshot of text-only message (pre-implementation)",
+              "Instance A: Send kind-14 text-only message (no imeta, no image URLs)",
+              "Instance B: Navigate to chat, wait for message",
+              "Instance B: Take screenshot of message",
+              "Compare screenshot to baseline (visual regression test)"
+            ],
+            "docker_services": ["strfry", "nostling-a", "nostling-b"],
+            "assertions": [
+              "Screenshot matches baseline (no visual changes)",
+              "Text formatting unchanged",
+              "No unexpected elements rendered"
+            ]
+          },
+          {
+            "name": "kind-14-imeta-unchanged",
+            "description": "Kind-14 with imeta tags renders identically to pre-implementation baseline",
+            "user_steps": [
+              "Setup: Capture baseline screenshot of imeta message (pre-implementation)",
+              "Instance A: Send kind-14 with imeta tags (standard image attachment)",
+              "Instance B: Navigate to chat, wait for message",
+              "Instance B: Take screenshot",
+              "Compare to baseline"
+            ],
+            "docker_services": ["strfry", "blossom", "nostling-a", "nostling-b"],
+            "assertions": [
+              "Screenshot matches baseline",
+              "Image rendering unchanged",
+              "Lightbox behavior unchanged"
+            ]
+          },
+          {
+            "name": "outgoing-format-unchanged",
+            "description": "Outgoing messages still send kind-14 with imeta tags (no kind-15 sent)",
+            "user_steps": [
+              "Instance A: Attach image and send message",
+              "Instance A: Query relay for sent event (via subscription or debug tool)",
+              "Verify event kind is 14",
+              "Verify imeta tags present in event",
+              "Verify no kind-15 events sent"
+            ],
+            "docker_services": ["strfry", "blossom", "nostling-a", "nostling-b"],
+            "assertions": [
+              "Event kind is 14 (not 15)",
+              "Imeta tags present and correctly formatted",
+              "Database: outgoing message stored with correct format"
+            ]
+          },
+          {
+            "name": "mediajson-backward-compatibility",
+            "description": "parseMediaJson() correctly parses both old and new format messages from database",
+            "user_steps": [
+              "Setup: Seed database with messages in both {attachments: [...]} and {tags: [...]} formats",
+              "Instance B: Navigate to conversation containing both formats",
+              "Instance B: Verify all messages render correctly",
+              "Instance B: Take screenshots of both formats"
+            ],
+            "docker_services": ["strfry", "blossom", "nostling-a", "nostling-b"],
+            "assertions": [
+              "Both formats render correctly",
+              "No parsing errors in console",
+              "Screenshots show correct image rendering for both formats"
+            ]
+          }
+        ],
+        "playwright_file": "e2e/incoming-images-regression.spec.ts"
+      },
+      "status": "pending",
+      "notes": "Regression verification story ensuring backward compatibility. Should be executed AFTER all other stories are implemented. Uses baseline screenshots for visual regression testing. No new features, only verification."
+    }
+  ],
+
+  "story_order": ["02", "03", "01", "04", "05", "06"],
+
+  "seams": [
+    {
+      "data": "kind-15 file message",
+      "source": { "story": "01", "artifact": "decryptNip17Message returns kind-15 rumor" },
+      "intermediaries": [
+        { "story": "01", "artifact": "processGiftWrapEvent accepts kind 15" },
+        { "story": "01", "artifact": "ingestIncomingMessage builds mediaJson from kind-15 tags" }
+      ],
+      "destination": { "story": "01", "artifact": "MediaAttachments renders image from mediaJson" }
+    },
+    {
+      "data": "MIME type when missing from tags",
+      "source": { "story": "02", "artifact": "URL extension or Content-Type header" },
+      "intermediaries": [
+        { "story": "02", "artifact": "parseImetaTags MIME inference" }
+      ],
+      "destination": { "story": "01", "artifact": "mediaJson mimeType field" }
+    },
+    {
+      "data": "image URLs in message text",
+      "source": { "story": "04", "artifact": "message.content field" },
+      "intermediaries": [
+        { "story": "04", "artifact": "linkify.detectImageUrls()" },
+        { "story": "04", "artifact": "MessageContent inline rendering" }
+      ],
+      "destination": { "story": "04", "artifact": "CachedImage component" }
+    }
+  ],
+
+  "dependency_notes": "Stories are designed to be independent and can be implemented in any order. Story 02 (MIME inference) and Story 03 (extended formats) are pure utility functions that enhance Story 01 (kind-15) and Story 04 (inline URLs), but are NOT dependencies - they fail gracefully without each other. Story 06 (regression verification) should be executed last as it validates all previous stories together. Recommended order: 02, 03, 01, 04, 05, 06 (utilities first, then features, then regression).",
+
+  "mock_resolution_plan": "No temporary mocks introduced. All mock_dependencies and introduces_mocks arrays are empty. Test fixtures used where needed (kind-15 event injection, blossom server responses, test images) are permanent testing infrastructure, not temporary mocks requiring resolution."
+}

@@ -1,0 +1,49 @@
+{
+  "created_at": "2026-02-20T20:15:00Z",
+  "status": "ready",
+  "story_id": "02",
+
+  "checks": {
+    "compiles": {
+      "passed": true,
+      "command": "npm run build",
+      "evidence": "Build successful: dist/main/index.js (923.87 KB), dist/preload/index.js (11.02 KB), dist/renderer/index.html (2.14 kB). Exit code 0."
+    },
+    "tests_pass": {
+      "passed": true,
+      "command": "npm test",
+      "evidence": "127/127 test suites passed, 2850/2851 tests passed (1 skipped). Time: 27.768s. Zero failures.",
+      "failing_tests": []
+    },
+    "coverage": {
+      "value": null,
+      "threshold": null,
+      "passed": true,
+      "notes": "Coverage not computed at baseline (not required for story baseline)"
+    },
+    "dependencies": {
+      "passed": true,
+      "command": "npm ls --depth=0",
+      "evidence": "All dependencies installed. One optional dependency unmet (@rollup/rollup-linux-arm64-gnu) which is acceptable for macOS environment."
+    },
+    "e2e_tests": {
+      "available": true,
+      "command": "npm run test:e2e:docker",
+      "passed": null,
+      "notes": "E2E tests exist and are runnable via Docker Compose. Full E2E suite not executed at baseline due to time constraints (10-15 min). Will be executed during story verification phase per E2E test plan. Baseline focuses on unit/integration regression detection."
+    }
+  },
+
+  "test_snapshot": {
+    "total": 2851,
+    "passing": 2850,
+    "failing": 0,
+    "skipped": 1,
+    "coverage_percent": null,
+    "notes": "Snapshot captures unit and integration tests only. E2E tests for story-specific features will be created during implementation."
+  },
+
+  "blocking_issues": [],
+
+  "notes": "Baseline captured successfully. All unit and integration tests pass. Build succeeds. Dependencies OK. E2E infrastructure available and documented. Ready for implementation."
+}

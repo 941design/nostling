@@ -13,6 +13,7 @@ import { useThemeColors } from '../../themes/ThemeContext';
 import {
   parseMediaJson,
   isImageMimeType,
+  isBlobUrl,
   formatFileSize,
   ParsedMediaAttachment,
 } from '../../utils/media-parser';
@@ -90,7 +91,8 @@ export function MediaAttachments({
       <Flex direction="column" gap="2">
         {attachments.map((attachment, index) => {
           const displayUrl = getDisplayUrl(attachment);
-          const isImage = isImageMimeType(attachment.mimeType);
+          const isImage = isImageMimeType(attachment.mimeType) ||
+            (!attachment.mimeType && isBlobUrl(attachment.url));
 
           if (isImage) {
             return (

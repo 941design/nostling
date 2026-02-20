@@ -1,0 +1,72 @@
+{
+  "created_at": "2026-02-20T20:30:00Z",
+  "story_id": "02",
+  "questions": [
+    {
+      "id": "VQ-02-001",
+      "category": "correctness",
+      "question": "Does inferMimeFromUrl correctly map all specified extensions to MIME types including jpg, jpeg, png, gif, webp, avif, bmp, svg, tiff, tif, heic, heif, mp4, pdf?",
+      "actionable_check": "Read the EXTENSION_MIME_MAP in media-parser.ts and verify all extension-to-MIME mappings match the spec. Run the unit tests for inferMimeFromUrl to verify.",
+      "evidence_required": ["Source code of EXTENSION_MIME_MAP", "Test results showing all extensions are covered"],
+      "pass_criteria": "All 14 extensions defined in FR-3 are present in the mapping and tested"
+    },
+    {
+      "id": "VQ-02-002",
+      "category": "correctness",
+      "question": "Does parseImetaTags correctly infer MIME from URL extension when the m field is missing, while preserving the explicit m field when present?",
+      "actionable_check": "Read the parseImetaTags function in media-parser.ts. Verify the precedence: props.m || inferMimeFromUrl(url). Run tests to confirm both cases.",
+      "evidence_required": ["Source code of mimeType assignment line", "Test results for explicit vs inferred MIME"],
+      "pass_criteria": "Explicit m field takes priority; inference only used as fallback when m is missing"
+    },
+    {
+      "id": "VQ-02-003",
+      "category": "correctness",
+      "question": "Does parseNip92UrlTags now infer MIME from URL extension for legacy NIP-92 url tags?",
+      "actionable_check": "Read parseNip92UrlTags and verify it calls inferMimeFromUrl. Run the updated test to confirm.",
+      "evidence_required": ["Source code showing MIME inference in NIP-92 parsing", "Test result for url tags with MIME inference"],
+      "pass_criteria": "NIP-92 url tags get inferred mimeType from URL extension"
+    },
+    {
+      "id": "VQ-02-004",
+      "category": "correctness",
+      "question": "Does isBlobUrl correctly identify blossom blob URLs (HTTPS with /blob/ in path) and reject non-blob or non-HTTPS URLs?",
+      "actionable_check": "Read isBlobUrl and run its unit tests. Verify it requires HTTPS protocol and /blob/ in pathname.",
+      "evidence_required": ["Source code of isBlobUrl", "Test results covering positive and negative cases"],
+      "pass_criteria": "Returns true only for HTTPS URLs with /blob/ in path; false for HTTP, non-blob, and invalid URLs"
+    },
+    {
+      "id": "VQ-02-005",
+      "category": "integration",
+      "question": "Does MediaAttachments correctly attempt image rendering for blossom blob URLs even when mimeType is undefined?",
+      "actionable_check": "Read the isImage decision logic in MediaAttachments.tsx. Verify it falls back to isBlobUrl check when mimeType is missing.",
+      "evidence_required": ["Source code of the isImage logic in MediaAttachments", "The isBlobUrl import statement"],
+      "pass_criteria": "Blossom blob URLs without MIME type are rendered as ImageAttachment (not FileAttachment)"
+    }
+  ],
+  "mandatory_questions": [
+    {
+      "id": "VQ-02-M01",
+      "category": "regression",
+      "question": "Do all existing tests pass without regressions after the MIME inference changes?",
+      "actionable_check": "Run npm test and verify all 127 test suites pass with 0 failures.",
+      "evidence_required": ["Full test suite output showing pass/fail counts"],
+      "pass_criteria": "127/127 test suites pass, 0 test failures"
+    },
+    {
+      "id": "VQ-02-M02",
+      "category": "security",
+      "question": "Is the MIME inference pure and synchronous with no network requests at parse time?",
+      "actionable_check": "Read inferMimeFromUrl and verify it only does string manipulation (URL parsing, extension extraction, lookup). No fetch, no IPC, no async.",
+      "evidence_required": ["Source code of inferMimeFromUrl showing no network calls"],
+      "pass_criteria": "Function is synchronous, uses only URL constructor and string operations"
+    },
+    {
+      "id": "VQ-02-M03",
+      "category": "backward_compatibility",
+      "question": "Are existing parseMediaJson and parseImetaTags behaviors preserved for messages that already have explicit m fields?",
+      "actionable_check": "Run existing tests for parseMediaJson and parseImetaTags to verify no behavioral changes for messages with explicit MIME types.",
+      "evidence_required": ["Test results for existing parseMediaJson tests", "Test results for existing parseImetaTags tests with m field"],
+      "pass_criteria": "All pre-existing tests pass unchanged; messages with explicit m field still use that value"
+    }
+  ]
+}

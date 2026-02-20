@@ -92,7 +92,7 @@ export function parseImetaTags(tags: string[][]): ParsedMediaAttachment[] {
       const url = props.url || '';
       return {
         url,
-        mimeType: props.m,
+        mimeType: props.m || inferMimeFromUrl(url),
         sizeBytes: props.size ? parseInt(props.size, 10) : undefined,
         dimensions: props.dim ? parseDimensions(props.dim) : undefined,
         blurhash: props.blurhash,
@@ -115,6 +115,7 @@ export function parseNip92UrlTags(tags: string[][]): ParsedMediaAttachment[] {
     .filter(tag => tag[0] === 'url' && tag.length >= 2)
     .map(tag => ({
       url: tag[1],
+      mimeType: inferMimeFromUrl(tag[1]),
       isLocalBlob: false,
     }));
 }
@@ -135,6 +136,54 @@ function parseDimensions(dim: string): { width: number; height: number } | undef
   const match = dim.match(/^(\d+)x(\d+)$/);
   if (!match) return undefined;
   return { width: parseInt(match[1], 10), height: parseInt(match[2], 10) };
+}
+
+const EXTENSION_MIME_MAP: Record<string, string> = {
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  avif: 'image/avif',
+  bmp: 'image/bmp',
+  svg: 'image/svg+xml',
+  tiff: 'image/tiff',
+  tif: 'image/tiff',
+  heic: 'image/heic',
+  heif: 'image/heif',
+  mp4: 'video/mp4',
+  pdf: 'application/pdf',
+};
+
+/**
+ * Infer MIME type from a URL's file extension.
+ * Pure, synchronous operation — no network requests.
+ * Returns undefined if the URL has no recognizable extension.
+ */
+export function inferMimeFromUrl(url: string): string | undefined {
+  try {
+    const pathname = new URL(url).pathname;
+    const lastSegment = pathname.split('/').pop() || '';
+    const dotIdx = lastSegment.lastIndexOf('.');
+    if (dotIdx < 0) return undefined;
+    const ext = lastSegment.substring(dotIdx + 1).toLowerCase();
+    return EXTENSION_MIME_MAP[ext];
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Check if a URL is a blossom blob URL (extensionless, potentially an image).
+ * Pattern: any HTTPS URL with /blob/ in the path.
+ */
+export function isBlobUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' && parsed.pathname.includes('/blob/');
+  } catch {
+    return false;
+  }
 }
 
 /**

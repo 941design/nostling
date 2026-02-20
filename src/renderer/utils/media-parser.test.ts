@@ -5,6 +5,8 @@ import {
   parseNip92UrlTags,
   parseIncomingMedia,
   isImageMimeType,
+  isBlobUrl,
+  inferMimeFromUrl,
   formatFileSize,
   ParsedMediaAttachment,
 } from './media-parser';
@@ -106,7 +108,7 @@ describe('parseMediaJson', () => {
     expect(result[0].isLocalBlob).toBe(false);
   });
 
-  it('parses incoming format with tags array (NIP-92 url)', () => {
+  it('parses incoming format with tags array (NIP-92 url) with MIME inference', () => {
     const mediaJson = JSON.stringify({
       tags: [
         ['url', 'https://example.com/legacy-image.jpg'],
@@ -116,6 +118,7 @@ describe('parseMediaJson', () => {
     const result = parseMediaJson(mediaJson);
     expect(result).toHaveLength(1);
     expect(result[0].url).toBe('https://example.com/legacy-image.jpg');
+    expect(result[0].mimeType).toBe('image/jpeg');
   });
 });
 
@@ -175,7 +178,7 @@ describe('parseNip92UrlTags', () => {
     expect(parseNip92UrlTags([])).toEqual([]);
   });
 
-  it('parses url tags', () => {
+  it('parses url tags with MIME inference', () => {
     const tags = [
       ['url', 'https://example.com/image.jpg'],
       ['url', 'https://example.com/doc.pdf'],
@@ -184,7 +187,9 @@ describe('parseNip92UrlTags', () => {
     const result = parseNip92UrlTags(tags);
     expect(result).toHaveLength(2);
     expect(result[0].url).toBe('https://example.com/image.jpg');
+    expect(result[0].mimeType).toBe('image/jpeg');
     expect(result[1].url).toBe('https://example.com/doc.pdf');
+    expect(result[1].mimeType).toBe('application/pdf');
     expect(result[0].isLocalBlob).toBe(false);
   });
 
@@ -219,6 +224,125 @@ describe('parseIncomingMedia', () => {
 
   it('returns empty for undefined tags', () => {
     expect(parseIncomingMedia(undefined)).toEqual([]);
+  });
+});
+
+describe('inferMimeFromUrl', () => {
+  it('infers MIME from common image extensions', () => {
+    expect(inferMimeFromUrl('https://example.com/photo.jpg')).toBe('image/jpeg');
+    expect(inferMimeFromUrl('https://example.com/photo.jpeg')).toBe('image/jpeg');
+    expect(inferMimeFromUrl('https://example.com/photo.png')).toBe('image/png');
+    expect(inferMimeFromUrl('https://example.com/photo.gif')).toBe('image/gif');
+    expect(inferMimeFromUrl('https://example.com/photo.webp')).toBe('image/webp');
+    expect(inferMimeFromUrl('https://example.com/photo.avif')).toBe('image/avif');
+    expect(inferMimeFromUrl('https://example.com/photo.bmp')).toBe('image/bmp');
+    expect(inferMimeFromUrl('https://example.com/photo.svg')).toBe('image/svg+xml');
+  });
+
+  it('infers MIME from TIFF and HEIC extensions', () => {
+    expect(inferMimeFromUrl('https://example.com/photo.tiff')).toBe('image/tiff');
+    expect(inferMimeFromUrl('https://example.com/photo.tif')).toBe('image/tiff');
+    expect(inferMimeFromUrl('https://example.com/photo.heic')).toBe('image/heic');
+    expect(inferMimeFromUrl('https://example.com/photo.heif')).toBe('image/heif');
+  });
+
+  it('infers MIME from non-image extensions', () => {
+    expect(inferMimeFromUrl('https://example.com/video.mp4')).toBe('video/mp4');
+    expect(inferMimeFromUrl('https://example.com/doc.pdf')).toBe('application/pdf');
+  });
+
+  it('is case-insensitive for extensions', () => {
+    expect(inferMimeFromUrl('https://example.com/photo.JPG')).toBe('image/jpeg');
+    expect(inferMimeFromUrl('https://example.com/photo.PNG')).toBe('image/png');
+    expect(inferMimeFromUrl('https://example.com/photo.Webp')).toBe('image/webp');
+  });
+
+  it('returns undefined for extensionless URLs', () => {
+    expect(inferMimeFromUrl('https://example.com/blob/abc123')).toBeUndefined();
+    expect(inferMimeFromUrl('https://nostr.build/blob/abc123def456')).toBeUndefined();
+  });
+
+  it('returns undefined for unrecognized extensions', () => {
+    expect(inferMimeFromUrl('https://example.com/file.xyz')).toBeUndefined();
+    expect(inferMimeFromUrl('https://example.com/file.docx')).toBeUndefined();
+  });
+
+  it('returns undefined for invalid URLs', () => {
+    expect(inferMimeFromUrl('not-a-url')).toBeUndefined();
+    expect(inferMimeFromUrl('')).toBeUndefined();
+  });
+
+  it('handles URLs with query parameters', () => {
+    expect(inferMimeFromUrl('https://example.com/photo.jpg?size=200')).toBe('image/jpeg');
+    expect(inferMimeFromUrl('https://example.com/photo.png?v=2&format=raw')).toBe('image/png');
+  });
+
+  it('handles URLs with fragments', () => {
+    expect(inferMimeFromUrl('https://example.com/photo.jpg#section')).toBe('image/jpeg');
+  });
+
+  it('uses the last extension in multi-dot filenames', () => {
+    expect(inferMimeFromUrl('https://example.com/photo.backup.jpg')).toBe('image/jpeg');
+    expect(inferMimeFromUrl('https://example.com/archive.tar.pdf')).toBe('application/pdf');
+  });
+});
+
+describe('isBlobUrl', () => {
+  it('returns true for blossom blob URLs', () => {
+    expect(isBlobUrl('https://nostr.build/blob/abc123')).toBe(true);
+    expect(isBlobUrl('https://blossom.example.com/blob/def456')).toBe(true);
+    expect(isBlobUrl('https://cdn.example.com/api/blob/hash789')).toBe(true);
+  });
+
+  it('returns false for non-blob URLs', () => {
+    expect(isBlobUrl('https://example.com/image.jpg')).toBe(false);
+    expect(isBlobUrl('https://example.com/files/photo.png')).toBe(false);
+  });
+
+  it('returns false for non-HTTPS URLs', () => {
+    expect(isBlobUrl('http://nostr.build/blob/abc123')).toBe(false);
+  });
+
+  it('returns false for invalid URLs', () => {
+    expect(isBlobUrl('not-a-url')).toBe(false);
+    expect(isBlobUrl('')).toBe(false);
+  });
+});
+
+describe('parseImetaTags MIME inference', () => {
+  it('infers MIME from URL extension when m field is missing', () => {
+    const tags = [['imeta', 'url https://example.com/photo.jpg', 'size 12345']];
+    const result = parseImetaTags(tags);
+    expect(result).toHaveLength(1);
+    expect(result[0].mimeType).toBe('image/jpeg');
+    expect(result[0].sizeBytes).toBe(12345);
+  });
+
+  it('prefers explicit m field over URL extension', () => {
+    const tags = [['imeta', 'url https://example.com/photo.jpg', 'm image/webp']];
+    const result = parseImetaTags(tags);
+    expect(result).toHaveLength(1);
+    expect(result[0].mimeType).toBe('image/webp');
+  });
+
+  it('returns undefined mimeType for extensionless URL without m field', () => {
+    const tags = [['imeta', 'url https://nostr.build/blob/abc123']];
+    const result = parseImetaTags(tags);
+    expect(result).toHaveLength(1);
+    expect(result[0].mimeType).toBeUndefined();
+  });
+
+  it('handles multiple imeta tags with mixed MIME availability', () => {
+    const tags = [
+      ['imeta', 'url https://example.com/photo.jpg'],
+      ['imeta', 'url https://example.com/doc.pdf', 'm application/pdf'],
+      ['imeta', 'url https://nostr.build/blob/abc123'],
+    ];
+    const result = parseImetaTags(tags);
+    expect(result).toHaveLength(3);
+    expect(result[0].mimeType).toBe('image/jpeg');
+    expect(result[1].mimeType).toBe('application/pdf');
+    expect(result[2].mimeType).toBeUndefined();
   });
 });
 
