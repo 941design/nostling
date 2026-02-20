@@ -1,0 +1,55 @@
+{
+  "story_id": "01",
+  "status": "done",
+  "created_at": "2026-02-20T21:25:00Z",
+  "updated_at": "2026-02-20T21:40:00Z",
+
+  "implementation": {
+    "status": "done",
+    "started_at": "2026-02-20T21:25:00Z",
+    "completed_at": "2026-02-20T21:35:00Z",
+    "architect_session_id": null,
+    "files_created": [],
+    "files_modified": [
+      "src/main/nostling/crypto.ts",
+      "src/main/nostling/service.ts",
+      "src/main/nostling/nip17.test.ts",
+      "src/main/nostling/service.test.ts"
+    ],
+    "mocks_introduced": []
+  },
+
+  "verification_rounds": [
+    {
+      "round": 1,
+      "timestamp": "2026-02-20T21:38:00Z",
+      "verification_passed": true,
+      "results": [
+        { "id": "VQ-01-001", "verdict": "PASS", "summary": "decryptNip17Message accepts kind 14 and 15, rejects others" },
+        { "id": "VQ-01-002", "verdict": "PASS", "summary": "processGiftWrapEvent accepts kind 14 || 15, passes dmResult.kind (not hardcoded)" },
+        { "id": "VQ-01-003", "verdict": "PASS", "summary": "buildKind15MediaJson maps all kind-15 tags to imeta format, excludes thumb" },
+        { "id": "VQ-01-004", "verdict": "PASS", "summary": "Empty content kind-15 returns null mediaJson via guard" },
+        { "id": "VQ-01-M01", "verdict": "PASS", "summary": "127/127 suites, 2876/2877 tests pass (1 skipped)" },
+        { "id": "VQ-01-M02", "verdict": "PASS", "summary": "All existing kind-14 NIP-17 and ingest tests pass unchanged" }
+      ],
+      "test_gate": {
+        "ran_at": "2026-02-20T21:37:00Z",
+        "command": "npm test",
+        "passed": true,
+        "total_tests": 2877,
+        "passed_tests": 2876,
+        "failed_tests": 0,
+        "skipped_tests": 1,
+        "total_suites": 127,
+        "build_passed": true,
+        "e2e_tests": {
+          "status": "deferred_to_story_06",
+          "reason": "Story 01 E2E scenarios require kind-15 event injection via relay (FIXTURE-01-001) - covered by regression verification in Story 06"
+        }
+      }
+    }
+  ],
+  "remediation_attempts": [],
+  "escalation": null,
+  "final_outcome": "accepted"
+}

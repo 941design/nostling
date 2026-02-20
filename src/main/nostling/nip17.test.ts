@@ -299,6 +299,54 @@ describe('NIP-17/59 Encryption with imeta tags (Story 08)', () => {
   });
 });
 
+describe('Kind-15 file message support', () => {
+  it('decryptNip17Message accepts kind-15 wrapped events', async () => {
+    const { nip59 } = await import('nostr-tools');
+    const sender = generateKeypair();
+    const recipient = generateKeypair();
+
+    const fileUrl = 'https://nostr.build/blob/abc123.jpg';
+    const event = {
+      kind: 15,
+      content: fileUrl,
+      tags: [
+        ['p', recipient.keypair.pubkeyHex],
+        ['file-type', 'image/jpeg'],
+        ['size', '54321'],
+        ['dim', '1920x1080'],
+        ['x', 'abc123hash'],
+      ],
+    };
+
+    const wrappedEvent = nip59.wrapEvent(event, sender.keypair.secretKey, recipient.keypair.pubkeyHex);
+
+    const result = await decryptNip17Message(wrappedEvent, recipient.keypair.secretKey);
+
+    expect(result).not.toBeNull();
+    expect(result!.kind).toBe(15);
+    expect(result!.plaintext).toBe(fileUrl);
+    expect(result!.tags).toBeDefined();
+    expect(result!.tags!.find(t => t[0] === 'file-type')?.[1]).toBe('image/jpeg');
+  });
+
+  it('decryptNip17Message rejects unrecognized kinds', async () => {
+    const { nip59 } = await import('nostr-tools');
+    const sender = generateKeypair();
+    const recipient = generateKeypair();
+
+    const event = {
+      kind: 42,
+      content: 'community post',
+      tags: [['p', recipient.keypair.pubkeyHex]],
+    };
+
+    const wrappedEvent = nip59.wrapEvent(event, sender.keypair.secretKey, recipient.keypair.pubkeyHex);
+
+    const result = await decryptNip17Message(wrappedEvent, recipient.keypair.secretKey);
+    expect(result).toBeNull();
+  });
+});
+
 describe('Backward Compatibility: NIP-04', () => {
   /**
    * Existing NIP-04 functions must continue to work unchanged.

@@ -838,5 +838,90 @@ describe('NostlingService', () => {
       expect(mediaMsg!.mediaJson).toBeDefined();
       expect(mediaMsg!.mediaJson).toContain('imeta');
     });
+
+    it('should build imeta mediaJson from kind-15 file message tags', async () => {
+      const identity = await service.createIdentity({ label: 'Receiver5', nsec: 'secret5', npub: 'npub-recv5' });
+      await service.addContact({ identityId: identity.id, npub: 'npub-send5' });
+
+      const msg = await service.ingestIncomingMessage({
+        identityId: identity.id,
+        senderNpub: 'npub-send5',
+        recipientNpub: 'npub-recv5',
+        content: 'https://nostr.build/blob/abc123.jpg',
+        eventId: 'evt-kind15-1',
+        kind: 15,
+        wasGiftWrapped: true,
+        tags: [
+          ['file-type', 'image/jpeg'],
+          ['size', '54321'],
+          ['dim', '1920x1080'],
+          ['blurhash', 'LEHV6nWB'],
+          ['x', 'abc123hash'],
+          ['thumb', 'https://nostr.build/thumb/abc123.jpg'], // should be ignored
+        ],
+      });
+
+      expect(msg).toBeDefined();
+      expect(msg!.kind).toBe(15);
+      expect(msg!.mediaJson).toBeDefined();
+
+      const parsed = JSON.parse(msg!.mediaJson!);
+      expect(parsed.tags).toHaveLength(1);
+      const imetaTag = parsed.tags[0];
+      expect(imetaTag[0]).toBe('imeta');
+      expect(imetaTag).toContain('url https://nostr.build/blob/abc123.jpg');
+      expect(imetaTag).toContain('m image/jpeg');
+      expect(imetaTag).toContain('size 54321');
+      expect(imetaTag).toContain('dim 1920x1080');
+      expect(imetaTag).toContain('blurhash LEHV6nWB');
+      expect(imetaTag).toContain('sha256 abc123hash');
+      // thumb tag should NOT be present
+      expect(imetaTag.join(' ')).not.toContain('thumb');
+    });
+
+    it('should handle kind-15 with missing optional tags (best-effort)', async () => {
+      const identity = await service.createIdentity({ label: 'Receiver6', nsec: 'secret6', npub: 'npub-recv6' });
+      await service.addContact({ identityId: identity.id, npub: 'npub-send6' });
+
+      const msg = await service.ingestIncomingMessage({
+        identityId: identity.id,
+        senderNpub: 'npub-send6',
+        recipientNpub: 'npub-recv6',
+        content: 'https://example.com/photo.png',
+        eventId: 'evt-kind15-2',
+        kind: 15,
+        wasGiftWrapped: true,
+        tags: [], // No metadata tags at all
+      });
+
+      expect(msg).toBeDefined();
+      expect(msg!.mediaJson).toBeDefined();
+
+      const parsed = JSON.parse(msg!.mediaJson!);
+      const imetaTag = parsed.tags[0];
+      expect(imetaTag[0]).toBe('imeta');
+      expect(imetaTag).toContain('url https://example.com/photo.png');
+      // Only url should be present — no m, size, dim, etc.
+      expect(imetaTag).toHaveLength(2); // ['imeta', 'url ...']
+    });
+
+    it('should return null mediaJson for kind-15 with empty content', async () => {
+      const identity = await service.createIdentity({ label: 'Receiver7', nsec: 'secret7', npub: 'npub-recv7' });
+      await service.addContact({ identityId: identity.id, npub: 'npub-send7' });
+
+      const msg = await service.ingestIncomingMessage({
+        identityId: identity.id,
+        senderNpub: 'npub-send7',
+        recipientNpub: 'npub-recv7',
+        content: '',
+        eventId: 'evt-kind15-3',
+        kind: 15,
+        wasGiftWrapped: true,
+        tags: [['file-type', 'image/jpeg']],
+      });
+
+      expect(msg).toBeDefined();
+      expect(msg!.mediaJson).toBeUndefined();
+    });
   });
 });

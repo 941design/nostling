@@ -1,0 +1,56 @@
+{
+  "created_at": "2026-02-20T21:30:00Z",
+  "story_id": "01",
+  "questions": [
+    {
+      "id": "VQ-01-001",
+      "category": "correctness",
+      "question": "Does decryptNip17Message accept kind-15 wrapped events in addition to kind-14?",
+      "actionable_check": "Read the kind check in crypto.ts. Verify it accepts both kind 14 and 15. Run nip17.test.ts to confirm kind-15 test passes.",
+      "evidence_required": ["Source code of kind check", "Test results for kind-15 acceptance"],
+      "pass_criteria": "Kind check allows both 14 and 15, rejects other kinds"
+    },
+    {
+      "id": "VQ-01-002",
+      "category": "correctness",
+      "question": "Does processGiftWrapEvent accept and ingest kind-15 messages with the correct kind value?",
+      "actionable_check": "Read processGiftWrapEvent in service.ts. Verify it checks for kind 14 OR 15 and passes dmResult.kind (not hardcoded 14).",
+      "evidence_required": ["Source code of kind check and ingest call"],
+      "pass_criteria": "Accepts kind 14 || 15, passes actual kind to ingestIncomingMessage"
+    },
+    {
+      "id": "VQ-01-003",
+      "category": "correctness",
+      "question": "Does buildKind15MediaJson correctly convert kind-15 tags (file-type, size, dim, blurhash, x) to imeta format while ignoring thumb tag?",
+      "actionable_check": "Read buildKind15MediaJson function. Run the kind-15 service tests to verify tag mapping and thumb exclusion.",
+      "evidence_required": ["Source code of buildKind15MediaJson", "Test results showing correct tag mapping"],
+      "pass_criteria": "All kind-15 tags correctly mapped to imeta equivalents, thumb tag excluded"
+    },
+    {
+      "id": "VQ-01-004",
+      "category": "correctness",
+      "question": "Does ingestIncomingMessage handle kind-15 with empty content by returning null mediaJson?",
+      "actionable_check": "Run the empty content test case for kind-15.",
+      "evidence_required": ["Test result for empty content kind-15"],
+      "pass_criteria": "Empty content produces null/undefined mediaJson, not a crash"
+    }
+  ],
+  "mandatory_questions": [
+    {
+      "id": "VQ-01-M01",
+      "category": "regression",
+      "question": "Do all existing tests pass without regressions?",
+      "actionable_check": "Run npm test and verify all test suites pass.",
+      "evidence_required": ["Full test suite output"],
+      "pass_criteria": "127/127 test suites pass, 0 failures"
+    },
+    {
+      "id": "VQ-01-M02",
+      "category": "backward_compatibility",
+      "question": "Is existing kind-14 behavior unchanged? Do existing NIP-17 encryption tests still pass?",
+      "actionable_check": "Run nip17.test.ts and verify all existing round-trip tests pass. Run service.test.ts and verify existing ingest tests pass.",
+      "evidence_required": ["nip17.test.ts results", "service.test.ts results"],
+      "pass_criteria": "All pre-existing NIP-17 and ingest tests pass unchanged"
+    }
+  ]
+}

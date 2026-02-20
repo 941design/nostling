@@ -676,9 +676,14 @@ export class NostlingService {
       const now = options.timestamp || new Date().toISOString();
       const id = randomUUID();
 
-      // Build mediaJson from incoming tags if imeta or url tags present
+      // Build mediaJson from incoming tags
       let incomingMediaJson: string | null = null;
-      if (options.tags) {
+      if (options.kind === 15) {
+        // Kind-15 file message: content is the URL, tags contain metadata
+        // Convert to imeta format for consistent rendering
+        incomingMediaJson = buildKind15MediaJson(options.content, options.tags);
+      } else if (options.tags) {
+        // Kind-14: extract imeta or url tags directly
         const imetaTags = options.tags.filter(t => t[0] === 'imeta');
         const urlTags = options.tags.filter(t => t[0] === 'url' && t.length >= 2);
         if (imetaTags.length > 0 || urlTags.length > 0) {
@@ -1616,8 +1621,8 @@ export class NostlingService {
       // Profile unwrap returned null, try NIP-17 DM unwrap
       const dmResult = await decryptNip17Message(event, recipientSecretKey);
 
-      if (dmResult && dmResult.kind === 14) {
-        // Successfully unwrapped a NIP-17 DM
+      if (dmResult && (dmResult.kind === 14 || dmResult.kind === 15)) {
+        // Successfully unwrapped a NIP-17 DM (kind 14) or file message (kind 15)
         const senderNpub = hexToNpub(dmResult.senderPubkeyHex);
         const recipientNpub = this.getIdentityNpub(identityId);
 
@@ -1628,12 +1633,12 @@ export class NostlingService {
           content: dmResult.plaintext,
           eventId: dmResult.eventId,
           timestamp: new Date(dmResult.timestamp * 1000).toISOString(),
-          kind: 14, // NIP-17 private DM
+          kind: dmResult.kind,
           wasGiftWrapped: true,
           tags: dmResult.tags,
         });
 
-        log('info', `Received NIP-17 DM from ${dmResult.senderPubkeyHex.slice(0, 8)}...`);
+        log('info', `Received NIP-17 kind-${dmResult.kind} from ${dmResult.senderPubkeyHex.slice(0, 8)}...`);
         return;
       }
 
@@ -2040,4 +2045,32 @@ export class NostlingService {
       return 'Unknown error';
     }
   }
+}
+
+/**
+ * Build mediaJson from a NIP-17 kind-15 file message.
+ * Kind-15 stores the file URL in the content field and metadata in tags.
+ * Converts to imeta tag format for consistent rendering via parseIncomingMedia.
+ */
+function buildKind15MediaJson(contentUrl: string, tags?: string[][]): string | null {
+  if (!contentUrl) return null;
+
+  // Build an imeta tag from kind-15 fields
+  const imetaParts = ['imeta', `url ${contentUrl}`];
+
+  if (tags) {
+    for (const tag of tags) {
+      if (tag.length < 2) continue;
+      switch (tag[0]) {
+        case 'file-type': imetaParts.push(`m ${tag[1]}`); break;
+        case 'size':      imetaParts.push(`size ${tag[1]}`); break;
+        case 'dim':       imetaParts.push(`dim ${tag[1]}`); break;
+        case 'blurhash':  imetaParts.push(`blurhash ${tag[1]}`); break;
+        case 'x':         imetaParts.push(`sha256 ${tag[1]}`); break;
+        // 'thumb' tag intentionally ignored per spec
+      }
+    }
+  }
+
+  return JSON.stringify({ tags: [imetaParts] });
 }

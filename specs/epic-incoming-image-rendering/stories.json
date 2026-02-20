@@ -91,7 +91,7 @@
         ],
         "playwright_file": "e2e/incoming-images-kind15.spec.ts"
       },
-      "status": "pending",
+      "status": "done",
       "notes": "Foundation story enabling kind-15 support. Uses test fixtures for injecting kind-15 events since Nostling only sends kind-14. Depends on Story 02 for MIME inference when file-type tag is missing."
     },
 
