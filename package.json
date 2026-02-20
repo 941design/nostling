@@ -79,7 +79,7 @@
     "@vitejs/plugin-react": "^4.3.1",
     "@vitest/ui": "^4.0.15",
     "concurrently": "^8.2.2",
-    "electron": "^30.5.1",
+    "electron": "^35.7.5",
     "electron-builder": "^26.8.1",
     "eslint": "^10.0.0",
     "fast-check": "^4.3.0",
@@ -130,6 +130,10 @@
       "category": "Utility",
       "artifactName": "${productName}-${version}-${arch}.${ext}"
     }
+  },
+  "overrides": {
+    "minimatch": "^10.2.1",
+    "glob": "^11.0.0"
   },
   "optionalDependencies": {
     "@rollup/rollup-linux-arm64-gnu": "^4.57.1"
