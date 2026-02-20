@@ -329,7 +329,7 @@ describe('Kind-15 file message support', () => {
     expect(result!.tags!.find(t => t[0] === 'file-type')?.[1]).toBe('image/jpeg');
   });
 
-  it('decryptNip17Message rejects unrecognized kinds', async () => {
+  it('decryptNip17Message returns any kind (filtering is caller responsibility)', async () => {
     const { nip59 } = await import('nostr-tools');
     const sender = generateKeypair();
     const recipient = generateKeypair();
@@ -343,7 +343,9 @@ describe('Kind-15 file message support', () => {
     const wrappedEvent = nip59.wrapEvent(event, sender.keypair.secretKey, recipient.keypair.pubkeyHex);
 
     const result = await decryptNip17Message(wrappedEvent, recipient.keypair.secretKey);
-    expect(result).toBeNull();
+    expect(result).not.toBeNull();
+    expect(result!.kind).toBe(42);
+    expect(result!.plaintext).toBe('community post');
   });
 });
 

@@ -1,0 +1,10 @@
+{
+  "story_id": "05",
+  "created_at": "2026-02-20T22:00:00Z",
+  "test_suites": 127,
+  "total_tests": 2884,
+  "passing_tests": 2883,
+  "skipped_tests": 1,
+  "failing_tests": 0,
+  "status": "ready"
+}

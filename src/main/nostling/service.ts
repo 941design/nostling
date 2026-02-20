@@ -1621,6 +1621,11 @@ export class NostlingService {
       // Profile unwrap returned null, try NIP-17 DM unwrap
       const dmResult = await decryptNip17Message(event, recipientSecretKey);
 
+      if (dmResult && dmResult.kind !== 14 && dmResult.kind !== 15) {
+        log('info', `Received unrecognized wrapped event kind: ${dmResult.kind}, event: ${dmResult.eventId}`);
+        return;
+      }
+
       if (dmResult && (dmResult.kind === 14 || dmResult.kind === 15)) {
         // Successfully unwrapped a NIP-17 DM (kind 14) or file message (kind 15)
         const senderNpub = hexToNpub(dmResult.senderPubkeyHex);

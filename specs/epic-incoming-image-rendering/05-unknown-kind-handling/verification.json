@@ -1,0 +1,32 @@
+{
+  "created_at": "2026-02-20T22:00:00Z",
+  "story_id": "05",
+  "questions": [
+    {
+      "id": "VQ-05-001",
+      "category": "correctness",
+      "question": "Does processGiftWrapEvent log unrecognized kinds at info level with kind number and event ID, then return without ingesting?",
+      "actionable_check": "Read processGiftWrapEvent in service.ts and verify the unrecognized kind handling block.",
+      "evidence_required": ["Source code of unrecognized kind handling"],
+      "pass_criteria": "Info-level log with kind number and event ID, followed by return (no ingest)"
+    },
+    {
+      "id": "VQ-05-002",
+      "category": "correctness",
+      "question": "Does decryptNip17Message now return results for any kind (no kind filtering)?",
+      "actionable_check": "Read decryptNip17Message in crypto.ts and verify there's no kind check. Run nip17.test.ts to confirm kind-42 returns a result.",
+      "evidence_required": ["Source code of guard in decryptNip17Message", "Test result for kind-42"],
+      "pass_criteria": "Only null guard remains (no kind filter), kind-42 test returns non-null result"
+    }
+  ],
+  "mandatory_questions": [
+    {
+      "id": "VQ-05-M01",
+      "category": "regression",
+      "question": "Do all existing tests pass?",
+      "actionable_check": "Run npm test.",
+      "evidence_required": ["Full test suite output"],
+      "pass_criteria": "127/127 suites, 0 failures"
+    }
+  ]
+}

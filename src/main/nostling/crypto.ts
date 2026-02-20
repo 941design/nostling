@@ -562,7 +562,7 @@ export async function decryptNip17Message(
   try {
     const rumor = nip17.unwrapEvent(wrappedEvent, recipientSecretKey);
 
-    if (!rumor || (rumor.kind !== 14 && rumor.kind !== 15)) {
+    if (!rumor) {
       return null;
     }
 
